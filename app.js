@@ -8,11 +8,9 @@ const state = {
   SearchNearbyRankPreference: null,
   autocomplete: null,
   userPosition: null,
-  searchCenter: null,
+  userAccuracy: null,
   userMarker: null,
-  searchMarker: null,
-  placeMarkers: [],
-  places: [],
+  selectedMarker: null,
   selectedPlace: null,
   requestSerial: 0,
 };
@@ -23,8 +21,7 @@ const els = {
   locationText: document.querySelector("#locationText"),
   locateBtn: document.querySelector("#locateBtn"),
   autocompleteMount: document.querySelector("#autocompleteMount"),
-  nearbyList: document.querySelector("#nearbyList"),
-  nearbySubtitle: document.querySelector("#nearbySubtitle"),
+  selectionSubtitle: document.querySelector("#selectionSubtitle"),
   selectedEmpty: document.querySelector("#selectedEmpty"),
   selectedContent: document.querySelector("#selectedContent"),
   selectedName: document.querySelector("#selectedName"),
@@ -42,9 +39,7 @@ function showToast(message) {
   els.toast.textContent = message;
   els.toast.classList.add("visible");
   window.clearTimeout(showToast.timeout);
-  showToast.timeout = window.setTimeout(() => {
-    els.toast.classList.remove("visible");
-  }, 2200);
+  showToast.timeout = window.setTimeout(() => els.toast.classList.remove("visible"), 2200);
 }
 
 function setLocationStatus(title, text) {
@@ -57,11 +52,7 @@ function loadGoogleMaps() {
     const key = window.APP_CONFIG?.GOOGLE_MAPS_API_KEY?.trim();
 
     if (!key || key === "PEGA_AQUI_TU_API_KEY") {
-      reject(
-        new Error(
-          "Falta la API key. Abre config.js y pega una clave con Maps JavaScript API y Places API (New)."
-        )
-      );
+      reject(new Error("Falta la API key de Google Maps en config.js."));
       return;
     }
 
@@ -81,7 +72,6 @@ function loadGoogleMaps() {
       "&libraries=places,marker" +
       "&loading=async" +
       `&callback=${callbackName}`;
-
     script.onerror = () => reject(new Error("No se pudo cargar Google Maps."));
     document.head.appendChild(script);
   });
@@ -108,18 +98,21 @@ async function init() {
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
-      clickableIcons: false,
+      clickableIcons: true,
       gestureHandling: "greedy",
     });
 
-    state.map.addListener("click", (event) => {
+    state.map.addListener("click", async (event) => {
+      event.stop?.();
+
+      if (event.placeId) {
+        await selectPlaceById(event.placeId, event.latLng);
+        return;
+      }
+
       if (!event.latLng) return;
-      const center = {
-        lat: event.latLng.lat(),
-        lng: event.latLng.lng(),
-      };
-      setSearchCenter(center, true);
-      searchNearby(center, { autoSelect: true, source: "map" });
+      const point = { lat: event.latLng.lat(), lng: event.latLng.lng() };
+      await selectNearestPlace(point, { source: "map" });
     });
 
     setupAutocomplete();
@@ -128,11 +121,7 @@ async function init() {
   } catch (error) {
     console.error(error);
     setLocationStatus("Configuración pendiente", error.message);
-    els.nearbyList.innerHTML = `
-      <div class="empty-state">
-        ${escapeHtml(error.message)}
-      </div>
-    `;
+    els.selectedEmpty.textContent = error.message;
   }
 }
 
@@ -150,7 +139,6 @@ function bindButtons() {
 
   els.copyUrlBtn.addEventListener("click", copyReviewLink);
   els.copyMainBtn.addEventListener("click", copyReviewLink);
-
   els.openReviewBtn.addEventListener("click", () => {
     const url = getReviewUrl();
     if (url) window.open(url, "_blank", "noopener,noreferrer");
@@ -161,34 +149,34 @@ function requestUserLocation() {
   if (!navigator.geolocation) {
     setLocationStatus(
       "Este navegador no ofrece geolocalización",
-      "Puedes buscar el negocio por nombre o tocar su zona en el mapa."
+      "Toca un negocio en el mapa o búscalo por nombre."
     );
     return;
   }
 
   setLocationStatus("Buscando tu ubicación…", "Acepta el permiso de ubicación del navegador.");
+  els.selectionSubtitle.textContent = "Buscando el establecimiento más cercano…";
 
   navigator.geolocation.getCurrentPosition(
-    (position) => {
+    async (position) => {
       const center = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
       };
 
       state.userPosition = center;
+      state.userAccuracy = position.coords.accuracy;
       state.map.setCenter(center);
       state.map.setZoom(18);
-
       renderUserMarker(center);
-      setSearchCenter(center, false);
       updateAutocompleteBias(center);
 
       setLocationStatus(
         "Ubicación encontrada",
-        `Precisión aproximada: ${Math.round(position.coords.accuracy)} m. Buscando negocios cercanos…`
+        `Precisión aproximada: ${Math.round(position.coords.accuracy)} m. Seleccionando el negocio más cercano…`
       );
 
-      searchNearby(center, { autoSelect: true, source: "geolocation" });
+      await selectNearestPlace(center, { source: "geolocation" });
     },
     (error) => {
       const messages = {
@@ -199,17 +187,13 @@ function requestUserLocation() {
 
       setLocationStatus(
         "No hemos podido usar tu ubicación",
-        `${messages[error.code] || "Error de geolocalización."} Puedes buscar el negocio por nombre o tocar el mapa.`
+        `${messages[error.code] || "Error de geolocalización."} Toca un negocio en el mapa o búscalo por nombre.`
       );
-
+      els.selectionSubtitle.textContent = "Selecciona un negocio directamente en el mapa.";
       state.map.setCenter(DEFAULT_CENTER);
       state.map.setZoom(6);
     },
-    {
-      enableHighAccuracy: true,
-      timeout: 12000,
-      maximumAge: 15000,
-    }
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 }
   );
 }
 
@@ -220,11 +204,10 @@ function makeUserDot() {
   return dot;
 }
 
-function makeSearchPin() {
+function makeSelectedPin() {
   const pin = document.createElement("div");
-  pin.className = "search-pin";
-  pin.innerHTML = "<span>+</span>";
-  pin.title = "Punto de búsqueda";
+  pin.className = "selected-pin";
+  pin.innerHTML = '<span aria-hidden="true">✓</span>';
   return pin;
 }
 
@@ -242,148 +225,97 @@ function renderUserMarker(position) {
   }
 }
 
-function setSearchCenter(position, showMarker) {
-  state.searchCenter = position;
-  updateAutocompleteBias(position);
+function renderSelectedMarker(place) {
+  if (!place?.location) return;
 
-  if (!showMarker) {
-    if (state.searchMarker) state.searchMarker.map = null;
-    state.searchMarker = null;
-    return;
-  }
-
-  if (!state.searchMarker) {
-    state.searchMarker = new state.AdvancedMarkerElement({
+  if (!state.selectedMarker) {
+    state.selectedMarker = new state.AdvancedMarkerElement({
       map: state.map,
-      position,
-      content: makeSearchPin(),
-      title: "Buscar negocios aquí",
-      zIndex: 90,
+      position: place.location,
+      content: makeSelectedPin(),
+      title: place.displayName || "Negocio seleccionado",
+      zIndex: 110,
     });
   } else {
-    state.searchMarker.map = state.map;
-    state.searchMarker.position = position;
+    state.selectedMarker.map = state.map;
+    state.selectedMarker.position = place.location;
+    state.selectedMarker.title = place.displayName || "Negocio seleccionado";
   }
 }
 
-async function searchNearby(center, { autoSelect = false, source = "manual" } = {}) {
+async function selectNearestPlace(center, { source = "map" } = {}) {
   if (!state.Place || !state.SearchNearbyRankPreference) return;
 
   const serial = ++state.requestSerial;
-  els.nearbySubtitle.textContent = "Buscando los sitios más próximos…";
-  els.nearbyList.innerHTML = `<div class="empty-state">Buscando negocios cercanos…</div>`;
+  els.selectedEmpty.textContent = "Buscando el negocio más cercano…";
+  els.selectionSubtitle.textContent =
+    source === "geolocation"
+      ? "Buscando el establecimiento más cercano a tu ubicación…"
+      : "Buscando el establecimiento más cercano al punto que has tocado…";
 
   try {
-    const request = {
-      fields: [
-        "id",
-        "displayName",
-        "formattedAddress",
-        "location",
-        "primaryType",
-        "googleMapsURI",
-      ],
-      locationRestriction: {
-        center,
-        radius: 180,
-      },
-      maxResultCount: 10,
+    const radius = source === "geolocation"
+      ? Math.max(45, Math.min(120, Math.round((state.userAccuracy || 30) * 2)))
+      : 80;
+
+    const { places } = await state.Place.searchNearby({
+      fields: ["id", "displayName", "formattedAddress", "location"],
+      locationRestriction: { center, radius },
+      maxResultCount: 1,
       rankPreference: state.SearchNearbyRankPreference.DISTANCE,
       language: "es",
-    };
-
-    const { places } = await state.Place.searchNearby(request);
+      region: "es",
+    });
 
     if (serial !== state.requestSerial) return;
 
-    state.places = (places || []).filter((place) => place.location && place.id);
-    renderPlaces(center);
-
-    if (!state.places.length) {
-      els.nearbySubtitle.textContent = "No se han encontrado sitios en este punto.";
+    const place = (places || []).find((item) => item?.id && item?.location);
+    if (!place) {
+      els.selectedContent.classList.add("hidden");
+      els.selectedEmpty.classList.remove("hidden");
+      els.selectedEmpty.textContent = "No encontramos un negocio en ese punto. Toca directamente su nombre o icono en el mapa.";
+      els.selectionSubtitle.textContent = "Toca el negocio exacto en el mapa o búscalo por nombre.";
       return;
     }
 
-    const sourceCopy =
+    selectPlace(place, { panMap: source !== "geolocation" });
+    els.selectionSubtitle.textContent =
       source === "geolocation"
-        ? "Ordenados por distancia desde tu ubicación."
-        : "Ordenados por distancia desde el punto que has marcado.";
-
-    els.nearbySubtitle.textContent = sourceCopy;
-
-    if (autoSelect) {
-      selectPlace(state.places[0], { panMap: false });
-    }
+        ? "Este es el negocio más cercano detectado. Toca otro en el mapa si no es correcto."
+        : "Has seleccionado el negocio más cercano al punto marcado.";
   } catch (error) {
     console.error(error);
-    els.nearbySubtitle.textContent = "No se ha podido completar la búsqueda.";
-    els.nearbyList.innerHTML = `
-      <div class="empty-state">
-        Google Places devolvió un error. Revisa que Places API (New) esté activada y que la clave tenga permisos.
-      </div>
-    `;
+    els.selectedContent.classList.add("hidden");
+    els.selectedEmpty.classList.remove("hidden");
+    els.selectedEmpty.textContent = "No se pudo completar la búsqueda. Toca directamente un negocio visible en el mapa.";
+    els.selectionSubtitle.textContent = "Puedes seleccionar un negocio directamente en el mapa.";
   }
 }
 
-function renderPlaces(origin) {
-  clearPlaceMarkers();
+async function selectPlaceById(placeId, clickedLatLng) {
+  if (!placeId) return;
 
-  if (!state.places.length) {
-    els.nearbyList.innerHTML = `
-      <div class="empty-state">
-        No hay resultados. Prueba a tocar un punto más exacto del mapa o busca el nombre del negocio.
-      </div>
-    `;
-    return;
+  const serial = ++state.requestSerial;
+  els.selectionSubtitle.textContent = "Cargando el negocio que has tocado…";
+
+  try {
+    const place = new state.Place({ id: placeId });
+    await place.fetchFields({
+      fields: ["id", "displayName", "formattedAddress", "location", "viewport"],
+    });
+
+    if (serial !== state.requestSerial) return;
+    selectPlace(place, { panMap: true });
+    els.selectionSubtitle.textContent = "Negocio seleccionado directamente en el mapa.";
+  } catch (error) {
+    console.error(error);
+    if (clickedLatLng) {
+      const point = { lat: clickedLatLng.lat(), lng: clickedLatLng.lng() };
+      await selectNearestPlace(point, { source: "map" });
+    } else {
+      showToast("No se pudo cargar ese negocio");
+    }
   }
-
-  els.nearbyList.innerHTML = "";
-
-  state.places.forEach((place, index) => {
-    const marker = new state.AdvancedMarkerElement({
-      map: state.map,
-      position: place.location,
-      title: place.displayName || "Negocio",
-      gmpClickable: true,
-    });
-
-    marker.addEventListener("gmp-click", () => {
-      selectPlace(place, { panMap: true });
-    });
-
-    state.placeMarkers.push({ marker, placeId: place.id });
-
-    const distance = distanceInMeters(origin, {
-      lat: place.location.lat(),
-      lng: place.location.lng(),
-    });
-
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "place-row";
-    row.dataset.placeId = place.id;
-    row.innerHTML = `
-      <span class="place-index">${index + 1}</span>
-      <span class="place-copy">
-        <strong>${escapeHtml(place.displayName || "Sin nombre")}</strong>
-        <span>${escapeHtml(place.formattedAddress || "Dirección no disponible")}</span>
-      </span>
-      <span class="place-distance">${formatDistance(distance)}</span>
-    `;
-
-    row.addEventListener("click", () => {
-      selectPlace(place, { panMap: true });
-    });
-
-    els.nearbyList.appendChild(row);
-  });
-}
-
-function clearPlaceMarkers() {
-  for (const item of state.placeMarkers) {
-    item.marker.map = null;
-  }
-  state.placeMarkers = [];
 }
 
 function selectPlace(place, { panMap = true } = {}) {
@@ -393,18 +325,14 @@ function selectPlace(place, { panMap = true } = {}) {
   }
 
   state.selectedPlace = place;
-
   els.selectedEmpty.classList.add("hidden");
   els.selectedContent.classList.remove("hidden");
-
   els.selectedName.textContent = place.displayName || "Negocio sin nombre";
   els.selectedAddress.textContent = place.formattedAddress || "Dirección no disponible";
   els.placeIdField.value = place.id;
   els.reviewUrlField.value = getReviewUrl();
 
-  document.querySelectorAll(".place-row").forEach((row) => {
-    row.classList.toggle("selected", row.dataset.placeId === place.id);
-  });
+  renderSelectedMarker(place);
 
   if (panMap && place.location) {
     state.map.panTo(place.location);
@@ -414,24 +342,15 @@ function selectPlace(place, { panMap = true } = {}) {
 
 function setupAutocomplete() {
   const { PlaceAutocompleteElement } = google.maps.places;
-
   state.autocomplete = new PlaceAutocompleteElement();
-  state.autocomplete.placeholder = "Buscar bar, restaurante, tienda, clínica…";
+  state.autocomplete.placeholder = "Buscar un negocio por nombre";
   els.autocompleteMount.replaceChildren(state.autocomplete);
 
   state.autocomplete.addEventListener("gmp-select", async ({ placePrediction }) => {
     try {
       const place = placePrediction.toPlace();
-
       await place.fetchFields({
-        fields: [
-          "id",
-          "displayName",
-          "formattedAddress",
-          "location",
-          "viewport",
-          "googleMapsURI",
-        ],
+        fields: ["id", "displayName", "formattedAddress", "location", "viewport"],
       });
 
       if (!place.id) {
@@ -439,24 +358,14 @@ function setupAutocomplete() {
         return;
       }
 
-      if (place.viewport) {
-        state.map.fitBounds(place.viewport, 70);
-      } else if (place.location) {
+      if (place.viewport) state.map.fitBounds(place.viewport, 55);
+      else if (place.location) {
         state.map.setCenter(place.location);
         state.map.setZoom(18);
       }
 
       selectPlace(place, { panMap: false });
-
-      if (place.location) {
-        const point = {
-          lat: place.location.lat(),
-          lng: place.location.lng(),
-        };
-        setSearchCenter(point, true);
-        await searchNearby(point, { autoSelect: false, source: "search" });
-        selectPlace(place, { panMap: false });
-      }
+      els.selectionSubtitle.textContent = "Negocio seleccionado desde el buscador.";
     } catch (error) {
       console.error(error);
       showToast("No se pudo cargar ese negocio");
@@ -466,16 +375,11 @@ function setupAutocomplete() {
 
 function updateAutocompleteBias(center) {
   if (!state.autocomplete || !center) return;
-  state.autocomplete.locationBias = {
-    center,
-    radius: 5000,
-  };
+  state.autocomplete.locationBias = { center, radius: 5000 };
 }
 
 function getReviewUrl() {
-  return state.selectedPlace?.id
-    ? `${REVIEW_URL_BASE}${state.selectedPlace.id}`
-    : "";
+  return state.selectedPlace?.id ? `${REVIEW_URL_BASE}${state.selectedPlace.id}` : "";
 }
 
 async function copyText(text, successMessage) {
@@ -495,36 +399,6 @@ async function copyText(text, successMessage) {
     textarea.remove();
     showToast(successMessage);
   }
-}
-
-function distanceInMeters(a, b) {
-  const earthRadius = 6371000;
-  const toRad = (deg) => (deg * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-
-  return 2 * earthRadius * Math.asin(Math.sqrt(h));
-}
-
-function formatDistance(meters) {
-  if (!Number.isFinite(meters)) return "";
-  if (meters < 1000) return `${Math.max(1, Math.round(meters))} m`;
-  return `${(meters / 1000).toFixed(1)} km`;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
 
 init();

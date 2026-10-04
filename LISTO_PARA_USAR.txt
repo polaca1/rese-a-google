@@ -1,18 +1,12 @@
-WEB LISTA PARA USAR
+VERSIÓN CORREGIDA
 
-La API key que facilitaste ya está integrada.
+Cambios principales:
+- Ya no aparecen 10/20 marcadores generados por la web.
+- Se selecciona automáticamente un único negocio: el más cercano a la ubicación.
+- Solo se dibuja un marcador propio: el negocio actualmente seleccionado.
+- Puedes tocar directamente el nombre/icono de un negocio de Google Maps para cambiar la selección.
+- Si tocas una zona vacía del mapa, se busca y selecciona únicamente el negocio más cercano a ese punto.
+- Se mantiene un buscador por nombre como alternativa.
+- Diseño móvil revisado para evitar desbordamientos horizontales y adaptarse mejor a iPhone.
 
-FUNCIONAMIENTO:
-1. Abre la web desde HTTPS o localhost.
-2. Acepta el permiso de ubicación.
-3. La web buscará automáticamente negocios cercanos.
-4. Preseleccionará el más próximo.
-5. Puedes cambiar el negocio tocándolo en el mapa/lista o buscándolo.
-6. Al seleccionar un negocio verás el Place ID y el enlace:
-   https://search.google.com/local/writereview?placeid=PLACE_ID
-7. Puedes copiar el enlace o abrir directamente el formulario de reseña.
-
-PARA VERCEL:
-- Sube todos los archivos de esta carpeta a un repositorio.
-- Importa el repositorio en Vercel.
-- No necesita comando de build ni framework.
+Para Vercel: sustituye los archivos de tu proyecto por los de este ZIP y vuelve a desplegar.
