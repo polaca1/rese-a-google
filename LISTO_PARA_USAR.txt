@@ -1,0 +1,18 @@
+WEB LISTA PARA USAR
+
+La API key que facilitaste ya está integrada.
+
+FUNCIONAMIENTO:
+1. Abre la web desde HTTPS o localhost.
+2. Acepta el permiso de ubicación.
+3. La web buscará automáticamente negocios cercanos.
+4. Preseleccionará el más próximo.
+5. Puedes cambiar el negocio tocándolo en el mapa/lista o buscándolo.
+6. Al seleccionar un negocio verás el Place ID y el enlace:
+   https://search.google.com/local/writereview?placeid=PLACE_ID
+7. Puedes copiar el enlace o abrir directamente el formulario de reseña.
+
+PARA VERCEL:
+- Sube todos los archivos de esta carpeta a un repositorio.
+- Importa el repositorio en Vercel.
+- No necesita comando de build ni framework.
