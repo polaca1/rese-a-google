@@ -1,0 +1,51 @@
+#!/bin/bash
+set -euo pipefail
+task_project_dir=$(cd -- "$(dirname -- "$0")/.." && pwd)
+task_output_dir=${1:-"$task_project_dir/build"}
+mkdir -p "$task_output_dir"
+task_output_dir=$(cd -- "$task_output_dir" && pwd)
+
+if ! command -v xcodebuild >/dev/null; then
+    echo 'Se necesita macOS con Xcode 26 o posterior.' >&2
+    exit 1
+fi
+task_xcode_major=$(xcodebuild -version | awk '/^Xcode / {split($2,v,".");print v[1]}')
+if [ "$task_xcode_major" -lt 26 ]; then
+    echo 'Liquid Glass nativo requiere compilar con Xcode 26 o posterior.' >&2
+    exit 1
+fi
+
+# Never print the API key or pass it as a visible xcodebuild argument.
+task_info_plist="$task_project_dir/reviewNfcGo/Info.plist"
+task_plist_backup=$(mktemp)
+cp "$task_info_plist" "$task_plist_backup"
+trap 'cp "$task_plist_backup" "$task_info_plist"; rm -f "$task_plist_backup"' EXIT
+if [ -n "${GOOGLE_PLACES_API_KEY:-}" ]; then
+    /usr/libexec/PlistBuddy -c "Set :GooglePlacesAPIKey $GOOGLE_PLACES_API_KEY" "$task_info_plist"
+fi
+
+sh "$task_project_dir/Tests/run.sh"
+xcodebuild -project "$task_project_dir/reviewNfcGo.xcodeproj" \
+    -scheme reviewNfcGo -configuration Release -sdk iphoneos \
+    -destination 'generic/platform=iOS' \
+    -derivedDataPath "$task_output_dir/DerivedData" \
+    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build \
+    > "$task_output_dir/xcodebuild.log" 2>&1 || {
+        tail -n 100 "$task_output_dir/xcodebuild.log"
+        exit 1
+    }
+task_app="$task_output_dir/DerivedData/Build/Products/Release-iphoneos/reviewNfcGo.app"
+test -f "$task_app/reviewNfcGo"
+test -f "$task_app/PlugIns/reviewNfcGoLiveActivity.appex/reviewNfcGoLiveActivity"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$task_app/Info.plist")" = 'reviewnfcgo'
+
+# AltStore/SideStore signs the main binary and the embedded widget for the device.
+task_package_dir=$(mktemp -d)
+mkdir -p "$task_package_dir/Payload"
+ditto "$task_app" "$task_package_dir/Payload/reviewNfcGo.app"
+task_ipa="$task_output_dir/reviewNfcGo-2.9-LiquidGlass-AltStore.ipa"
+rm -f "$task_ipa"
+(cd "$task_package_dir" && /usr/bin/zip -qry "$task_ipa" Payload)
+rm -rf "$task_package_dir"
+unzip -tq "$task_ipa"
+echo "IPA generado: $task_ipa"

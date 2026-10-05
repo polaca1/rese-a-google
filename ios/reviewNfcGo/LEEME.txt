@@ -1,0 +1,3 @@
+reviewNfcGo 2.9 — Liquid Glass
+
+Consulta README.md para los cambios, requisitos y compilación del IPA.
