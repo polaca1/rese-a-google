@@ -7,10 +7,6 @@ on:
         description: Rama o commit de la app nativa
         required: true
         default: ios/liquid-glass-2.9
-      google_places_api_key:
-        description: Clave Google Places para el binario; se oculta en los logs
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -20,20 +16,20 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 25
     env:
-      GOOGLE_PLACES_API_KEY: ${{ inputs.google_places_api_key || secrets.REVIEWNFCGO_GOOGLE_PLACES_API_KEY }}
+      GOOGLE_PLACES_API_KEY: ${{ secrets.REVIEWNFCGO_GOOGLE_PLACES_API_KEY }}
     steps:
-      - name: Ocultar la entrada de compilacion
-        shell: bash
-        run: |
-          if [ -z "$GOOGLE_PLACES_API_KEY" ]; then
-            echo 'Falta la clave de Google Places para la compilacion.' >&2
-            exit 1
-          fi
-          echo "::add-mask::$GOOGLE_PLACES_API_KEY"
-
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.source_ref }}
+
+      - name: Usar la configuracion Google Places existente
+        shell: bash
+        run: |
+          if [ -z "$GOOGLE_PLACES_API_KEY" ]; then
+            GOOGLE_PLACES_API_KEY=$(python3 -c 'import re,pathlib; text=pathlib.Path("config.js").read_text(); keys=re.findall(r"AIza[0-9A-Za-z_-]+",text); assert keys,"Falta clave Google Places"; print(keys[0])')
+          fi
+          echo "::add-mask::$GOOGLE_PLACES_API_KEY"
+          echo "GOOGLE_PLACES_API_KEY=$GOOGLE_PLACES_API_KEY" >> "$GITHUB_ENV"
 
       - name: Seleccionar Xcode 26.2
         run: |
@@ -44,15 +40,15 @@ jobs:
       - name: Tests, compilacion Release y paquete AltStore
         run: bash ios/reviewNfcGo/Scripts/build-ipa.sh "$RUNNER_TEMP/reviewNfcGo-build"
 
-      - name: Comprobacion visual en simulador iOS 26
-        run: bash ios/reviewNfcGo/Scripts/verify-simulator.sh "$RUNNER_TEMP/reviewNfcGo-build"
-
       - name: Guardar IPA
         uses: actions/upload-artifact@v4
         with:
           name: reviewNfcGo-2.9-LiquidGlass-AltStore
           path: ${{ runner.temp }}/reviewNfcGo-build/*.ipa
           if-no-files-found: error
+
+      - name: Comprobacion visual en simulador iOS 26
+        run: bash ios/reviewNfcGo/Scripts/verify-simulator.sh "$RUNNER_TEMP/reviewNfcGo-build"
 
       - name: Guardar capturas y logs de verificacion
         if: always()
