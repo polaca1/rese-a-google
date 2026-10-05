@@ -61,6 +61,16 @@ struct ReviewNfcGoApp: App {
                 .onOpenURL { portalRouter.open(url: $0) }
                 .onAppear {
                     store.switchUser(auth.currentUser?.email)
+                    #if DEBUG
+                    // Simulator verification enters the same validated route without
+                    // SpringBoard's external-URL consent dialog. Absent from the IPA.
+                    let arguments = ProcessInfo.processInfo.arguments
+                    if let index = arguments.firstIndex(of: "--verification-portal"),
+                       arguments.indices.contains(index + 1),
+                       let url = URL(string: arguments[index + 1]) {
+                        portalRouter.open(url: url)
+                    }
+                    #endif
                 }
                 .onChange(of: auth.currentUser?.email) { email in
                     store.switchUser(email)

@@ -33,3 +33,7 @@ La clave se incorpora al Info.plist del binario durante la compilación y se res
 La hora de inicio la gestiona ActivityKit y puede rechazar nuevas solicitudes por permisos o límites. La retirada de la actividad al llegar a la cita sigue siendo tarea del código de la app cuando puede ejecutarse; `staleDate` marca el final de vigencia y la cuenta atrás no se hace negativa.
 
 Referencias: [Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass), [Live Activities programadas](https://developer.apple.com/documentation/activitykit/activity/request(attributes:content:pushtype:style:alertconfiguration:start:)), [iconos adaptativos](https://developer.apple.com/documentation/xcode/configuring-your-app-icon).
+
+## Verificación de esta versión
+
+En Swift 6.2.1: 57 comprobaciones de planificación y concurrencia y 15 de rutas correctas. Sintaxis de los archivos Swift de app y widget comprobada. La compilación de iPhone y la comprobación visual se ejecutan por separado con Xcode 26.2 en GitHub Actions; consulta el resultado del flujo para la compilación de la versión que estés usando.
