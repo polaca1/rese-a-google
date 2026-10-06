@@ -29,7 +29,7 @@ import Foundation
         ledger.synchronize([]); check(ledger.incomeCents == 10000 && ledger.stock(white.id) == 0, "Deleting business preserves earned money and sold stock")
         let purchase = ledger.transactions.first { $0.productID == black.id && $0.kind == .expense }!
         try ledger.reverseExpense(purchase.id)
-        check(ledger.balanceCents == 8000 && ledger.stock(black.id) == 0, "Refund restores balance and removes units")
+        check(ledger.balanceCents == 8000 && ledger.stock(black.id) == 0 && ledger.purchased(black.id) == 0, "Refund restores balance and removes units from purchased count")
         let saved = ledger
         do { try ledger.reverseExpense(purchase.id); preconditionFailure("Duplicate refund accepted") } catch { check(ledger == saved, "Duplicate refund rejected without changes") }
         let soldPurchase = ledger.transactions.first { $0.productID == white.id && $0.kind == .expense }!

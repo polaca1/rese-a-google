@@ -1,4 +1,4 @@
-# reviewNfcGo 2.9 — Liquid Glass
+# reviewNfcGo 4.0 — Dinero, inventario NFC y Liquid Glass
 
 - Botones nativos `.glass` y `.glassProminent`, controles segmentados, navegación y pestañas de iOS 26.
 - Icono con relieve: variante normal azul y variante oscura negra seleccionada por el modo de iconos de iOS. Logo de la interfaz con variantes clara/oscura.
@@ -15,7 +15,7 @@ export GOOGLE_PLACES_API_KEY='tu clave de Google Places'
 bash Scripts/build-ipa.sh
 ```
 
-El script comprueba la planificación y las rutas, compila Release para iPhone, verifica la extensión y empaqueta `build/reviewNfcGo-2.9-LiquidGlass-AltStore.ipa`. AltStore o SideStore firma ambos ejecutables con la cuenta del usuario al instalar; no es un IPA firmado para distribución App Store.
+El script comprueba la planificación y las rutas, compila Release para iPhone, verifica la extensión y empaqueta `build/reviewNfcGo-4.0-AltStore.ipa`. AltStore o SideStore firma ambos ejecutables con la cuenta del usuario al instalar; no es un IPA firmado para distribución App Store.
 
 El proyecto mantiene el identificador original y las claves de datos. No hay que borrar la app anterior para actualizarla. Para que AltStore conserve los datos también debe conservarse el mismo equipo y el identificador con el que se instaló la versión anterior.
 
@@ -61,3 +61,19 @@ Los selectores nativos de fecha y hora se mantienen en la misma fila que su etiq
 Tres widgets de WidgetKit comparten los datos de la cuenta activa mediante un App Group: mapa (mediano/grande), próximas visitas (mediano/grande), ganancias y operaciones (pequeño/mediano/grande). El widget de mapa está disponible en iOS 17 o posterior; «Editar widget» permite elegir la zona más densa de visitas pendientes dentro de 2,5 km o todos los sitios. Las visitas se ordenan por fecha y las operaciones por la fecha guardada de la ficha. Las entradas abren la ficha correspondiente; tocar el fondo abre Avisos o Ganancias. Cerrar sesión publica una instantánea vacía. Guardar y cambiar de cuenta solicitan la actualización; iOS decide cuándo refrescar los widgets.
 
 El IPA incluye una firma ad hoc como plantilla de las capacidades, que AltStore sustituye por la firma del usuario. El App Group se resuelve también con `ALTAppGroups`, porque [AltStore reescribe sus identificadores al firmar](https://github.com/altstoreio/AltStore/blob/develop/AltStore/Operations/ResignAppOperation.swift). Conserva la extensión de widgets al instalar: también contiene la Live Activity. No se envían estos datos a un servidor.
+
+## Versión 4.0: dinero, inventario y perfil
+
+La pestaña Dinero muestra el saldo (ingresos menos gastos), admite negativos y registra cada movimiento en céntimos. Las ganancias de los negocios se importan una sola vez; guardar sin cambios no las duplica. Editar una venta registra la diferencia como ajuste. Eliminar una ficha conserva el dinero ganado y las tarjetas vendidas. Tocar un ingreso abre el negocio; mantener pulsado permite consultar el movimiento completo.
+
+Las compras registran concepto, importe total, fecha, cantidad, proveedor, forma de pago, notas y enlace. Los productos incluyen tarjetas NFC por color, stands, accesorios y productos personalizados. Cada compra aumenta las existencias y descuenta su coste. En Ficha → Editar se puede asignar la tarjeta/color a una venta; se valida que haya existencias suficientes. Las ventas anteriores quedan sin color hasta asignarlas. Los ajustes de existencias conservan motivo e historial, sin alterar el saldo. Las correcciones y devoluciones conservan el gasto original; las devoluciones retiran sus unidades y no pueden devolver unidades ya vendidas.
+
+«Importar datos del producto» consulta metadatos JSON-LD/Open Graph de la tienda, sin ejecutar JavaScript. Intenta obtener nombre, imagen y precio en euros; monedas distintas, tiendas que bloquean las consultas o datos ausentes permiten entrada manual. El usuario revisa el coste total y la cantidad antes de guardar. «Volver a comprar» abre el enlace de la compra.
+
+El widget Dinero ahora muestra saldo, ingresos, gastos y movimientos recientes. Los ingresos con una ficha disponible enlazan al negocio; los gastos abren Dinero. El historial y el inventario se guardan por cuenta en el iPhone.
+
+El mapa mueve el centro y cambia el zoom con una curva continua de 2,3 segundos; no hay pausas entre etapas. Se mantienen la cancelación por gestos, el destino más reciente, el recorrido corto por el meridiano 180° y Reducir movimiento. La barra de búsqueda tiene forma de cápsula y muestra coincidencias guardadas y recomendaciones de Google tras 450 ms; elegir un resultado enfoca el destino, sin seleccionar automáticamente el primero.
+
+Perfil permite elegir, cambiar y quitar una foto con el selector nativo de Fotos. La imagen se normaliza a un máximo de 640 px y se guarda por cuenta, sin enviarla a un servidor. Una carga pendiente no cambia la foto de una cuenta distinta.
+
+La verificación incluye pruebas de céntimos, migración e ingresos sin duplicados, colores, devoluciones y persistencia; análisis de importación de productos; coincidencias de búsqueda; y cámara continua. El simulador comprueba el AppStore real, el App Group, el almacenamiento de fotos, la selección del resultado, las pantallas claras/oscuras y los widgets.

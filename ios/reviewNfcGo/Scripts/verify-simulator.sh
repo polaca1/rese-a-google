@@ -167,6 +167,8 @@ import json,sys
 result=json.load(open(sys.argv[1]));print(json.dumps(result,ensure_ascii=False,indent=2))
 assert result['passed'] and len(result['checks'])>=18,result
 PYCHECK
+cp "$task_container/Documents/widget-money-real-light.png" "$task_output_dir/widget-money-real-light.png"
+cp "$task_container/Documents/widget-money-real-dark.png" "$task_output_dir/widget-money-real-dark.png"
 sleep 2
 xcrun simctl io "$task_device" screenshot "$task_output_dir/money-light.png"
 xcrun simctl ui "$task_device" appearance dark

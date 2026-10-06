@@ -750,6 +750,7 @@ struct HomeView: View {
                     if showSearchResults && searchText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 { searchSuggestions }
                 }
                 NativeMapView(selectedPlace: finder.selectedPlace, focusRequest: finder.mapFocus) { coordinate in
+                    showSearchResults = false; searchFocused = false
                     Task { await finder.searchNearest(to: coordinate) }
                 }
                 .frame(height: 330)
@@ -808,7 +809,7 @@ struct HomeView: View {
             let query = searchText
             guard showSearchResults, query.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 else { return }
             do { try await Task.sleep(nanoseconds: 450_000_000) } catch { return }
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, showSearchResults, query == searchText else { return }
             await finder.searchByName(query, saved: store.records.map(\.place))
         }
         .overlay(alignment: .top) {

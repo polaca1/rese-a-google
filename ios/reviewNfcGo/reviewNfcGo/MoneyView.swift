@@ -4,6 +4,7 @@ struct MoneyView: View {
     @EnvironmentObject private var store: AppStore
     @State private var showExpense = false
     @State private var filter = "Todos"
+    @State private var detail: MoneyTransaction?
     #if DEBUG
     @State private var verificationInventory = false
     #endif
@@ -49,7 +50,7 @@ struct MoneyView: View {
                 ForEach(history) { transaction in
                     if transaction.kind.isIncome, let id = transaction.businessID, store.records.contains(where: { $0.id == id }) {
                         NavigationLink { RecordDetailView(recordID: id) } label: { MoneyRow(transaction: transaction) }
-                            .contextMenu { NavigationLink("Detalle del movimiento") { MoneyTransactionView(transactionID: transaction.id) } }
+                            .contextMenu { Button("Detalle del movimiento") { detail = transaction } }
                     } else {
                         NavigationLink { MoneyTransactionView(transactionID: transaction.id) } label: { MoneyRow(transaction: transaction) }
                     }
@@ -59,6 +60,7 @@ struct MoneyView: View {
         .navigationTitle("Dinero")
         .toolbar { ToolbarItem(placement: .primaryAction) { Button { showExpense = true } label: { Image(systemName: "plus") }.accessibilityLabel("Añadir gasto") } }
         .sheet(isPresented: $showExpense) { ExpenseForm() }
+        .sheet(item: $detail) { item in NavigationStack { MoneyTransactionView(transactionID: item.id).toolbar { ToolbarItem(placement: .confirmationAction) { Button("Cerrar") { detail = nil } } } } }
         #if DEBUG
         .navigationDestination(isPresented: $verificationInventory) { InventoryView() }
         .onAppear {
@@ -152,7 +154,7 @@ struct ProductDetailView: View {
                     HStack(spacing: 14) { ProductThumbnail(product: product); Text(product.displayName).font(.title3.bold()) }
                     LabeledContent("Disponibles", value: "\(store.money.stock(productID))")
                     LabeledContent("Comprados", value: "\(store.money.purchased(productID))")
-                    LabeledContent("Vendidos a negocios", value: "\(store.money.sold(productID))")
+                    if product.kind == .nfcCard { LabeledContent("Vendidos a negocios", value: "\(store.money.sold(productID))") }
                     LabeledContent("Dinero gastado", value: store.money.spent(productID).formatted(.currency(code: "EUR")))
                 }
                 Section {
@@ -250,7 +252,7 @@ struct ExpenseForm: View {
     }
     private var kind: ProductKind? { ProductKind(rawValue: category) }
     private var selectedProduct: InventoryProduct? { store.money.products.first { $0.id == selectedProductID } }
-    private var canSave: Bool { (SaleAmountFormatting.parse(amount) ?? 0) > 0 && (selectedProduct != nil || !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) && (kind != .nfcCard || selectedProduct != nil || !color.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) && !importing }
+    private var canSave: Bool { (SaleAmountFormatting.parse(amount) ?? 0) > 0 && (selectedProduct != nil || !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) && (kind != .nfcCard || selectedProduct != nil || !color.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) && (kind == nil || (1...100_000).contains(quantity)) && !importing }
     var body: some View {
         NavigationStack {
             Form {
@@ -271,13 +273,21 @@ struct ExpenseForm: View {
                         TextField(kind == nil ? "Concepto del gasto" : "Nombre del producto", text: $name)
                         if kind == .nfcCard { TextField("Color (negro, blanco, personalizado…)", text: $color) }
                     }
-                    if kind != nil { Stepper("Cantidad: \(quantity)", value: $quantity, in: 1...100_000) }
+                    if kind != nil {
+                        HStack {
+                            Text("Cantidad")
+                            Spacer()
+                            TextField("1", value: $quantity, format: .number.grouping(.never)).keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing).frame(width: 70).accessibilityLabel("Unidades compradas")
+                            Stepper("Cantidad", value: $quantity, in: 1...100_000).labelsHidden().fixedSize()
+                        }
+                    }
                     HStack {
                         Text("Coste total")
                         TextField("0,00", text: $amount).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
                         Text("€").foregroundStyle(.secondary)
                     }
-                    if kind != nil, let value = SaleAmountFormatting.parse(amount), value > 0 {
+                    if kind != nil, quantity > 0, let value = SaleAmountFormatting.parse(amount), value > 0 {
                         LabeledContent("Coste por unidad", value: (value / Double(quantity)).formatted(.currency(code: "EUR")))
                     }
                     DatePicker("Fecha del gasto", selection: $date, in: ...Date(), displayedComponents: .date)

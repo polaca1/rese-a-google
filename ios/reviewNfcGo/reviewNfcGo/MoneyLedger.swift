@@ -70,7 +70,7 @@ struct MoneyLedger: Codable, Equatable {
     var expenseCents: Int64 { -transactions.filter { $0.kind == .expense || $0.kind == .refund }.reduce(0) { $0 + $1.cents } }
     var balanceCents: Int64 { transactions.reduce(0) { $0 + $1.cents } }
     var history: [MoneyTransaction] { transactions.sorted { $0.date > $1.date } }
-    func purchased(_ id: UUID) -> Int { transactions.filter { $0.productID == id && $0.kind == .expense }.reduce(0) { $0 + $1.quantity } }
+    func purchased(_ id: UUID) -> Int { transactions.filter { $0.productID == id && ($0.kind == .expense || $0.kind == .refund) }.reduce(0) { $0 + $1.quantity } }
     func sold(_ id: UUID) -> Int { sales.values.filter { $0.productID == id }.reduce(0) { $0 + $1.cards } }
     func stock(_ id: UUID) -> Int {
         transactions.filter { $0.productID == id && [.expense, .refund, .stockAdjustment].contains($0.kind) }.reduce(0) { $0 + $1.quantity } - sold(id)

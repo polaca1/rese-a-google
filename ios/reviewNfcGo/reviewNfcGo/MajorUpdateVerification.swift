@@ -46,7 +46,7 @@ enum MajorUpdateVerification {
             record.cardsSold = 2; store.update(record)
             let purchase = store.money.transactions.first { $0.kind == .expense && $0.productID == card.id }!
             try store.addExpense(title: card.displayName, amount: 70, quantity: 20, productID: card.id, newProduct: nil, date: Date(), merchant: "Proveedor", method: "Tarjeta", url: card.purchaseURL, notes: "Precio corregido", replacing: purchase.id)
-            try check(store.money.expenseCents == 8200 && store.money.stock(card.id) == 18 && store.money.isReversed(purchase.id), "Corregir gasto conserva original y no duplica unidades")
+            try check(store.money.expenseCents == 8200 && store.money.stock(card.id) == 18 && store.money.purchased(card.id) == 20 && store.money.isReversed(purchase.id), "Corregir gasto conserva original y no duplica unidades")
             let whitePurchase = store.money.transactions.first { $0.kind == .expense && $0.productID == white.id }!
             try store.reverseExpense(whitePurchase.id)
             try check(store.money.expenseCents == 7000 && store.money.stock(white.id) == 0, "Devolución concilia dinero e inventario")
@@ -87,6 +87,15 @@ enum MajorUpdateVerification {
             }
             if let originalUser { try photos.save(image, for: originalUser) }
             try check(WidgetSharedStore.load().moneyBalance == Double(store.money.balanceCents) / 100 && WidgetSharedStore.load().moneyOperations?.contains(where: { $0.amount < 0 }) == true, "Widget recibe saldo y gastos reales")
+            let entry = DashboardEntry(date: Date(), snapshot: WidgetSharedStore.load())
+            let folder = output.deletingLastPathComponent()
+            for scheme in [ColorScheme.light, .dark] {
+                let renderer = ImageRenderer(content: EarningsSummaryWidgetView(entry: entry, familyOverride: .systemMedium)
+                    .padding(14).frame(width: 360, height: 170).background(scheme == .dark ? Color.black : Color.white).environment(\.colorScheme, scheme))
+                renderer.scale = 2
+                guard let png = renderer.uiImage?.pngData() else { throw ProfilePhotoStore.PhotoError.invalid }
+                try png.write(to: folder.appendingPathComponent(scheme == .dark ? "widget-money-real-dark.png" : "widget-money-real-light.png"))
+            }
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks, "balanceCents": store.money.balanceCents], options: .prettyPrinted).write(to: output)
         } catch {
             store.switchUser(originalUser); photos.switchUser(originalUser)
