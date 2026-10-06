@@ -1,0 +1,72 @@
+{
+  "name": "reviewNfcGo · Pablo Cancho Flores",
+  "identifier": "com.pablo.reviewnfcgo.source",
+  "subtitle": "Tu negocio, tus tarjetas y tu dinero",
+  "description": "Actualizaciones de reviewNfcGo por Pablo Cancho Flores.",
+  "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/icon.png",
+  "tintColor": "1976EC",
+  "sourceURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/source.json",
+  "apps": [
+    {
+      "name": "reviewNfcGo",
+      "bundleIdentifier": "com.pablo.resenagoogle.20261004",
+      "developerName": "Pablo Cancho Flores",
+      "subtitle": "Negocios, tarjetas NFC, visitas y dinero",
+      "localizedDescription": "Encuentra negocios y organiza tus visitas, tarjetas NFC e ingresos y gastos. Incluye inventario por color, historial de operaciones, foto de perfil, widgets y recordatorios con cuenta atrás.",
+      "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/icon.png",
+      "tintColor": "1976EC",
+      "versions": [
+        {
+          "version": "4.1",
+          "buildVersion": "17",
+          "date": "2026-10-06T22:04:46Z",
+          "localizedDescription": "Correcciones al guardar visitas y al mostrar el historial de dinero.\nIconos claro y oscuro y controles nativos de iOS 26.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.1-build17.ipa",
+          "size": 5770984,
+          "minOSVersion": "16.1"
+        }
+      ],
+      "version": "4.1",
+      "versionDate": "2026-10-06T22:04:46Z",
+      "versionDescription": "Correcciones al guardar visitas y al mostrar el historial de dinero.\nIconos claro y oscuro y controles nativos de iOS 26.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.1-build17.ipa",
+      "size": 5770984,
+      "appPermissions": {
+        "entitlements": [
+          "com.apple.security.application-groups"
+        ],
+        "privacy": {
+          "NSLocationWhenInUseUsageDescription": "La app necesita tu ubicación para encontrar automáticamente el negocio más cercano."
+        }
+      },
+      "permissions": [
+        {
+          "type": "location",
+          "usageDescription": "La app necesita tu ubicación para encontrar automáticamente el negocio más cercano."
+        },
+        {
+          "type": "network",
+          "usageDescription": "Buscar negocios y consultar enlaces de compra."
+        }
+      ],
+      "screenshotURLs": [
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/screenshots/blur-home-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/screenshots/money-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/screenshots/inventory-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/screenshots/reminder-dates-light.png"
+      ]
+    }
+  ],
+  "news": [
+    {
+      "title": "reviewNfcGo 4.1 (17)",
+      "identifier": "reviewnfcgo-4.1-build17",
+      "caption": "Correcciones al guardar visitas y al mostrar el historial de dinero.",
+      "date": "2026-10-06T22:04:46Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-4.1-build17",
+      "appID": "com.pablo.resenagoogle.20261004"
+    }
+  ]
+}
