@@ -194,22 +194,34 @@ final class AppStore: ObservableObject {
 
 // MARK: - Location and Google Places
 
+struct MapFocusRequest {
+    enum Target { case user, place }
+    let id = UUID()
+    let coordinate: CLLocationCoordinate2D
+    let target: Target
+}
+
 @MainActor
 final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var userLocation: CLLocationCoordinate2D?
     @Published var selectedPlace: PlaceResult?
+    @Published private(set) var mapFocus: MapFocusRequest?
     @Published var isLoading = false
     @Published var status = "Buscando tu ubicación…"
     @Published var errorMessage: String?
 
     private let manager = CLLocationManager()
     private var didInitialSearch = false
+    private var searchRevision: UUID?
     private var apiKey: String {
         Bundle.main.object(forInfoDictionaryKey: "GooglePlacesAPIKey") as? String ?? ""
     }
 
     override init() {
         super.init()
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--verification-map") { didInitialSearch = true }
+        #endif
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
     }
@@ -234,12 +246,20 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
+        guard let location = locations.last, location.horizontalAccuracy >= 0,
+              CLLocationCoordinate2DIsValid(location.coordinate) else { return }
+        let isFirstLocation = userLocation == nil
         userLocation = location.coordinate
+        if isFirstLocation && mapFocus == nil { focusOnUserLocation(cancelSearch: false) }
         status = "Ubicación encontrada · ±\(Int(location.horizontalAccuracy)) m"
         if !didInitialSearch {
             didInitialSearch = true
-            Task { await searchNearest(to: location.coordinate) }
+            if searchRevision == nil {
+                Task {
+                    guard self.searchRevision == nil else { return }
+                    await searchNearest(to: location.coordinate, focusResult: false)
+                }
+            }
         }
     }
 
@@ -247,38 +267,64 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
         errorMessage = error.localizedDescription
     }
 
-    func searchNearest(to coordinate: CLLocationCoordinate2D) async {
+    func focusOnUserLocation(cancelSearch: Bool = true) {
+        if cancelSearch { searchRevision = UUID(); isLoading = false }
+        guard let coordinate = userLocation else { start(); return }
+        mapFocus = MapFocusRequest(coordinate: coordinate, target: .user)
+    }
+
+    func selectPlace(_ place: PlaceResult?, focus: Bool) {
+        selectedPlace = place
+        if focus, let place {
+            mapFocus = MapFocusRequest(coordinate: place.coordinate, target: .place)
+        }
+    }
+
+    #if DEBUG
+    func prepareMapVerification() { didInitialSearch = true }
+    #endif
+
+    func searchNearest(to coordinate: CLLocationCoordinate2D, focusResult: Bool = true) async {
+        let revision = UUID()
+        searchRevision = revision
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer { if searchRevision == revision { isLoading = false } }
 
         do {
             let results = try await GooglePlacesService(apiKey: apiKey).nearby(coordinate: coordinate)
+            guard searchRevision == revision else { return }
             guard !results.isEmpty else {
                 status = "No se han encontrado negocios cerca de ese punto."
                 return
             }
             let target = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-            selectedPlace = results.min { a, b in
+            let nearest = results.min { a, b in
                 target.distance(from: CLLocation(latitude: a.latitude, longitude: a.longitude)) <
                 target.distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
             }
+            selectPlace(nearest, focus: focusResult)
             status = "Negocio más cercano seleccionado"
         } catch {
+            guard searchRevision == revision else { return }
             errorMessage = "No se pudo consultar Google Places: \(error.localizedDescription)"
         }
     }
 
     func searchByName(_ query: String) async {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let revision = UUID()
+        searchRevision = revision
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer { if searchRevision == revision { isLoading = false } }
         do {
             let results = try await GooglePlacesService(apiKey: apiKey).textSearch(query: query, bias: userLocation)
-            selectedPlace = results.first
+            guard searchRevision == revision else { return }
+            selectPlace(results.first, focus: true)
             status = results.isEmpty ? "No se encontró ese negocio." : "Negocio seleccionado"
         } catch {
+            guard searchRevision == revision else { return }
             errorMessage = "No se pudo buscar: \(error.localizedDescription)"
         }
     }
@@ -617,7 +663,7 @@ struct HomeView: View {
             VStack(spacing: 16) {
                 header
                 searchBar
-                NativeMapView(userCoordinate: finder.userLocation, selectedPlace: finder.selectedPlace) { coordinate in
+                NativeMapView(selectedPlace: finder.selectedPlace, focusRequest: finder.mapFocus) { coordinate in
                     Task { await finder.searchNearest(to: coordinate) }
                 }
                 .frame(height: 330)
@@ -644,7 +690,15 @@ struct HomeView: View {
         }
         .background(AppTheme.background)
         .navigationBarHidden(true)
-        .onAppear { finder.start() }
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-map") {
+                Task { await MapCameraVerification.run(finder: finder) }
+                return
+            }
+            #endif
+            finder.start()
+        }
         .onDisappear { reminderPlace = nil }
         .overlay(alignment: .top) {
             if showSavedToast {
@@ -701,7 +755,8 @@ struct HomeView: View {
             Spacer()
             if let coordinate = finder.userLocation {
                 Button("Mi ubicación") {
-                    Task { await finder.searchNearest(to: coordinate) }
+                    finder.focusOnUserLocation()
+                    Task { await finder.searchNearest(to: coordinate, focusResult: false) }
                 }
                 .font(.footnote.weight(.semibold))
                 .appSecondaryButton()
@@ -895,8 +950,8 @@ struct QuickReminderView: View {
 // MARK: - Native MapKit map
 
 struct NativeMapView: UIViewRepresentable {
-    let userCoordinate: CLLocationCoordinate2D?
     let selectedPlace: PlaceResult?
+    let focusRequest: MapFocusRequest?
     let onTap: (CLLocationCoordinate2D) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -910,28 +965,38 @@ struct NativeMapView: UIViewRepresentable {
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.didTap(_:)))
         tap.cancelsTouchesInView = false
         map.addGestureRecognizer(tap)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--verification-map") { MapCameraVerification.map = map }
+        #endif
         return map
     }
 
     func updateUIView(_ map: MKMapView, context: Context) {
         context.coordinator.parent = self
-        if let userCoordinate, !context.coordinator.didCenter {
-            context.coordinator.didCenter = true
-            map.setRegion(MKCoordinateRegion(center: userCoordinate, latitudinalMeters: 850, longitudinalMeters: 850), animated: true)
+        let coordinator = context.coordinator
+        if coordinator.lastPlace != selectedPlace {
+            coordinator.lastPlace = selectedPlace
+            map.removeAnnotations(map.annotations.filter { !($0 is MKUserLocation) })
+            if let place = selectedPlace {
+                let annotation = MKPointAnnotation()
+                annotation.coordinate = place.coordinate
+                annotation.title = place.name
+                annotation.subtitle = place.address
+                map.addAnnotation(annotation)
+            }
         }
-        map.removeAnnotations(map.annotations.filter { !($0 is MKUserLocation) })
-        if let place = selectedPlace {
-            let annotation = MKPointAnnotation()
-            annotation.coordinate = place.coordinate
-            annotation.title = place.name
-            annotation.subtitle = place.address
-            map.addAnnotation(annotation)
-        }
+        guard let request = focusRequest, coordinator.lastFocusID != request.id else { return }
+        coordinator.lastFocusID = request.id
+        map.setUserTrackingMode(request.target == .user ? .follow : .none, animated: false)
+        let distance: CLLocationDistance = request.target == .user ? 850 : 650
+        map.setRegion(MKCoordinateRegion(center: request.coordinate,
+            latitudinalMeters: distance, longitudinalMeters: distance), animated: true)
     }
 
     final class Coordinator: NSObject, MKMapViewDelegate {
         var parent: NativeMapView
-        var didCenter = false
+        var lastPlace: PlaceResult?
+        var lastFocusID: UUID?
         init(parent: NativeMapView) { self.parent = parent }
 
         @objc func didTap(_ gesture: UITapGestureRecognizer) {
@@ -1530,7 +1595,7 @@ struct ProfileView: View {
             Section("Acerca de reviewNfcGo") {
                 Text("Desarrollado por Pablo Cancho Flores")
                     .font(.subheadline)
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.1")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.2")
             }
             Section("Cuenta") {
                 Text("Esta versión guarda la cuenta y sus datos localmente en este iPhone. No se envían a un servidor.")
@@ -1613,3 +1678,64 @@ extension View {
 struct ContentView: View {
     var body: some View { RootView() }
 }
+
+#if DEBUG
+@MainActor
+enum MapCameraVerification {
+    static weak var map: MKMapView?
+
+    static func run(finder: PlaceFinder) async {
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("map-camera-verification.json")
+        var checks: [String] = []
+        do {
+            for _ in 0..<30 {
+                if map != nil { break }
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+            guard let map else { throw VerificationError.failed("No se creó el mapa") }
+            let madrid = CLLocation(latitude: 40.4168, longitude: -3.7038)
+            let seville = PlaceResult(id: "verification-seville", name: "Negocio en Sevilla",
+                address: "Sevilla", latitude: 37.3891, longitude: -5.9845)
+            let barcelona = CLLocationCoordinate2D(latitude: 41.3874, longitude: 2.1686)
+            finder.prepareMapVerification()
+            finder.locationManager(CLLocationManager(), didUpdateLocations: [madrid])
+            try await assertFocus(map, on: madrid.coordinate, label: "Primera ubicación", checks: &checks)
+            finder.selectPlace(seville, focus: true)
+            try await assertFocus(map, on: seville.coordinate, label: "Búsqueda lejos de la ubicación", checks: &checks)
+            finder.locationManager(CLLocationManager(), didUpdateLocations: [madrid])
+            try await Task.sleep(nanoseconds: 500_000_000)
+            try await assertFocus(map, on: seville.coordinate, label: "El GPS no interrumpe el negocio buscado", checks: &checks)
+            map.setRegion(MKCoordinateRegion(center: barcelona, latitudinalMeters: 900, longitudinalMeters: 900), animated: false)
+            finder.selectPlace(seville, focus: true)
+            try await assertFocus(map, on: seville.coordinate, label: "Volver a buscar el mismo negocio después de mover el mapa", checks: &checks)
+            finder.focusOnUserLocation()
+            try await assertFocus(map, on: madrid.coordinate, label: "Mi ubicación después de una búsqueda", checks: &checks)
+            map.setUserTrackingMode(.none, animated: false)
+            map.setRegion(MKCoordinateRegion(center: barcelona, latitudinalMeters: 900, longitudinalMeters: 900), animated: false)
+            finder.focusOnUserLocation()
+            try await assertFocus(map, on: madrid.coordinate, label: "Mi ubicación después de arrastrar el mapa", checks: &checks)
+            finder.selectPlace(nil, focus: false)
+            try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
+        } catch {
+            try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": String(describing: error)], options: .prettyPrinted).write(to: output)
+        }
+    }
+
+    private static func assertFocus(_ map: MKMapView, on coordinate: CLLocationCoordinate2D,
+                                    label: String, checks: inout [String]) async throws {
+        let target = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        for _ in 0..<40 {
+            let actual = CLLocation(latitude: map.centerCoordinate.latitude, longitude: map.centerCoordinate.longitude)
+            if actual.distance(from: target) < 100 && map.region.span.latitudeDelta < 0.03 {
+                checks.append(label)
+                return
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        throw VerificationError.failed(label)
+    }
+
+    private enum VerificationError: Error { case failed(String) }
+}
+#endif

@@ -21,6 +21,7 @@ xcrun simctl boot "$task_device"
 xcrun simctl bootstatus "$task_device" -b
 xcrun simctl install "$task_device" "$task_output_dir/SimulatorData/Build/Products/Debug-iphonesimulator/reviewNfcGo.app"
 xcrun simctl privacy "$task_device" grant location "$task_bundle_id"
+xcrun simctl location "$task_device" set 40.4168,-3.7038
 task_container=$(xcrun simctl get_app_container "$task_device" "$task_bundle_id" data)
 
 # Seed the documented local storage format, so a cold deep link opens a real portal.
@@ -82,3 +83,20 @@ xcrun simctl io "$task_device" screenshot "$task_output_dir/history-light.png"
 xcrun simctl ui "$task_device" appearance dark
 sleep 2
 xcrun simctl io "$task_device" screenshot "$task_output_dir/history-dark.png"
+
+# Exercise actual MKMapView camera updates; assert visible centers and zoom, not just pin coordinates.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-map
+for task_attempt in $(seq 1 35); do
+    if [ -f "$task_container/Documents/map-camera-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/map-camera-verification.json" "$task_output_dir/map-camera-verification.log"
+python3 - "$task_output_dir/map-camera-verification.log" <<'PYCHECK'
+import json,sys
+result=json.load(open(sys.argv[1]))
+print(json.dumps(result,ensure_ascii=False,indent=2))
+assert result['passed'] and len(result['checks']) == 6,result
+PYCHECK
+xcrun simctl io "$task_device" screenshot "$task_output_dir/map-user-focused.png"

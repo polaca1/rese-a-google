@@ -45,3 +45,7 @@ En Ficha → Editar se selecciona la cantidad de tarjetas vendidas. La ganancia 
 ## Versión 3.1: historial de avisos
 
 La campana superior de Avisos abre el historial persistente de notificaciones y Live Activities, separado por cuenta. Se incluyen las pruebas, los avisos de T−5h y cada programación, entrega confirmada, apertura, finalización o cancelación. Se recuperan las notificaciones conservadas por iOS y las actividades disponibles. Los mensajes que iOS ya retiró antes de esta actualización no son recuperables. Si pasó la hora prevista pero no hay confirmación, se muestra «Entrega sin confirmar»; una programación no se presenta como una entrega. Cada entrada conserva los estados y el nombre del negocio aunque se elimine su ficha.
+
+## Versión 3.2: enfoque automático del mapa
+
+Cada búsqueda y selección de negocio centra y acerca el mapa al marcador, incluso al buscar el mismo sitio otra vez. La primera ubicación válida centra el mapa automáticamente; «Mi ubicación» vuelve a centrarlo y activa el seguimiento nativo. Las nuevas posiciones GPS no interrumpen la vista de un negocio buscado. Las respuestas de búsquedas anteriores no sustituyen una selección más reciente.
