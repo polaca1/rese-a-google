@@ -6,12 +6,14 @@ final class PortalRouter: ObservableObject {
     static let shared = PortalRouter()
     @Published private(set) var pendingRecordID: UUID?
 
-    func open(recordID: UUID) { pendingRecordID = recordID }
+    @Published private(set) var pendingWidgetSection: WidgetSection?
+    func open(recordID: UUID) { pendingWidgetSection = nil; pendingRecordID = recordID }
 
     func open(url: URL) {
-        guard let id = PortalLink.recordID(from: url) else { return }
-        open(recordID: id)
+        if let id = PortalLink.recordID(from: url) { open(recordID: id) }
+        else if let section = WidgetSection.parse(url) { pendingRecordID = nil; pendingWidgetSection = section }
     }
 
     func consume() { pendingRecordID = nil }
+    func consumeWidgetSection() { pendingWidgetSection = nil }
 }

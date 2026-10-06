@@ -128,6 +128,7 @@ final class AppStore: ObservableObject {
         AlertHistoryStore.shared.switchUser(email, records: records)
         hasLoadedRecords = true
         ReminderCoordinator.replaceRecords(records)
+        publishWidgets()
     }
 
     func addOrUpdatePlace(_ place: PlaceResult) {
@@ -189,6 +190,11 @@ final class AppStore: ObservableObject {
         }
         AlertHistoryStore.shared.updateRecords(records)
         ReminderCoordinator.replaceRecords(records)
+        publishWidgets()
+    }
+
+    private func publishWidgets() {
+        WidgetSharedStore.publish(WidgetSnapshot(records: records, isSignedIn: userKey != nil))
     }
 }
 
@@ -482,12 +488,25 @@ struct RootView: View {
 
     var body: some View {
         Group {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-widgets") {
+                WidgetVerificationView()
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-dates") {
+                QuickReminderView(place: PlaceResult(id: "date-verification", name: "Negocio de prueba", address: "Calle Mayor, Madrid", latitude: 40.4168, longitude: -3.7038))
+            } else {
+                authenticatedContent
+            }
+            #else
+            authenticatedContent
+            #endif
+        }
+    }
+    @ViewBuilder private var authenticatedContent: some View {
             if auth.currentUser == nil {
                 AuthView()
             } else {
                 MainTabView()
             }
-        }
     }
 }
 
@@ -618,19 +637,28 @@ struct MainTabView: View {
         }
         .onAppear {
             openPendingBusiness()
+            openPendingWidgetSection()
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--verification-profile") { selectedTab = 4 }
             if ProcessInfo.processInfo.arguments.contains("--verification-history") { selectedTab = 3 }
             #endif
         }
         .onChange(of: portalRouter.pendingRecordID) { _ in openPendingBusiness() }
-        .onChange(of: store.hasLoadedRecords) { _ in openPendingBusiness() }
-        .onChange(of: store.loadedUserEmail) { _ in openPendingBusiness() }
+        .onChange(of: portalRouter.pendingWidgetSection) { _ in openPendingWidgetSection() }
+        .onChange(of: store.hasLoadedRecords) { _ in openPendingBusiness(); openPendingWidgetSection() }
+        .onChange(of: store.loadedUserEmail) { _ in openPendingBusiness(); openPendingWidgetSection() }
         .alert("Negocio no disponible", isPresented: $showUnavailableBusiness) {
             Button("Aceptar", role: .cancel) {}
         } message: {
             Text("Este negocio se ha eliminado o pertenece a otra cuenta. Inicia sesión con la cuenta que lo guardó.")
         }
+    }
+
+    private func openPendingWidgetSection() {
+        guard store.hasLoadedRecords, store.loadedUserEmail == auth.currentUser?.email,
+              let section = portalRouter.pendingWidgetSection else { return }
+        selectedTab = section == .visits ? 3 : 2
+        portalRouter.consumeWidgetSection()
     }
 
     private func openPendingBusiness() {
@@ -880,6 +908,56 @@ struct HomeView: View {
     }
 }
 
+// Keep the two native compact controls on the same row as their label.
+struct InlineDateTimePicker: View {
+    let title: String
+    @Binding var selection: Date
+    let range: ClosedRange<Date>
+
+    init(_ title: String, selection: Binding<Date>, in range: PartialRangeFrom<Date>) {
+        self.title = title; _selection = selection
+        self.range = range.lowerBound...Date.distantFuture
+    }
+    init(_ title: String, selection: Binding<Date>, in range: ClosedRange<Date>) {
+        self.title = title; _selection = selection; self.range = range
+    }
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Text(title).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                #if DEBUG
+                .background(GeometryReader { geometry in
+                    Color.clear.onAppear { DateRowVerification.observe(title: title, component: "label", frame: geometry.frame(in: .global)) }
+                })
+                #endif
+            DatePicker(title, selection: $selection, in: range, displayedComponents: [.date, .hourAndMinute])
+                .datePickerStyle(.compact)
+                .labelsHidden()
+                .fixedSize(horizontal: true, vertical: false)
+                .accessibilityLabel(title)
+                #if DEBUG
+                .background(GeometryReader { geometry in
+                    Color.clear.onAppear { DateRowVerification.observe(title: title, component: "controls", frame: geometry.frame(in: .global)) }
+                })
+                #endif
+        }
+    }
+}
+
+#if DEBUG
+@MainActor
+enum DateRowVerification {
+    static var frames: [String: [String: CGRect]] = [:]
+    static func observe(title: String, component: String, frame: CGRect) {
+        guard ProcessInfo.processInfo.arguments.contains("--verification-dates"), frame.width > 0 else { return }
+        frames[title, default: [:]][component] = frame
+        guard frames.count == 2, frames.values.allSatisfy({ $0.count == 2 }) else { return }
+        let aligned = frames.values.allSatisfy { abs($0["label"]!.midY - $0["controls"]!.midY) < 1 }
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("date-layout-verification.json")
+        try? JSONSerialization.data(withJSONObject: ["passed": aligned, "rows": frames.count], options: .prettyPrinted).write(to: output)
+    }
+}
+#endif
+
 // MARK: - Quick reminder
 
 struct QuickReminderView: View {
@@ -902,11 +980,11 @@ struct QuickReminderView: View {
                     Text(place.address).font(.subheadline).foregroundStyle(.secondary)
                 }
                 Section("Visita") {
-                    DatePicker("Fecha y hora de la visita", selection: $visitDate, in: minimumDate...)
+                    InlineDateTimePicker("Fecha y hora de la visita", selection: $visitDate, in: minimumDate...)
                         .onChange(of: visitDate) { newValue in
                             if notificationDate > newValue { notificationDate = newValue }
                         }
-                    DatePicker("Avisarme el", selection: $notificationDate, in: minimumDate...max(visitDate, minimumDate))
+                    InlineDateTimePicker("Avisarme el", selection: $notificationDate, in: minimumDate...max(visitDate, minimumDate))
                     Text("La visita y el aviso no pueden estar en el pasado. Puedes hacer que el aviso llegue antes de la hora de la visita.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
@@ -1188,9 +1266,14 @@ struct RecordDetailView: View {
                                 Divider()
                                 LabeledContent("Tarjetas vendidas", value: "\(record.cardsSold)")
                             }
+                            if record.cardsSold > 0 {
+                                LabeledContent("Ganancia por tarjeta") {
+                                    Text(record.earningsPerCard, format: .currency(code: "EUR"))
+                                }
+                            }
                             if record.earnings > 0 {
                                 Divider()
-                                LabeledContent("Ganado") {
+                                LabeledContent("Ganancia total") {
                                     Text(record.earnings, format: .currency(code: "EUR")).bold()
                                 }
                             }
@@ -1311,7 +1394,7 @@ struct RecordEditView: View {
     @State private var original: VisitRecord?
     @State private var draft: VisitRecord?
     @State private var reminderEnabled = false
-    @State private var earningsText = ""
+    @State private var unitEarningsText = ""
     @State private var showDiscardAlert = false
     @FocusState private var focusedField: EditorField?
 
@@ -1321,8 +1404,9 @@ struct RecordEditView: View {
 
     private var hasChanges: Bool {
         guard var draft, let original else { return false }
-        guard let amount = parsedEarnings else { return true }
-        draft.earnings = amount
+        guard let amount = parsedUnitEarnings else { return true }
+        draft.earnings = calculatedTotal ?? 0
+        if unitPriceChanged { draft.unitEarnings = amount }
         if !reminderEnabled || draft.status == .completed {
             draft.reminderDate = nil
             draft.notificationDate = nil
@@ -1330,11 +1414,20 @@ struct RecordEditView: View {
         return draft != original
     }
 
-    private var parsedEarnings: Double? { SaleAmountFormatting.parse(earningsText) }
+    private var parsedUnitEarnings: Double? { SaleAmountFormatting.parse(unitEarningsText) }
 
+    private var unitPriceChanged: Bool {
+        guard let original, let draft else { return true }
+        return unitEarningsText != (original.earningsPerCard == 0 ? "" : SaleAmountFormatting.text(for: original.earningsPerCard)) || draft.cardsSold != original.cardsSold
+    }
+    private var calculatedTotal: Double? {
+        guard let draft, let amount = parsedUnitEarnings else { return nil }
+        if !unitPriceChanged, let original { return original.earnings }
+        return VisitRecord.totalEarnings(perCard: amount, count: draft.cardsSold)
+    }
     private var earningsAreValid: Bool {
-        guard let draft, let amount = parsedEarnings else { return false }
-        return amount <= draft.maximumEarnings
+        guard draft != nil, let amount = parsedUnitEarnings, let total = calculatedTotal else { return false }
+        return amount <= VisitRecord.maximumEarningsPerCard && total.isFinite
     }
 
     var body: some View {
@@ -1366,27 +1459,23 @@ struct RecordEditView: View {
                     Stepper(value: binding.cardsSold, in: (isSold ? 1 : 0)...Int.max) {
                         LabeledContent("Tarjetas vendidas", value: "\(binding.wrappedValue.cardsSold)")
                     }
-                    .onChange(of: binding.wrappedValue.cardsSold) { _ in
-                        if let amount = parsedEarnings, amount > binding.wrappedValue.maximumEarnings {
-                            earningsText = SaleAmountFormatting.text(for: binding.wrappedValue.maximumEarnings)
-                        }
-                    }
                     HStack {
-                        Text("Ganado"); Spacer()
-                        TextField("0,00", text: $earningsText).keyboardType(.decimalPad).multilineTextAlignment(.trailing).focused($focusedField, equals: .earnings).frame(maxWidth: 110)
+                        Text("Ganancia por tarjeta"); Spacer()
+                        TextField("0,00", text: $unitEarningsText).keyboardType(.decimalPad).multilineTextAlignment(.trailing).focused($focusedField, equals: .earnings).frame(maxWidth: 110)
                         Text("€").foregroundStyle(.secondary)
                     }
-                    LabeledContent("Límite de ganancia") {
-                        Text(binding.wrappedValue.maximumEarnings, format: .currency(code: "EUR"))
+                    LabeledContent("Ganancia total") {
+                        Text(calculatedTotal ?? 0, format: .currency(code: "EUR")).bold()
                     }
+                    LabeledContent("Máximo por tarjeta", value: "50,00 €")
                     if !earningsAreValid {
-                        Text("Introduce una cantidad entre 0 € y \(binding.wrappedValue.maximumEarnings.formatted(.currency(code: "EUR"))).")
+                        Text("Introduce una ganancia por tarjeta entre 0 € y 50 €.")
                             .font(.footnote).foregroundStyle(.red)
                     }
                 } header: {
                     Text("Venta de tarjetas")
                 } footer: {
-                    Text("Hasta 50 € por tarjeta. Al reducir las tarjetas vendidas, la ganancia se ajusta al nuevo límite.")
+                    Text("Ganancia total = tarjetas vendidas × ganancia por tarjeta. Máximo de 50 € por tarjeta.")
                 }
                 Section("Recordatorio") {
                     Toggle("Volver otro día", isOn: $reminderEnabled)
@@ -1405,7 +1494,7 @@ struct RecordEditView: View {
                     if isSold {
                         Text("Este negocio está marcado como vendido; sus avisos quedan cancelados.").font(.footnote).foregroundStyle(.secondary)
                     } else if reminderEnabled {
-                        DatePicker("Fecha y hora de la visita", selection: Binding(
+                        InlineDateTimePicker("Fecha y hora de la visita", selection: Binding(
                             get: { max(draft?.reminderDate ?? Date().addingTimeInterval(3600), minimumDate) },
                             set: { newValue in
                                 draft?.reminderDate = newValue
@@ -1413,7 +1502,7 @@ struct RecordEditView: View {
                             }
                         ), in: minimumDate...)
                         if let visit = draft?.reminderDate {
-                            DatePicker("Avisarme el", selection: Binding(
+                            InlineDateTimePicker("Avisarme el", selection: Binding(
                                 get: { max(min(draft?.notificationDate ?? visit, visit), minimumDate) },
                                 set: { draft?.notificationDate = $0 }
                             ), in: minimumDate...max(visit, minimumDate))
@@ -1439,8 +1528,11 @@ struct RecordEditView: View {
             if let value = store.records.first(where: { $0.id == recordID }) {
                 original = value; draft = value
                 reminderEnabled = value.reminderDate != nil && value.status != .completed
-                earningsText = value.earnings == 0 ? "" : SaleAmountFormatting.text(for: value.earnings)
+                unitEarningsText = value.earningsPerCard == 0 ? "" : SaleAmountFormatting.text(for: value.earningsPerCard)
                 if value.notificationDate == nil { draft?.notificationDate = value.reminderDate }
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--verification-editor") { verifyUnitEarningsEditor() }
+                #endif
             }
         }
         .alert("¿Descartar cambios?", isPresented: $showDiscardAlert) {
@@ -1449,12 +1541,33 @@ struct RecordEditView: View {
         } message: { Text("Los cambios que no hayas guardado se perderán.") }
     }
 
+    #if DEBUG
+    private func verifyUnitEarningsEditor() {
+        let savedDraft = draft, savedText = unitEarningsText
+        unitEarningsText = "20"
+        draft?.cardsSold = 3
+        let three = calculatedTotal == 60 && earningsAreValid
+        draft?.cardsSold = 5
+        let five = calculatedTotal == 100 && earningsAreValid
+        draft?.cardsSold = 1
+        let one = calculatedTotal == 20 && earningsAreValid
+        unitEarningsText = "51"
+        let cap = !earningsAreValid
+        draft = savedDraft; unitEarningsText = savedText
+        let unchanged = !hasChanges
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("unit-earnings-verification.json")
+        try? JSONSerialization.data(withJSONObject: ["passed": three && five && one && cap && unchanged,
+            "threeCards": three, "fiveCards": five, "oneCard": one, "cap": cap, "unchanged": unchanged], options: .prettyPrinted).write(to: output)
+    }
+    #endif
+
     private func attemptDismiss() { if hasChanges { showDiscardAlert = true } else { dismiss() } }
 
     private func saveAndDismiss() {
         focusedField = nil
-        guard earningsAreValid, var value = draft, let amount = parsedEarnings else { return }
-        value.earnings = amount
+        guard earningsAreValid, var value = draft, let amount = parsedUnitEarnings else { return }
+        value.earnings = calculatedTotal ?? 0
+        if unitPriceChanged { value.unitEarnings = amount }
         value.normalizeSales()
         if value.status == .completed || !reminderEnabled {
             value.reminderDate = nil; value.notificationDate = nil
@@ -1685,7 +1798,7 @@ struct ProfileView: View {
             Section("Acerca de reviewNfcGo") {
                 Text("Desarrollado por Pablo Cancho Flores")
                     .font(.subheadline)
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.3")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.4")
             }
             Section("Cuenta") {
                 Text("Esta versión guarda la cuenta y sus datos localmente en este iPhone. No se envían a un servidor.")

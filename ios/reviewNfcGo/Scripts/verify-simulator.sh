@@ -13,6 +13,10 @@ xcodebuild -project "$task_project_dir/reviewNfcGo.xcodeproj" \
         exit 1
     }
 
+task_sim_app="$task_output_dir/SimulatorData/Build/Products/Debug-iphonesimulator/reviewNfcGo.app"
+codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGoLiveActivity/reviewNfcGoLiveActivity.entitlements" "$task_sim_app/PlugIns/reviewNfcGoLiveActivity.appex"
+codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGo/reviewNfcGo.entitlements" "$task_sim_app"
+
 task_runtime=$(xcrun simctl list runtimes -j | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["runtimes"] if x.get("isAvailable") and x["name"].startswith("iOS 26")]; assert r,"No iOS 26 simulator"; print(r[-1]["identifier"])')
 task_device_type=$(xcrun simctl list devicetypes -j | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["devicetypes"] if x["name"].startswith("iPhone 17 Pro")]; print(r[0]["identifier"] if r else "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro")')
 task_device=$(xcrun simctl create reviewNfcGo-validation "$task_device_type" "$task_runtime")
@@ -66,6 +70,11 @@ xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl ui "$task_device" appearance light
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-portal "reviewnfcgo://business/$task_record_id" --verification-editor
 sleep 3
+cp "$task_container/Documents/unit-earnings-verification.json" "$task_output_dir/unit-earnings-verification.log"
+python3 - "$task_output_dir/unit-earnings-verification.log" <<'PYCHECK'
+import json,sys
+result=json.load(open(sys.argv[1]));print(result);assert result['passed'],result
+PYCHECK
 xcrun simctl io "$task_device" screenshot "$task_output_dir/sales-editor-light.png"
 xcrun simctl ui "$task_device" appearance dark
 sleep 2
@@ -100,3 +109,39 @@ print(json.dumps(result,ensure_ascii=False,indent=2))
 assert result['passed'] and len(result['checks']) == 10,result
 PYCHECK
 xcrun simctl io "$task_device" screenshot "$task_output_dir/map-user-focused.png"
+
+# Real compact date controls: measure the label/control vertical centers, and capture the form.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-dates
+for task_attempt in $(seq 1 25); do
+    if [ -f "$task_container/Documents/date-layout-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/date-layout-verification.json" "$task_output_dir/date-layout-verification.log"
+python3 - "$task_output_dir/date-layout-verification.log" <<'PYCHECK'
+import json,sys
+result=json.load(open(sys.argv[1]));print(result)
+assert result['passed'] and result['rows']==2,result
+PYCHECK
+xcrun simctl io "$task_device" screenshot "$task_output_dir/reminder-dates-light.png"
+
+# Use the same widget views/providers as the extension, with real MapKit snapshots and App Group data.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-widgets
+for task_attempt in $(seq 1 65); do
+    if [ -f "$task_container/Documents/widgets-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/widgets-verification.json" "$task_output_dir/widgets-verification.log"
+python3 - "$task_output_dir/widgets-verification.log" <<'PYCHECK'
+import json,sys
+result=json.load(open(sys.argv[1]));print(result)
+assert result['passed'] and len(result['checks'])==4,result
+PYCHECK
+cp "$task_container"/Documents/widget-*.png "$task_output_dir/"
+
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-portal reviewnfcgo://widgets/earnings
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/widget-earnings-deeplink.png"

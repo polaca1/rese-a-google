@@ -54,6 +54,26 @@ struct SalesTests {
         oldJSON["cardsSold"] = -3
         let corrected = try decoder.decode(VisitRecord.self, from: JSONSerialization.data(withJSONObject: oldJSON))
         precondition(corrected.cardsSold == 1)
+        var perCard = VisitRecord(place: place, cardsSold: 3, unitEarnings: 20, status: .completed)
+        perCard.normalizeSales()
+        precondition(perCard.earnings == 60 && perCard.earningsPerCard == 20)
+        perCard.cardsSold = 5
+        perCard.normalizeSales()
+        precondition(perCard.earnings == 100 && perCard.earningsPerCard == 20)
+        perCard.cardsSold = 1
+        perCard.normalizeSales()
+        precondition(perCard.earnings == 20)
+        let restoredPerCard = try decoder.decode(VisitRecord.self, from: encoder.encode(perCard))
+        precondition(restoredPerCard == perCard)
+        perCard.unitEarnings = 60
+        perCard.normalizeSales()
+        precondition(perCard.unitEarnings == 50 && perCard.earnings == 50)
+        perCard.cardsSold = 3; perCard.unitEarnings = 12.35
+        perCard.normalizeSales()
+        precondition(perCard.earnings == 37.05)
+        let fractionalLegacy = VisitRecord(place: place, earnings: 100, cardsSold: 3, status: .completed)
+        let legacyRestored = try decoder.decode(VisitRecord.self, from: encoder.encode(fractionalLegacy))
+        precondition(legacyRestored.earnings == 100 && legacyRestored.unitEarnings == nil)
         print("Ventas: límites de 0/1/varias tarjetas, reducción, persistencia y migración correctos")
     }
 }

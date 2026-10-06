@@ -41,6 +41,8 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     var createdAt: Date = Date()
     var earnings: Double = 0
     var cardsSold: Int = 0
+    /// Nil preserves historical total amounts that cannot be split exactly into cents.
+    var unitEarnings: Double? = nil
     var notes: String = ""
     var status: VisitStatus = .contacted
     /// Fecha/hora de la visita prevista.
@@ -50,15 +52,24 @@ struct VisitRecord: Identifiable, Codable, Equatable {
 
     static let maximumEarningsPerCard: Double = 50
     var maximumEarnings: Double { Double(max(0, cardsSold)) * Self.maximumEarningsPerCard }
+    var earningsPerCard: Double { unitEarnings ?? (cardsSold > 0 ? earnings / Double(cardsSold) : 0) }
+    static func totalEarnings(perCard: Double, count: Int) -> Double {
+        (((perCard * 100).rounded() / 100) * Double(max(0, count)) * 100).rounded() / 100
+    }
     var cardsSoldDescription: String { cardsSold == 1 ? "1 tarjeta vendida" : "\(cardsSold) tarjetas vendidas" }
 
     mutating func normalizeSales() {
         cardsSold = max(status == .completed ? 1 : 0, cardsSold)
+        if let unitEarnings {
+            let unit = unitEarnings.isFinite ? min(max(0, unitEarnings), Self.maximumEarningsPerCard) : 0
+            self.unitEarnings = (unit * 100).rounded() / 100
+            earnings = Self.totalEarnings(perCard: self.unitEarnings!, count: cardsSold)
+        }
         earnings = earnings.isFinite ? min(max(0, earnings), maximumEarnings) : 0
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, place, createdAt, earnings, cardsSold, notes, status, reminderDate, notificationDate
+        case id, place, createdAt, earnings, cardsSold, unitEarnings, notes, status, reminderDate, notificationDate
     }
 }
 
@@ -80,6 +91,7 @@ extension VisitRecord {
             let inferred = ceil(max(0, earnings) / Self.maximumEarningsPerCard)
             cardsSold = inferred >= Double(Int.max) ? Int.max : Int(inferred)
         }
+        unitEarnings = try values.decodeIfPresent(Double.self, forKey: .unitEarnings)
         normalizeSales()
     }
 }

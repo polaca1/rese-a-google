@@ -53,3 +53,11 @@ Cada búsqueda y selección de negocio centra y acerca el mapa al marcador, incl
 ## Versión 3.3: vuelo animado del mapa
 
 Buscar un negocio o pulsar «Mi ubicación» aleja suavemente el mapa durante 0,65 s, viaja al destino durante 1 s y se acerca durante 0,65 s. El nivel de alejamiento se calcula con la distancia proyectada y las dimensiones visibles: el recorrido ocupa como máximo el 70 % del ancho o alto del mapa. Se recorre el camino corto al cruzar el meridiano 180°. Una selección nueva sustituye el vuelo desde la cámara actual; arrastrar o pellizcar lo cancela. El seguimiento GPS comienza al terminar el vuelo. Se respeta «Reducir movimiento».
+
+## Versión 3.4: fechas, ganancia por tarjeta y widgets
+
+Los selectores nativos de fecha y hora se mantienen en la misma fila que su etiqueta, tanto al crear un recordatorio como al editar la ficha. El editor indica «Ganancia por tarjeta» (0–50 €) y calcula el total al cambiar el número de tarjetas. Los registros anteriores conservan su total, incluso cuando dividirlo entre tarjetas no produce un número exacto de céntimos; cambiar el precio o la cantidad usa el nuevo cálculo.
+
+Tres widgets de WidgetKit comparten los datos de la cuenta activa mediante un App Group: mapa (mediano/grande), próximas visitas (mediano/grande), ganancias y operaciones (pequeño/mediano/grande). En iOS 17 o posterior, «Editar widget» permite elegir la zona más densa de visitas pendientes dentro de 2,5 km o todos los sitios. Las visitas se ordenan por fecha y las operaciones por la fecha guardada de la ficha. Las entradas abren la ficha correspondiente; tocar el fondo abre Avisos o Ganancias. Cerrar sesión publica una instantánea vacía. Guardar y cambiar de cuenta solicitan la actualización; iOS decide cuándo refrescar los widgets.
+
+El IPA incluye una firma ad hoc como plantilla de las capacidades, que AltStore sustituye por la firma del usuario. El App Group se resuelve también con `ALTAppGroups`, porque [AltStore reescribe sus identificadores al firmar](https://github.com/altstoreio/AltStore/blob/develop/AltStore/Operations/ResignAppOperation.swift). Conserva la extensión de widgets al instalar: también contiene la Live Activity. No se envían estos datos a un servidor.

@@ -39,11 +39,16 @@ test -f "$task_app/reviewNfcGo"
 test -f "$task_app/PlugIns/reviewNfcGoLiveActivity.appex/reviewNfcGoLiveActivity"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$task_app/Info.plist")" = 'reviewnfcgo'
 
+# Embed only an ad-hoc entitlement template, so AltStore can discover and provision
+# the shared App Group. AltStore replaces this signature with the user's identity.
+codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGoLiveActivity/reviewNfcGoLiveActivity.entitlements" "$task_app/PlugIns/reviewNfcGoLiveActivity.appex"
+codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGo/reviewNfcGo.entitlements" "$task_app"
+
 # AltStore/SideStore signs the main binary and the embedded widget for the device.
 task_package_dir=$(mktemp -d)
 mkdir -p "$task_package_dir/Payload"
 ditto "$task_app" "$task_package_dir/Payload/reviewNfcGo.app"
-task_ipa="$task_output_dir/reviewNfcGo-3.3-AltStore.ipa"
+task_ipa="$task_output_dir/reviewNfcGo-3.4-AltStore.ipa"
 rm -f "$task_ipa"
 (cd "$task_package_dir" && /usr/bin/zip -qry "$task_ipa" Payload)
 rm -rf "$task_package_dir"
