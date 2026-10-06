@@ -43,6 +43,7 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     var cardsSold: Int = 0
     /// Nil preserves historical total amounts that cannot be split exactly into cents.
     var unitEarnings: Double? = nil
+    var inventoryProductID: UUID? = nil
     var notes: String = ""
     var status: VisitStatus = .contacted
     /// Fecha/hora de la visita prevista.
@@ -69,7 +70,7 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, place, createdAt, earnings, cardsSold, unitEarnings, notes, status, reminderDate, notificationDate
+        case id, place, createdAt, earnings, cardsSold, unitEarnings, inventoryProductID, notes, status, reminderDate, notificationDate
     }
 }
 
@@ -92,6 +93,7 @@ extension VisitRecord {
             cardsSold = inferred >= Double(Int.max) ? Int.max : Int(inferred)
         }
         unitEarnings = try values.decodeIfPresent(Double.self, forKey: .unitEarnings)
+        inventoryProductID = try values.decodeIfPresent(UUID.self, forKey: .inventoryProductID)
         normalizeSales()
     }
 }

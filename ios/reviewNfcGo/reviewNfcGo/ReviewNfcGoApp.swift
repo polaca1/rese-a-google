@@ -50,6 +50,7 @@ struct ReviewNfcGoApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var auth = AuthStore()
     @StateObject private var store = AppStore()
+    @StateObject private var photos = ProfilePhotoStore()
     @StateObject private var portalRouter = PortalRouter.shared
     @Environment(\.scenePhase) private var scenePhase
 
@@ -58,6 +59,7 @@ struct ReviewNfcGoApp: App {
             RootView()
                 .environmentObject(auth)
                 .environmentObject(store)
+                .environmentObject(photos)
                 .environmentObject(portalRouter)
                 .tint(AppTheme.blue)
                 .onOpenURL { url in
@@ -66,6 +68,7 @@ struct ReviewNfcGoApp: App {
                 }
                 .onAppear {
                     store.switchUser(auth.currentUser?.email)
+                    photos.switchUser(auth.currentUser?.email)
                     #if DEBUG
                     // Simulator verification enters the same validated route without
                     // SpringBoard's external-URL consent dialog. Absent from the IPA.
@@ -79,6 +82,7 @@ struct ReviewNfcGoApp: App {
                 }
                 .onChange(of: auth.currentUser?.email) { email in
                     store.switchUser(email)
+                    photos.switchUser(email)
                 }
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {

@@ -75,7 +75,7 @@ struct EarningsSummaryWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "ReviewNfcGoEarnings", provider: DashboardProvider()) { entry in
             EarningsSummaryWidgetView(entry: entry).dashboardBackground()
-        }.configurationDisplayName("Ganancias").description("Tus ganancias totales y las últimas operaciones.")
+        }.configurationDisplayName("Dinero").description("Tu saldo, ingresos, gastos y últimos movimientos.")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -158,24 +158,32 @@ struct EarningsSummaryWidgetView: View {
     private var family: WidgetFamily { familyOverride ?? widgetFamily }
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Label("Ganancias", systemImage: "eurosign.circle.fill").font(.headline).foregroundStyle(.green)
-            Text(entry.snapshot.totalEarnings, format: .currency(code: "EUR"))
+            Label("Dinero", systemImage: "eurosign.circle.fill").font(.headline).foregroundStyle(.green)
+            Text(entry.snapshot.balance, format: .currency(code: "EUR"))
                 .font(family == .systemSmall ? .title.bold() : .title2.bold()).minimumScaleFactor(0.6).lineLimit(1)
-            Text("\(entry.snapshot.totalCards) tarjetas vendidas").font(.caption).foregroundStyle(.secondary)
-            if family != .systemSmall {
-                if entry.snapshot.operations.isEmpty {
+                .foregroundStyle(entry.snapshot.balance < 0 ? Color.red : Color.primary)
+            if family == .systemSmall {
+                Text("Saldo · \(entry.snapshot.totalCards) tarjetas").font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("Ingresos \(entry.snapshot.totalEarnings.formatted(.currency(code: "EUR"))) · Gastos \(entry.snapshot.expenses.formatted(.currency(code: "EUR")))")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
+                let operations = entry.snapshot.moneyOperations ?? entry.snapshot.operations.map {
+                    WidgetMoneyOperation(id: $0.id, name: $0.name, amount: $0.earnings, date: $0.createdAt, businessID: $0.id)
+                }
+                if operations.isEmpty {
                     Text(entry.snapshot.isSignedIn ? "Todavía no hay operaciones" : "Abre la app e inicia sesión").font(.caption).foregroundStyle(.secondary)
                 } else {
                     Divider()
-                    ForEach(Array(entry.snapshot.operations.prefix(family == .systemLarge ? 5 : 1))) { place in
-                        Link(destination: PortalLink.url(recordID: place.id)) {
+                    ForEach(Array(operations.prefix(family == .systemLarge ? 5 : 1))) { operation in
+                        Link(destination: operation.businessID.map { PortalLink.url(recordID: $0) } ?? WidgetSection.earnings.url) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(place.name).font(.caption.weight(.semibold)).lineLimit(1)
-                                    Text("\(place.cardsSold) tarjetas · \(place.createdAt.formatted(.dateTime.day().month(.abbreviated)))").font(.caption2).foregroundStyle(.secondary)
+                                    Text(operation.name).font(.caption.weight(.semibold)).lineLimit(1)
+                                    Text(operation.date, format: .dateTime.day().month(.abbreviated)).font(.caption2).foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 4)
-                                Text(place.earnings, format: .currency(code: "EUR")).font(.caption.bold()).foregroundStyle(.green)
+                                Text(operation.amount, format: .currency(code: "EUR")).font(.caption.bold())
+                                    .foregroundStyle(operation.amount < 0 ? Color.orange : Color.green)
                             }.foregroundStyle(.primary)
                         }
                     }

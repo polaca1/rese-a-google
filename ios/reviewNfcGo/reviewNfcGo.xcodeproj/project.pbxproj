@@ -31,6 +31,11 @@
 		F10000000000000000000103 /* DashboardWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000103 /* DashboardWidgets.swift */; };
 		F10000000000000000000113 /* DashboardWidgets.swift in Widget Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000103 /* DashboardWidgets.swift */; };
 		F10000000000000000000114 /* VisitRecord.swift in Widget Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* VisitRecord.swift */; };
+		F10000000000000000000201 /* MoneyLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000201 /* MoneyLedger.swift */; };
+		F10000000000000000000202 /* MoneyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000202 /* MoneyView.swift */; };
+		F10000000000000000000203 /* ProductMetadataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000203 /* ProductMetadataService.swift */; };
+		F10000000000000000000204 /* ProfilePhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000204 /* ProfilePhoto.swift */; };
+		F10000000000000000000205 /* SearchSuggestions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000205 /* SearchSuggestions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -56,6 +61,11 @@
 		F20000000000000000000101 /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetData.swift; sourceTree = "<group>"; };
 		F20000000000000000000102 /* WidgetSharedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSharedStore.swift; sourceTree = "<group>"; };
 		F20000000000000000000103 /* DashboardWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardWidgets.swift; sourceTree = "<group>"; };
+		F20000000000000000000201 /* MoneyLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyLedger.swift; sourceTree = "<group>"; };
+		F20000000000000000000202 /* MoneyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyView.swift; sourceTree = "<group>"; };
+		F20000000000000000000203 /* ProductMetadataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductMetadataService.swift; sourceTree = "<group>"; };
+		F20000000000000000000204 /* ProfilePhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePhoto.swift; sourceTree = "<group>"; };
+		F20000000000000000000205 /* SearchSuggestions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchSuggestions.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -106,6 +116,11 @@
 				D20000000000000000000003 /* Info.plist */,
 				A20000000000000000000001 /* ReviewNfcGoApp.swift */,
 				A20000000000000000000002 /* ContentView.swift */,
+				F20000000000000000000205 /* SearchSuggestions.swift */,
+				F20000000000000000000204 /* ProfilePhoto.swift */,
+				F20000000000000000000203 /* ProductMetadataService.swift */,
+				F20000000000000000000202 /* MoneyView.swift */,
+				F20000000000000000000201 /* MoneyLedger.swift */,
 				F20000000000000000000102 /* WidgetSharedStore.swift */,
 				F20000000000000000000101 /* WidgetData.swift */,
 				F20000000000000000000001 /* MapFlightPlan.swift */,
@@ -252,6 +267,11 @@
 				D10000000000000000000002 /* PortalRouter.swift in Sources */,
 				A10000000000000000000001 /* ReviewNfcGoApp.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
+				F10000000000000000000205 /* SearchSuggestions.swift in Sources */,
+				F10000000000000000000204 /* ProfilePhoto.swift in Sources */,
+				F10000000000000000000203 /* ProductMetadataService.swift in Sources */,
+				F10000000000000000000202 /* MoneyView.swift in Sources */,
+				F10000000000000000000201 /* MoneyLedger.swift in Sources */,
 				F10000000000000000000103 /* DashboardWidgets.swift in Sources */,
 				F10000000000000000000102 /* WidgetSharedStore.swift in Sources */,
 				F10000000000000000000101 /* WidgetData.swift in Sources */,
@@ -323,7 +343,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = reviewNfcGo/Info.plist;
@@ -341,7 +361,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.4;
+				MARKETING_VERSION = 4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -358,7 +378,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = reviewNfcGo/Info.plist;
@@ -376,7 +396,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.4;
+				MARKETING_VERSION = 4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -391,7 +411,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = reviewNfcGoLiveActivity/Info.plist;
@@ -399,7 +419,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET_EXTENSION";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks");
-				MARKETING_VERSION = 3.4;
+				MARKETING_VERSION = 4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -412,7 +432,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = reviewNfcGoLiveActivity/Info.plist;
@@ -420,7 +440,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET_EXTENSION";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks");
-				MARKETING_VERSION = 3.4;
+				MARKETING_VERSION = 4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

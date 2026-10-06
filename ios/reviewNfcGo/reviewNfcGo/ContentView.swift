@@ -109,11 +109,12 @@ final class AuthStore: ObservableObject {
 @MainActor
 final class AppStore: ObservableObject {
     @Published var records: [VisitRecord] = []
+    @Published private(set) var money = MoneyLedger()
     @Published private(set) var hasLoadedRecords = false
     @Published private(set) var loadedUserEmail: String?
     private var userKey: String?
 
-    var totalEarnings: Double { records.reduce(0) { $0 + $1.earnings } }
+    var totalEarnings: Double { Double(money.incomeCents) / 100 }
     var totalCardsSold: Int { records.reduce(0) { $0 + $1.cardsSold } }
     var pendingReminders: [VisitRecord] {
         records.filter { $0.reminderDate != nil && $0.status != .completed }
@@ -124,6 +125,9 @@ final class AppStore: ObservableObject {
         hasLoadedRecords = false
         userKey = email
         load()
+        money = UserDefaults.standard.data(forKey: MoneyLedger.storageKey(email)).flatMap { try? JSONDecoder().decode(MoneyLedger.self, from: $0) } ?? MoneyLedger()
+        money.synchronize(records)
+        persistMoney()
         loadedUserEmail = email
         AlertHistoryStore.shared.switchUser(email, records: records)
         hasLoadedRecords = true
@@ -158,12 +162,15 @@ final class AppStore: ObservableObject {
         return record
     }
 
-    func update(_ record: VisitRecord) {
-        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
+    @discardableResult
+    func update(_ record: VisitRecord) -> Bool {
+        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return false }
         var value = record
         value.normalizeSales()
+        guard money.canAssign(value), MoneyLedger.cents(value.earnings) != nil else { return false }
         records[index] = value
         save()
+        return true
     }
 
     func delete(at offsets: IndexSet) {
@@ -185,6 +192,8 @@ final class AppStore: ObservableObject {
     }
 
     private func save() {
+        money.synchronize(records)
+        persistMoney()
         if let data = try? JSONEncoder().encode(records) {
             UserDefaults.standard.set(data, forKey: storageKey())
         }
@@ -193,8 +202,41 @@ final class AppStore: ObservableObject {
         publishWidgets()
     }
 
+    private func persistMoney() {
+        if let data = try? JSONEncoder().encode(money) { UserDefaults.standard.set(data, forKey: MoneyLedger.storageKey(userKey)) }
+    }
+    func addExpense(title: String, amount: Double, quantity: Int, productID: UUID?, newProduct: InventoryProduct?, date: Date,
+                    merchant: String, method: String, url: String, notes: String, replacing: UUID? = nil) throws {
+        var updated = money
+        // Insert replacement first so correcting the price of already-sold stock does not require returning it.
+        try updated.addExpense(title: title, amount: amount, quantity: quantity, productID: productID, newProduct: newProduct,
+            date: date, merchant: merchant, method: method, url: url, notes: replacing == nil ? notes : "Corrección de gasto. " + notes)
+        if let replacing { try updated.reverseExpense(replacing) }
+        if let id = productID, let index = updated.products.firstIndex(where: { $0.id == id }), !url.isEmpty {
+            updated.products[index].purchaseURL = url
+        }
+        money = updated; persistMoney(); publishWidgets()
+    }
+    func reverseExpense(_ id: UUID) throws {
+        var updated = money; try updated.reverseExpense(id)
+        money = updated; persistMoney(); publishWidgets()
+    }
+    func adjustStock(_ id: UUID, quantity: Int, reason: String) throws {
+        var updated = money; try updated.adjustStock(id, quantity: quantity, reason: reason)
+        money = updated; persistMoney(); publishWidgets()
+    }
     private func publishWidgets() {
-        WidgetSharedStore.publish(WidgetSnapshot(records: records, isSignedIn: userKey != nil))
+        var snapshot = WidgetSnapshot(records: records, isSignedIn: userKey != nil)
+        if userKey != nil {
+            snapshot.moneyBalance = Double(money.balanceCents) / 100
+            snapshot.moneyExpenses = Double(money.expenseCents) / 100
+            snapshot.totalEarnings = totalEarnings
+            snapshot.moneyOperations = money.history.filter { $0.cents != 0 }.prefix(10).map {
+                WidgetMoneyOperation(id: $0.id, name: $0.title, amount: $0.amount, date: $0.date,
+                    businessID: $0.businessID.flatMap { id in records.contains(where: { $0.id == id }) ? id : nil })
+            }
+        }
+        WidgetSharedStore.publish(snapshot)
     }
 }
 
@@ -212,6 +254,7 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var userLocation: CLLocationCoordinate2D?
     @Published var selectedPlace: PlaceResult?
     @Published private(set) var mapFocus: MapFocusRequest?
+    @Published private(set) var searchResults: [PlaceResult] = []
     @Published var isLoading = false
     @Published var status = "Buscando tu ubicación…"
     @Published var errorMessage: String?
@@ -317,23 +360,32 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
     }
 
-    func searchByName(_ query: String) async {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let revision = UUID()
-        searchRevision = revision
-        isLoading = true
-        errorMessage = nil
+    func beginNameSearch(_ query: String, saved: [PlaceResult]) {
+        searchRevision = UUID(); isLoading = false; errorMessage = nil
+        if !query.isEmpty { didInitialSearch = true }
+        searchResults = SearchSuggestions.savedMatches(query, places: saved)
+    }
+    func chooseSearchResult(_ place: PlaceResult) {
+        searchRevision = UUID(); isLoading = false; searchResults = []
+        selectPlace(place, focus: true); status = "Negocio seleccionado"
+    }
+    func searchByName(_ query: String, saved: [PlaceResult] = []) async {
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 2 else { return }
+        let revision = UUID(); searchRevision = revision; didInitialSearch = true
+        isLoading = true; errorMessage = nil
         defer { if searchRevision == revision { isLoading = false } }
         do {
             let results = try await GooglePlacesService(apiKey: apiKey).textSearch(query: query, bias: userLocation)
-            guard searchRevision == revision else { return }
-            selectPlace(results.first, focus: true)
-            status = results.isEmpty ? "No se encontró ese negocio." : "Negocio seleccionado"
+            guard !Task.isCancelled, searchRevision == revision else { return }
+            searchResults = SearchSuggestions.merge(local: SearchSuggestions.savedMatches(query, places: saved), remote: results)
+            status = searchResults.isEmpty ? "No se han encontrado coincidencias." : "Elige un resultado para enfocarlo"
         } catch {
-            guard searchRevision == revision else { return }
-            errorMessage = "No se pudo buscar: \(error.localizedDescription)"
+            guard !Task.isCancelled, searchRevision == revision else { return }
+            errorMessage = "No se pudo buscar en Google. Puedes elegir una coincidencia guardada o volver a intentarlo."
         }
     }
+
 }
 
 struct GooglePlacesService {
@@ -628,8 +680,8 @@ struct MainTabView: View {
                     }
             }
                 .tabItem { Label("Sitios", systemImage: "clock.fill") }.tag(1)
-            NavigationStack { EarningsView() }
-                .tabItem { Label("Ganancias", systemImage: "eurosign.circle.fill") }.tag(2)
+            NavigationStack { MoneyView() }
+                .tabItem { Label("Dinero", systemImage: "eurosign.circle.fill") }.tag(2)
             NavigationStack { RemindersView() }
                 .tabItem { Label("Avisos", systemImage: "bell.fill") }.tag(3)
             NavigationStack { ProfileView() }
@@ -682,6 +734,8 @@ struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @StateObject private var finder = PlaceFinder()
     @State private var searchText = ""
+    @State private var showSearchResults = false
+    @FocusState private var searchFocused: Bool
     @State private var showSavedToast = false
     @State private var reminderPlace: PlaceResult?
     @EnvironmentObject private var portalRouter: PortalRouter
@@ -690,7 +744,10 @@ struct HomeView: View {
         ScrollView {
             VStack(spacing: 16) {
                 header
-                searchBar
+                VStack(spacing: 8) {
+                    searchBar
+                    if showSearchResults && searchText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 { searchSuggestions }
+                }
                 NativeMapView(selectedPlace: finder.selectedPlace, focusRequest: finder.mapFocus) { coordinate in
                     Task { await finder.searchNearest(to: coordinate) }
                 }
@@ -728,6 +785,17 @@ struct HomeView: View {
             finder.start()
         }
         .onDisappear { reminderPlace = nil }
+        .onChange(of: searchText) { query in
+            showSearchResults = true
+            finder.beginNameSearch(query, saved: store.records.map(\.place))
+        }
+        .task(id: searchText) {
+            let query = searchText
+            guard showSearchResults, query.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 else { return }
+            do { try await Task.sleep(nanoseconds: 450_000_000) } catch { return }
+            guard !Task.isCancelled else { return }
+            await finder.searchByName(query, saved: store.records.map(\.place))
+        }
         .overlay(alignment: .top) {
             if showSavedToast {
                 Text("Enlace copiado y sitio guardado")
@@ -758,7 +826,7 @@ struct HomeView: View {
                     .font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer()
-            LogoMark(size: 42)
+            ProfileAvatar(size: 42)
         }
         .padding(.top, 12)
     }
@@ -767,12 +835,49 @@ struct HomeView: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
             TextField("Buscar negocio por nombre", text: $searchText)
-                .submitLabel(.search)
-                .onSubmit { Task { await finder.searchByName(searchText) } }
+                .submitLabel(.search).focused($searchFocused).autocorrectionDisabled()
+                .onSubmit { searchFocused = false; showSearchResults = true; Task { await finder.searchByName(searchText, saved: store.records.map(\.place)) } }
             if finder.isLoading { ProgressView().controlSize(.small) }
-        }
-        .padding(13)
-        .appGlassField()
+            if !searchText.isEmpty {
+                Button { searchText = ""; showSearchResults = false; finder.beginNameSearch("", saved: []) } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                    .accessibilityLabel("Borrar búsqueda")
+            }
+        }.padding(.horizontal, 18).padding(.vertical, 16).appGlassSearch()
+    }
+    private var searchSuggestions: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Coincidencias y recomendaciones").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Spacer()
+                Button { showSearchResults = false; searchFocused = false } label: { Image(systemName: "chevron.up") }.accessibilityLabel("Ocultar resultados")
+            }.padding(.horizontal, 16).padding(.vertical, 12)
+            if finder.searchResults.isEmpty {
+                Text(finder.isLoading ? "Buscando coincidencias…" : "Escribe el nombre y la ciudad para afinar la búsqueda.")
+                    .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.bottom, 14)
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(finder.searchResults) { place in
+                            Button {
+                                showSearchResults = false; searchFocused = false
+                                finder.chooseSearchResult(place)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "mappin.circle.fill").font(.title3).foregroundStyle(AppTheme.blue)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(place.name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(2)
+                                        Text(place.address).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                    }
+                                    Spacer(minLength: 0)
+                                    Image(systemName: "arrow.up.left").font(.caption).foregroundStyle(.secondary)
+                                }.padding(.horizontal, 16).padding(.vertical, 12).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                            if place.id != finder.searchResults.last?.id { Divider().padding(.leading, 48) }
+                        }
+                    }
+                }.frame(maxHeight: min(280, CGFloat(finder.searchResults.count) * 82))
+            }
+        }.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private var statusRow: some View {
@@ -783,6 +888,7 @@ struct HomeView: View {
             Spacer()
             if let coordinate = finder.userLocation {
                 Button("Mi ubicación") {
+                    showSearchResults = false; searchFocused = false
                     finder.focusOnUserLocation()
                     Task { await finder.searchNearest(to: coordinate, focusResult: false) }
                 }
@@ -1427,7 +1533,7 @@ struct RecordEditView: View {
     }
     private var earningsAreValid: Bool {
         guard draft != nil, let amount = parsedUnitEarnings, let total = calculatedTotal else { return false }
-        return amount <= VisitRecord.maximumEarningsPerCard && total.isFinite
+        return amount <= VisitRecord.maximumEarningsPerCard && MoneyLedger.cents(total) != nil && store.money.canAssign(draft!)
     }
 
     var body: some View {
@@ -1456,8 +1562,19 @@ struct RecordEditView: View {
                     TextField("Notas", text: binding.notes, axis: .vertical).lineLimit(3...7).focused($focusedField, equals: .notes)
                 }
                 Section {
-                    Stepper(value: binding.cardsSold, in: (isSold ? 1 : 0)...Int.max) {
+                    Stepper(value: binding.cardsSold, in: (isSold ? 1 : 0)...max(100_000, original?.cardsSold ?? 0)) {
                         LabeledContent("Tarjetas vendidas", value: "\(binding.wrappedValue.cardsSold)")
+                    }
+                    if !store.money.products.filter({ $0.kind == .nfcCard }).isEmpty {
+                        Picker("Tarjeta / color", selection: binding.inventoryProductID) {
+                            Text("Sin asignar inventario").tag(UUID?.none)
+                            ForEach(store.money.products.filter { $0.kind == .nfcCard }) { product in
+                                Text("\(product.displayName) (\(store.money.stock(product.id)) disponibles)").tag(Optional(product.id))
+                            }
+                        }
+                        if !store.money.canAssign(binding.wrappedValue) {
+                            Text("No hay suficientes tarjetas de este color. Registra la compra en Dinero o revisa la cantidad.").font(.footnote).foregroundStyle(.red)
+                        }
                     }
                     HStack {
                         Text("Ganancia por tarjeta"); Spacer()
@@ -1582,62 +1699,11 @@ struct RecordEditView: View {
             if value.notificationDate == nil || value.notificationDate! <= Date() { value.notificationDate = min(Date().addingTimeInterval(60), value.reminderDate!) }
             if value.notificationDate! > value.reminderDate! { value.notificationDate = value.reminderDate }
         }
-        store.update(value)
+        guard store.update(value) else { return }
         original = value; draft = value; dismiss()
     }
 
 
-}
-
-// MARK: - Earnings
-
-struct EarningsView: View {
-    @EnvironmentObject var store: AppStore
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("TOTAL GANADO").font(.caption.bold()).foregroundStyle(.secondary)
-                    Text(store.totalEarnings, format: .currency(code: "EUR"))
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
-                    Text("Suma de las cantidades que has apuntado en tus visitas.")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(20)
-                .background(Color(uiColor: .systemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Historial").font(.headline).padding(16)
-                    Divider()
-                    ForEach(store.records.filter { $0.earnings > 0 }) { record in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(record.place.name).font(.subheadline.weight(.semibold))
-                                Text(record.cardsSoldDescription).font(.caption).foregroundStyle(.secondary)
-                                Text(record.createdAt, style: .date).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(record.earnings, format: .currency(code: "EUR")).bold()
-                        }
-                        .padding(16)
-                        Divider().padding(.leading, 16)
-                    }
-                    if !store.records.contains(where: { $0.earnings > 0 }) {
-                        Text("Aún no has registrado ganancias.")
-                            .foregroundStyle(.secondary).padding(16)
-                    }
-                }
-                .background(Color(uiColor: .systemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            }
-            .padding(16)
-        }
-        .background(AppTheme.background)
-        .navigationTitle("Ganancias")
-    }
 }
 
 // MARK: - Reminders
@@ -1788,23 +1854,24 @@ struct ProfileView: View {
         List {
             Section {
                 HStack(spacing: 14) {
-                    LogoMark(size: 54)
+                    ProfileAvatar(size: 64)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(auth.currentUser?.name ?? "").font(.headline)
                         Text(auth.currentUser?.email ?? "").font(.subheadline).foregroundStyle(.secondary)
                     }
                 }.padding(.vertical, 8)
+                ProfilePhotoPicker()
             }
             Section("Resumen") {
                 LabeledContent("Sitios guardados", value: "\(store.records.count)")
-                LabeledContent("Ganancias", value: store.totalEarnings.formatted(.currency(code: "EUR")))
+                LabeledContent("Saldo", value: (Double(store.money.balanceCents) / 100).formatted(.currency(code: "EUR")))
                 LabeledContent("Tarjetas vendidas", value: "\(store.totalCardsSold)")
                 LabeledContent("Recordatorios", value: "\(store.pendingReminders.count)")
             }
             Section("Acerca de reviewNfcGo") {
                 Text("Desarrollado por Pablo Cancho Flores")
                     .font(.subheadline)
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.4")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.0")
             }
             Section("Cuenta") {
                 Text("Esta versión guarda la cuenta y sus datos localmente en este iPhone. No se envían a un servidor.")
@@ -1831,6 +1898,11 @@ struct LogoMark: View {
 }
 
 extension View {
+    @ViewBuilder
+    func appGlassSearch() -> some View {
+        if #available(iOS 26.0, *) { self.glassEffect(.regular, in: .capsule) }
+        else { self.background(.ultraThinMaterial, in: Capsule()) }
+    }
     @ViewBuilder
     func appGlassField() -> some View {
         if #available(iOS 26.0, *) {
@@ -1920,18 +1992,17 @@ enum MapCameraVerification {
             samples.removeAll()
             finder.selectPlace(seville, focus: true)
             try await assertFocus(map, on: seville.coordinate, label: "Búsqueda lejos de la ubicación", checks: &checks)
-            guard let out = samples.first(where: { $0.phase == .zoomOut }),
-                  let travel = samples.first(where: { $0.phase == .travel }),
-                  let zoomIn = samples.first(where: { $0.phase == .zoomIn }),
-                  let middle = samples.first(where: { $0.phase == .travel && $0.elapsed > 1.1 && $0.elapsed < 1.25 }),
+            guard let early = samples.first(where: { $0.elapsed > 0.35 && $0.elapsed < 0.55 }),
+                  let middle = samples.first(where: { $0.elapsed > 1.05 && $0.elapsed < 1.25 }),
+                  let late = samples.first(where: { $0.elapsed > 1.8 && $0.elapsed < 2.0 }),
                   let finish = samples.first(where: { $0.phase == .finished }),
-                  abs((zoomIn.elapsed - travel.elapsed) - 1) < 0.15,
-                  travel.rect.width > out.rect.width * 20,
-                  finish.rect.width < travel.rect.width / 20,
-                  hypot(middle.rect.midX - out.rect.midX, middle.rect.midY - out.rect.midY) > 10000,
-                  hypot(middle.rect.midX - finish.rect.midX, middle.rect.midY - finish.rect.midY) > 10000
-            else { throw VerificationError.failed("Alejar, viajar un segundo y acercar") }
-            checks.append("Alejar según distancia, desplazarse un segundo y acercar")
+                  middle.rect.width > early.rect.width * 5,
+                  finish.rect.width < middle.rect.width / 20,
+                  hypot(middle.rect.midX - early.rect.midX, middle.rect.midY - early.rect.midY) > 10000,
+                  hypot(middle.rect.midX - late.rect.midX, middle.rect.midY - late.rect.midY) > 10000,
+                  hypot(late.rect.midX - finish.rect.midX, late.rect.midY - finish.rect.midY) > 1
+            else { throw VerificationError.failed("Desplazamiento y zoom simultáneos") }
+            checks.append("Desplazamiento y zoom simultáneos en una curva continua")
             finder.locationManager(CLLocationManager(), didUpdateLocations: [madrid])
             try await Task.sleep(nanoseconds: 500_000_000)
             try await assertFocus(map, on: seville.coordinate, label: "El GPS no interrumpe el negocio buscado", checks: &checks)

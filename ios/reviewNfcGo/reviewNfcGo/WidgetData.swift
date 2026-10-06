@@ -12,6 +12,14 @@ struct WidgetPlace: Codable, Identifiable, Equatable {
     let earnings: Double
 }
 
+struct WidgetMoneyOperation: Codable, Identifiable, Equatable {
+    let id: UUID
+    let name: String
+    let amount: Double
+    let date: Date
+    let businessID: UUID?
+}
+
 struct WidgetSnapshot: Codable, Equatable {
     var isSignedIn: Bool
     var updatedAt: Date
@@ -19,6 +27,11 @@ struct WidgetSnapshot: Codable, Equatable {
     var operations: [WidgetPlace]
     var totalEarnings: Double
     var totalCards: Int
+    var moneyBalance: Double? = nil
+    var moneyExpenses: Double? = nil
+    var moneyOperations: [WidgetMoneyOperation]? = nil
+    var balance: Double { moneyBalance ?? totalEarnings }
+    var expenses: Double { moneyExpenses ?? 0 }
 
     static let empty = WidgetSnapshot(isSignedIn: false, updatedAt: .distantPast,
         pending: [], operations: [], totalEarnings: 0, totalCards: 0)

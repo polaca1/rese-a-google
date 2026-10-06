@@ -1,70 +1,53 @@
 import Foundation
 
-// Projected coordinates keep zoom and travel proportional to the visible viewport.
+/// Continuous pan/zoom in projected space: a zooming camera follows the same smooth
+/// curve as its moving center, with no pauses or separate animation stages.
 struct MapFlightPlan {
-    struct Viewport {
-        let x: Double
-        let y: Double
-        let width: Double
-        let height: Double
-    }
-    enum Phase: String { case zoomOut, travel, zoomIn, finished }
-    struct Frame {
-        let viewport: Viewport
-        let phase: Phase
-    }
-    static let zoomDuration = 0.65
-    static let travelDuration = 1.0
-    static let duration = zoomDuration * 2 + travelDuration
+    struct Viewport { let x: Double; let y: Double; let width: Double; let height: Double }
+    enum Phase: String { case flight, finished }
+    struct Frame { let viewport: Viewport; let phase: Phase }
+    static let duration = 2.3
     let start: Viewport
     let destination: Viewport
-    let overviewWidth: Double
-    let overviewHeight: Double
+    private let distance: Double
+    private let r0: Double
+    private let pathLength: Double
+    private let rho = sqrt(2.0)
 
     init(start: Viewport, destination: Viewport, worldWidth: Double) {
         self.start = start
-        // Take the short route across the date line, including wrapped map views.
         var dx = (destination.x - start.x).truncatingRemainder(dividingBy: worldWidth)
         if dx > worldWidth / 2 { dx -= worldWidth }
         if dx < -worldWidth / 2 { dx += worldWidth }
-        self.destination = Viewport(x: start.x + dx, y: destination.y,
-                                    width: destination.width, height: destination.height)
+        self.destination = Viewport(x: start.x + dx, y: destination.y, width: destination.width, height: destination.height)
         let aspect = start.width / start.height
-        // The one-second journey spans at most 70% of either viewport dimension.
-        // This determines the zoom-out from distance, rather than an arbitrary zoom level.
-        let neededWidth = max(abs(dx) / 0.7, abs(destination.y - start.y) * aspect / 0.7)
-        overviewWidth = max(start.width, destination.width, neededWidth)
-        overviewHeight = overviewWidth / aspect
+        let d = hypot(dx, (destination.y - start.y) * aspect)
+        distance = d
+        if d > 0.000001 {
+            let w0 = start.width, w1 = destination.width
+            let common = w1 * w1 - w0 * w0
+            let b0 = (common + 4 * d * d) / (4 * w0 * d)
+            let b1 = (common - 4 * d * d) / (4 * w1 * d)
+            r0 = -asinh(b0)
+            pathLength = (-asinh(b1) - r0) / sqrt(2)
+        } else { r0 = 0; pathLength = 0 }
     }
-
     func frame(at elapsed: Double) -> Frame {
-        let zoom = Self.zoomDuration
-        if elapsed < zoom {
-            let t = Self.ease(elapsed / zoom)
-            return Frame(viewport: Viewport(x: start.x, y: start.y,
-                width: Self.zoom(start.width, overviewWidth, t),
-                height: Self.zoom(start.height, overviewHeight, t)), phase: .zoomOut)
+        if elapsed <= 0 { return Frame(viewport: start, phase: .flight) }
+        if elapsed >= Self.duration { return Frame(viewport: destination, phase: .finished) }
+        let t = elapsed / Self.duration
+        let eased = t * t * t * (t * (t * 6 - 15) + 10)
+        let progress: Double, width: Double
+        if distance > 0.000001 {
+            let s = eased * pathLength
+            progress = min(1, max(0, start.width / (rho * rho * distance) * (cosh(r0) * tanh(rho * s + r0) - sinh(r0))))
+            width = start.width * cosh(r0) / cosh(rho * s + r0)
+        } else {
+            progress = eased
+            width = exp(log(start.width) + (log(destination.width) - log(start.width)) * eased)
         }
-        if elapsed < zoom + Self.travelDuration {
-            let t = Self.ease((elapsed - zoom) / Self.travelDuration)
-            return Frame(viewport: Viewport(x: start.x + (destination.x - start.x) * t,
-                y: start.y + (destination.y - start.y) * t,
-                width: overviewWidth, height: overviewHeight), phase: .travel)
-        }
-        if elapsed < Self.duration {
-            let t = Self.ease((elapsed - zoom - Self.travelDuration) / zoom)
-            return Frame(viewport: Viewport(x: destination.x, y: destination.y,
-                width: Self.zoom(overviewWidth, destination.width, t),
-                height: Self.zoom(overviewHeight, destination.height, t)), phase: .zoomIn)
-        }
-        return Frame(viewport: destination, phase: .finished)
-    }
-
-    private static func ease(_ t: Double) -> Double {
-        let t = min(1, max(0, t))
-        return t * t * (3 - 2 * t)
-    }
-    private static func zoom(_ from: Double, _ to: Double, _ t: Double) -> Double {
-        exp(log(from) + (log(to) - log(from)) * t)
+        let aspect = exp(log(start.width / start.height) + (log(destination.width / destination.height) - log(start.width / start.height)) * eased)
+        return Frame(viewport: Viewport(x: start.x + (destination.x - start.x) * progress,
+            y: start.y + (destination.y - start.y) * progress, width: width, height: width / aspect), phase: .flight)
     }
 }

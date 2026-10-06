@@ -40,3 +40,19 @@ xcrun swiftc -parse-as-library -swift-version 5 \
     "$task_project_dir/Tests/WidgetDataTests.swift" \
     -o "$task_test_dir/widget-tests"
 "$task_test_dir/widget-tests"
+xcrun swiftc -parse-as-library -swift-version 5 \
+    -module-cache-path "$task_test_dir/ModuleCache" \
+    "$task_project_dir/reviewNfcGo/VisitRecord.swift" \
+    "$task_project_dir/reviewNfcGo/MoneyLedger.swift" \
+    "$task_project_dir/Tests/MoneyTests.swift" \
+    -o "$task_test_dir/money-tests"
+"$task_test_dir/money-tests"
+xcrun swiftc -parse-as-library -swift-version 5 \
+    -module-cache-path "$task_test_dir/ModuleCache" \
+    "$task_project_dir/reviewNfcGo/VisitRecord.swift" \
+    "$task_project_dir/reviewNfcGo/MoneyLedger.swift" \
+    "$task_project_dir/reviewNfcGo/ProductMetadataService.swift" \
+    "$task_project_dir/reviewNfcGo/SearchSuggestions.swift" \
+    "$task_project_dir/Tests/ProductAndSearchTests.swift" \
+    -o "$task_test_dir/product-search-tests"
+"$task_test_dir/product-search-tests"
