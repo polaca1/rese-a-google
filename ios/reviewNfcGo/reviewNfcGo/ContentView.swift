@@ -544,7 +544,7 @@ struct RootView: View {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--verification-widgets") {
                 WidgetVerificationView()
-            } else if ProcessInfo.processInfo.arguments.contains("--verification-dates") {
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-dates") || ProcessInfo.processInfo.arguments.contains("--verification-reminder-save") {
                 QuickReminderView(place: PlaceResult(id: "date-verification", name: "Negocio de prueba", address: "Calle Mayor, Madrid", latitude: 40.4168, longitude: -3.7038))
             } else {
                 authenticatedContent
@@ -793,7 +793,6 @@ struct HomeView: View {
             #endif
             finder.start()
         }
-        .onDisappear { reminderPlace = nil }
         .onChange(of: searchText) { query in
             showSearchResults = true
             #if DEBUG
@@ -1033,6 +1032,7 @@ struct HomeView: View {
 
 // Keep the two native compact controls on the same row as their label.
 struct InlineDateTimePicker: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let title: String
     @Binding var selection: Date
     let range: ClosedRange<Date>
@@ -1045,8 +1045,8 @@ struct InlineDateTimePicker: View {
         self.title = title; _selection = selection; self.range = range
     }
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Text(title).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+        (typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(alignment: .center, spacing: 8))) {
+            Text(title).lineLimit(typeSize.isAccessibilitySize ? nil : 2).frame(maxWidth: .infinity, alignment: .leading)
                 #if DEBUG
                 .background(GeometryReader { geometry in
                     Color.clear.onAppear { DateRowVerification.observe(title: title, component: "label", frame: geometry.frame(in: .global)) }
@@ -1090,10 +1090,19 @@ struct QuickReminderView: View {
     @State private var visitDate = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date().addingTimeInterval(86400)
     @State private var notificationDate = Calendar.current.date(byAdding: .hour, value: 23, to: Date()) ?? Date().addingTimeInterval(82800)
     @State private var notes = ""
-    @State private var showNotificationHelp = false
+    @State private var validationMessage: String?
+    // A fixed, whole-minute boundary keeps the compact picker's displayed values
+    // in sync with its binding, including while editing a visit near the present.
+    @State private var minimumDate = Date(timeIntervalSince1970: (floor(Date().timeIntervalSince1970 / 60) + 1) * 60)
     @FocusState private var notesFocused: Bool
 
-    private var minimumDate: Date { Date().addingTimeInterval(5) }
+    private var visitSelection: Binding<Date> {
+        Binding(get: { visitDate }, set: { newDate in
+            visitDate = max(newDate, minimumDate)
+            notificationDate = min(max(notificationDate, minimumDate), visitDate)
+            validationMessage = nil
+        })
+    }
 
     var body: some View {
         NavigationStack {
@@ -1103,13 +1112,15 @@ struct QuickReminderView: View {
                     Text(place.address).font(.subheadline).foregroundStyle(.secondary)
                 }
                 Section("Visita") {
-                    InlineDateTimePicker("Fecha y hora de la visita", selection: $visitDate, in: minimumDate...)
-                        .onChange(of: visitDate) { newValue in
-                            if notificationDate > newValue { notificationDate = newValue }
-                        }
+                    InlineDateTimePicker("Fecha y hora de la visita", selection: visitSelection, in: minimumDate...)
                     InlineDateTimePicker("Avisarme el", selection: $notificationDate, in: minimumDate...max(visitDate, minimumDate))
-                    Text("La visita y el aviso no pueden estar en el pasado. Puedes hacer que el aviso llegue antes de la hora de la visita.")
+                    Text("El aviso puede ser anterior a la visita. Si su hora pasa mientras editas, se programará para el próximo minuto disponible.")
                         .font(.footnote).foregroundStyle(.secondary)
+                    if let validationMessage {
+                        Label(validationMessage, systemImage: "exclamationmark.circle")
+                            .font(.footnote).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("reminder-validation")
+                    }
                 }
                 Section("Nota opcional") {
                     TextField("Ej. Preguntar por el encargado", text: $notes, axis: .vertical)
@@ -1133,19 +1144,83 @@ struct QuickReminderView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Guardar") {
-                        notesFocused = false
-                        guard visitDate > Date(), notificationDate > Date(), notificationDate <= visitDate else { return }
-                        _ = store.saveReminder(for: place, visitDate: visitDate, notificationDate: notificationDate, notes: notes)
-                        dismiss()
-                    }.bold()
+                    Button("Guardar") { saveReminder() }.appConfirmationButton()
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer(); Button("OK") { notesFocused = false }
                 }
             }
+            #if DEBUG
+            .task {
+                if ProcessInfo.processInfo.arguments.contains("--verification-reminder-save") {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    verifyReminderSaving()
+                }
+            }
+            #endif
         }
     }
+
+    @discardableResult
+    private func saveReminder(dismissAfterSaving: Bool = true) -> VisitRecord? {
+        notesFocused = false
+        let now = Date()
+        // Compact controls expose minutes, so hidden seconds must not make the
+        // same visible visit and notification time fail the ordering check.
+        let visit = Date(timeIntervalSince1970: floor(visitDate.timeIntervalSince1970 / 60) * 60)
+        guard visit > now else {
+            minimumDate = Date(timeIntervalSince1970: (floor(now.timeIntervalSince1970 / 60) + 1) * 60)
+            validationMessage = "La hora de la visita ya ha pasado. Elige una fecha y hora futuras para guardar."
+            return nil
+        }
+        let selectedNotice = Date(timeIntervalSince1970: floor(notificationDate.timeIntervalSince1970 / 60) * 60)
+        // If the form stayed open past the notice, save the upcoming visit and
+        // schedule its notice for the next available minute, never after it.
+        let nextMinute = Date(timeIntervalSince1970: (floor(now.timeIntervalSince1970 / 60) + 1) * 60)
+        let notice = min(visit, selectedNotice > now ? selectedNotice : nextMinute)
+        visitDate = visit; notificationDate = notice; validationMessage = nil
+        let record = store.saveReminder(for: place, visitDate: visit, notificationDate: notice, notes: notes)
+        if dismissAfterSaving { dismiss() }
+        return record
+    }
+
+    #if DEBUG
+    private func verifyReminderSaving() {
+        var checks: [String: Bool] = [:]
+        let originalUser = store.loadedUserEmail
+        let testUser = "reminder-verification@example.invalid"
+        UserDefaults.standard.removeObject(forKey: "resenago.records.\(testUser)")
+        UserDefaults.standard.removeObject(forKey: MoneyLedger.storageKey(testUser))
+        store.switchUser(testUser)
+        let now = Date()
+        visitDate = now.addingTimeInterval(7200); notificationDate = now.addingTimeInterval(10800)
+        notes = "Comprobar guardado real"
+        let first = saveReminder(dismissAfterSaving: false)
+        checks["Guarda el negocio y ajusta un aviso posterior a la visita"] = first?.notificationDate == first?.reminderDate && first != nil
+        if let first {
+            let owner = store.loadedUserEmail
+            store.switchUser(owner)
+            let restored = store.records.first { $0.id == first.id }
+            checks["La visita, el aviso y las notas sobreviven a la recarga"] = restored?.reminderDate == first.reminderDate && restored?.notificationDate == first.notificationDate && restored?.notes == notes
+            checks["Aparece en los recordatorios pendientes"] = store.pendingReminders.contains { $0.id == first.id }
+            notificationDate = now.addingTimeInterval(-120)
+            let updated = saveReminder(dismissAfterSaving: false)
+            checks["Guardar con un aviso caducado conserva la visita y programa un aviso futuro"] = updated?.id == first.id && (updated?.notificationDate ?? .distantPast) > now
+            checks["Editar el recordatorio no duplica el negocio"] = store.records.filter { $0.place.id == place.id }.count == 1
+            visitDate = now.addingTimeInterval(-60)
+            checks["Una visita pasada muestra un error y conserva lo guardado"] = saveReminder(dismissAfterSaving: false) == nil && validationMessage != nil && store.records.first(where: { $0.id == first.id })?.reminderDate == updated?.reminderDate
+            visitDate = now.addingTimeInterval(3600)
+            notificationDate = visitDate.addingTimeInterval(20)
+            let sameMinute = saveReminder(dismissAfterSaving: false)
+            checks["Los segundos ocultos no impiden guardar la misma hora visible"] = sameMinute != nil && sameMinute?.notificationDate == sameMinute?.reminderDate
+        }
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("reminder-save-verification.json")
+        try? JSONSerialization.data(withJSONObject: ["passed": checks.count == 7 && checks.values.allSatisfy { $0 }, "checks": checks], options: .prettyPrinted).write(to: url)
+        store.switchUser(originalUser)
+        UserDefaults.standard.removeObject(forKey: "resenago.records.\(testUser)")
+        UserDefaults.standard.removeObject(forKey: MoneyLedger.storageKey(testUser))
+    }
+    #endif
 }
 
 // MARK: - Native MapKit map
@@ -1660,7 +1735,7 @@ struct RecordEditView: View {
                 Button { focusedField = nil; attemptDismiss() } label: { Label("Atrás", systemImage: "chevron.left") }
             }
             ToolbarItem(id: "save-business-record", placement: .confirmationAction) {
-                Button("Guardar") { saveAndDismiss() }.bold().disabled(!earningsAreValid)
+                Button("Guardar") { saveAndDismiss() }.appConfirmationButton().disabled(!earningsAreValid)
             }
             ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("OK") { focusedField = nil } }
         }
@@ -1888,7 +1963,7 @@ struct ProfileView: View {
             Section("Acerca de reviewNfcGo") {
                 Text("Desarrollado por Pablo Cancho Flores")
                     .font(.subheadline)
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.0")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.1")
             }
             Section("Cuenta") {
                 Text("Esta versión guarda la cuenta y sus datos localmente en este iPhone. No se envían a un servidor.")
@@ -1939,6 +2014,15 @@ extension View {
     }
 
     /// Use Apple's actual interactive button styles, including system accessibility.
+    @ViewBuilder
+    func appConfirmationButton() -> some View {
+        if #available(iOS 26.0, *) {
+            self.bold().buttonBorderShape(.capsule).buttonStyle(.glassProminent).tint(AppTheme.blue)
+        } else {
+            self.bold()
+        }
+    }
+
     @ViewBuilder
     func appPrimaryButton() -> some View {
         if #available(iOS 26.0, *) {

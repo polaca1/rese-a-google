@@ -133,6 +133,20 @@ assert result['passed'] and result['rows']==2,result
 PYCHECK
 xcrun simctl io "$task_device" screenshot "$task_output_dir/reminder-dates-light.png"
 
+# Call the real form save handler, reload persisted data and verify edge cases.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-reminder-save
+for task_attempt in $(seq 1 25); do
+    if [ -f "$task_container/Documents/reminder-save-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/reminder-save-verification.json" "$task_output_dir/reminder-save-verification.log"
+python3 - "$task_output_dir/reminder-save-verification.log" <<'PYCHECK'
+import json,sys
+result=json.load(open(sys.argv[1]));print(json.dumps(result,ensure_ascii=False,indent=2))
+assert result['passed'] and len(result['checks'])==7,result
+PYCHECK
+
 # Use the same widget views/providers as the extension, with real MapKit snapshots and App Group data.
 xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-widgets

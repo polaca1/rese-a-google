@@ -2,6 +2,8 @@ import SwiftUI
 
 struct MoneyView: View {
     @EnvironmentObject private var store: AppStore
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .largeTitle) private var balanceFontSize = 42.0
     @State private var showExpense = false
     @State private var filter = "Todos"
     @State private var detail: MoneyTransaction?
@@ -17,11 +19,10 @@ struct MoneyView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("SALDO DISPONIBLE").font(.caption.bold()).foregroundStyle(.secondary)
                     Text(Double(store.money.balanceCents) / 100, format: .currency(code: "EUR"))
-                        .font(.system(size: 42, weight: .bold, design: .rounded)).minimumScaleFactor(0.6).lineLimit(1)
+                        .font(.system(size: balanceFontSize, weight: .bold, design: .rounded)).minimumScaleFactor(0.6).lineLimit(1)
                         .foregroundStyle(store.money.balanceCents < 0 ? Color.red : Color.primary)
-                    HStack {
+                    (typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout(spacing: 24))) {
                         summary("Ingresos", cents: store.money.incomeCents, color: .green)
-                        Spacer()
                         summary("Gastos", cents: store.money.expenseCents, color: .orange)
                     }
                     Text("Ingresos de negocios menos gastos. El saldo puede ser negativo.").font(.footnote).foregroundStyle(.secondary)
@@ -38,9 +39,13 @@ struct MoneyView: View {
                 }
             }
             Section {
-                Picker("Movimientos", selection: $filter) {
-                    ForEach(["Todos", "Ingresos", "Gastos"], id: \.self) { Text($0).tag($0) }
-                }.pickerStyle(.segmented).listRowBackground(Color.clear).listRowInsets(EdgeInsets())
+                historyFilter
+                    .padding(.vertical, 6)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
+            } header: { Text("Historial detallado") }
+            Section {
                 if history.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Tu dinero, en un mismo lugar").font(.headline)
@@ -55,8 +60,9 @@ struct MoneyView: View {
                         NavigationLink { MoneyTransactionView(transactionID: transaction.id) } label: { MoneyRow(transaction: transaction) }
                     }
                 }
-            } header: { Text("Historial detallado") }
+            }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("Dinero")
         .toolbar { ToolbarItem(placement: .primaryAction) { Button { showExpense = true } label: { Image(systemName: "plus") }.accessibilityLabel("Añadir gasto") } }
         .sheet(isPresented: $showExpense) { ExpenseForm() }
@@ -69,26 +75,39 @@ struct MoneyView: View {
         }
         #endif
     }
+    @ViewBuilder private var historyFilter: some View {
+        if typeSize.isAccessibilitySize {
+            Picker("Movimientos", selection: $filter) {
+                ForEach(["Todos", "Ingresos", "Gastos"], id: \.self) { Text($0).tag($0) }
+            }.pickerStyle(.menu)
+        } else {
+            Picker("Movimientos", selection: $filter) {
+                ForEach(["Todos", "Ingresos", "Gastos"], id: \.self) { Text($0).tag($0) }
+            }.pickerStyle(.segmented)
+        }
+    }
     private func summary(_ label: String, cents: Int64, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Label(label, systemImage: label == "Ingresos" ? "arrow.down.left" : "arrow.up.right").font(.caption).foregroundStyle(.secondary)
             Text(Double(cents) / 100, format: .currency(code: "EUR")).font(.headline).foregroundStyle(color)
-        }
+                .lineLimit(1).minimumScaleFactor(0.7).monospacedDigit()
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 struct MoneyRow: View {
     let transaction: MoneyTransaction
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        (typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(alignment: .top, spacing: 12))) {
             Image(systemName: transaction.kind.isIncome ? "arrow.down.left.circle.fill" : transaction.kind == .stockAdjustment ? "shippingbox.fill" : "arrow.up.right.circle.fill")
                 .foregroundStyle(transaction.kind.isIncome ? Color.green : Color.orange).font(.title3).frame(width: 24)
             VStack(alignment: .leading, spacing: 4) {
-                Text(transaction.title).font(.subheadline.weight(.semibold))
+                Text(transaction.title).font(.body.weight(.semibold))
                 Text(transaction.kind.title + (transaction.quantity != 0 ? " · \(transaction.quantity) uds." : "")).font(.caption).foregroundStyle(.secondary)
                 if !transaction.merchant.isEmpty { Text(transaction.merchant).font(.caption).foregroundStyle(.secondary) }
                 Text(transaction.date, format: .dateTime.day().month(.abbreviated).year().hour().minute()).font(.caption2).foregroundStyle(.secondary)
             }
-            Spacer(minLength: 6)
+            if !typeSize.isAccessibilitySize { Spacer(minLength: 6) }
             Text(transaction.amount, format: .currency(code: "EUR")).font(.subheadline.bold())
                 .foregroundStyle(transaction.cents < 0 ? Color.primary : Color.green).lineLimit(1).minimumScaleFactor(0.7)
         }.padding(.vertical, 4)
@@ -309,7 +328,7 @@ struct ExpenseForm: View {
                 .scrollDismissesKeyboard(.interactively)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("Guardar") { save() }.bold().disabled(!canSave) }
+                    ToolbarItem(placement: .confirmationAction) { Button("Guardar") { save() }.appConfirmationButton().disabled(!canSave) }
                 }
                 .onAppear { initialize() }
                 .onDisappear { importTask?.cancel() }
@@ -376,7 +395,7 @@ struct StockAdjustmentForm: View {
                     ToolbarItem(placement: .confirmationAction) { Button("Guardar") {
                         guard let total = Int(stock), total >= 0 else { return }
                         do { try store.adjustStock(productID, quantity: total - store.money.stock(productID), reason: reason); dismiss() } catch { self.error = error.localizedDescription }
-                    }.disabled(Int(stock) == nil || reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || Int(stock) == store.money.stock(productID)) }
+                    }.appConfirmationButton().disabled(Int(stock) == nil || reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || Int(stock) == store.money.stock(productID)) }
                 }
                 .onAppear { stock = String(store.money.stock(productID)) }
                 .alert("No se pudo guardar", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Aceptar") { error = nil } } message: { Text(error ?? "") }
