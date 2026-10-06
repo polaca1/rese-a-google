@@ -24,6 +24,15 @@
           "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.1-build17.ipa",
           "size": 5770984,
           "minOSVersion": "16.1"
+        },
+        {
+          "version": "4.0",
+          "buildVersion": "16",
+          "date": "2026-10-06T22:07:27Z",
+          "localizedDescription": "Gestor de dinero con saldo, ingresos y gastos, inventario NFC por color y productos personalizados.\nBúsqueda con recomendaciones, mapa fluido y foto de perfil.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.0-build16.ipa",
+          "size": 3856799,
+          "minOSVersion": "16.1"
         }
       ],
       "version": "4.1",
@@ -58,6 +67,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 4.0 (16)",
+      "identifier": "reviewnfcgo-4.0-build16",
+      "caption": "Gestor de dinero con saldo, ingresos y gastos, inventario NFC por color y productos personalizados.",
+      "date": "2026-10-06T22:07:27Z",
+      "tintColor": "1976EC",
+      "notify": false,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-4.0-build16",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 4.1 (17)",
       "identifier": "reviewnfcgo-4.1-build17",
