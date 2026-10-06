@@ -58,22 +58,10 @@ def publish(args):
                         '--title', release_name, '--notes-file', args.notes], check=True)
     else:
         assert not existing_release['draft'] and not existing_release['prerelease']
-    with tempfile.TemporaryDirectory() as folder:
-        checksum = pathlib.Path(folder) / 'SHA256SUMS.txt'
-        checksum.write_text(f'{hashlib.sha256(ipa.read_bytes()).hexdigest()}  {ipa.name}\n')
-        # Existing IPA bytes are never silently replaced under the same version.
-        if existing_release and any(asset['name'] == ipa.name for asset in existing_release['assets']):
-            verify_folder = pathlib.Path(folder) / 'existing'
-            verify_folder.mkdir()
-            subprocess.run(['gh', 'release', 'download', tag, '--repo', REPO, '--pattern', ipa.name,
-                            '--dir', str(verify_folder)], check=True)
-            assert (verify_folder / ipa.name).read_bytes() == ipa.read_bytes(), 'Una versión publicada tiene otros bytes'
-        else:
-            subprocess.run(['gh', 'release', 'upload', tag, str(ipa), '--repo', REPO], check=True)
-        subprocess.run(['gh', 'release', 'upload', tag, str(checksum), '--repo', REPO, '--clobber'], check=True)
+    filename = f'reviewNfcGo-{version}-build{build}.ipa'
+    download_url = RAW + '/ipas/' + filename
+    digest = hashlib.sha256(ipa.read_bytes()).hexdigest()
     release = api('GET', f'releases/tags/{tag}')
-    asset = next(a for a in release['assets'] if a['name'] == ipa.name)
-    assert asset['size'] == ipa.stat().st_size
 
     ref = api('GET', f'git/ref/heads/{BRANCH}', missing=True)
     current_file = api('GET', f'contents/source.json?ref={BRANCH}', missing=True) if ref else None
@@ -95,8 +83,8 @@ def publish(args):
     app = source['apps'][0]
     assert app['bundleIdentifier'] == BUNDLE
     entry = {'version': version, 'buildVersion': build, 'date': release['published_at'],
-             'localizedDescription': notes, 'downloadURL': asset['browser_download_url'],
-             'size': asset['size'], 'minOSVersion': max(minimums, key=version_key)}
+             'localizedDescription': notes, 'downloadURL': download_url,
+             'size': ipa.stat().st_size, 'minOSVersion': max(minimums, key=version_key)}
     app['versions'] = [v for v in app['versions'] if (v['version'], v.get('buildVersion')) != (version, build)] + [entry]
     app['versions'].sort(key=lambda v: (version_key(v['version']), int(v.get('buildVersion', '0'))), reverse=True)
     newest = app['versions'][0]
@@ -111,12 +99,20 @@ def publish(args):
             'url': release['html_url'], 'appID': BUNDLE}
     source['news'] = [n for n in source['news'] if n['identifier'] != tag] + [news]
     source['news'].sort(key=lambda n: n['date'], reverse=True)
-    files = {'source.json': (json.dumps(source, ensure_ascii=False, indent=2) + '\n').encode(),
+    checksum_file = api('GET', f'contents/checksums.json?ref={BRANCH}', missing=True) if ref else None
+    checksums = json.loads(base64.b64decode(checksum_file['content'])) if checksum_file else {}
+    if filename in checksums:
+        assert checksums[filename]['sha256'] == digest, 'No se reemplaza una versión por bytes diferentes'
+    checksums[filename] = {'sha256': digest, 'size': ipa.stat().st_size, 'sourceCommit': args.source_commit}
+    files = {'ipas/' + filename: ipa.read_bytes(),
+             'checksums.json': (json.dumps(checksums, indent=2) + '\n').encode(),
+             'SHA256SUMS.txt': ''.join(f'{value["sha256"]}  ipas/{key}\n' for key, value in sorted(checksums.items())).encode(),
+             'source.json': (json.dumps(source, ensure_ascii=False, indent=2) + '\n').encode(),
              'README.md': ('# reviewNfcGo\n\nDesarrollado por Pablo Cancho Flores.\n\n'
                 f'Fuente para SideStore y AltStore: **{RAW}/source.json**\n\n'
                 'En SideStore abre Sources, pulsa + y pega el enlace. Las actualizaciones y notas de versión '
                 'aparecen en la misma fuente. Actualiza la app instalada para conservar tus datos.\n\n'
-                'Los IPA de cada versión y sus comprobaciones SHA256 están en Releases.\n').encode()}
+                'Los IPA de cada versión están en ipas/ y sus comprobaciones en SHA256SUMS.txt. Releases contiene las notas y enlaces de descarga.\n').encode()}
     if args.previews:
         previews = pathlib.Path(args.previews)
         for local, remote in [('icon-native-light.png', 'icon.png'), ('icon-native-dark.png', 'icon-dark.png')]:
@@ -147,6 +143,10 @@ def publish(args):
         api('PATCH', f'git/refs/heads/{BRANCH}', {'sha': commit['sha'], 'force': False})
     else:
         api('POST', 'git/refs', {'ref': f'refs/heads/{BRANCH}', 'sha': commit['sha']})
+    with tempfile.TemporaryDirectory() as folder:
+        release_notes = pathlib.Path(folder) / 'notes.md'
+        release_notes.write_text(notes + f'\n\n[Descargar IPA]({download_url})\n\nSHA256: `{digest}`\n')
+        subprocess.run(['gh', 'release', 'edit', tag, '--repo', REPO, '--notes-file', str(release_notes)], check=True)
     print(f'Publicado {release_name}: {RAW}/source.json')
 
 
