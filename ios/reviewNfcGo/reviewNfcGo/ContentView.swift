@@ -2009,15 +2009,18 @@ enum MapCameraVerification {
             samples.removeAll()
             finder.selectPlace(seville, focus: true)
             try await assertFocus(map, on: seville.coordinate, label: "Búsqueda lejos de la ubicación", checks: &checks)
-            guard let early = samples.first(where: { $0.elapsed > 0.35 && $0.elapsed < 0.55 }),
-                  let middle = samples.first(where: { $0.elapsed > 1.05 && $0.elapsed < 1.25 }),
-                  let late = samples.first(where: { $0.elapsed > 1.8 && $0.elapsed < 2.0 }),
+            // Headless simulators may skip a display-link callback while MapKit loads tiles.
+            // Assert the observed path instead of requiring a frame in a particular 150 ms window.
+            let moving = samples.filter { $0.phase == .flight }
+            guard moving.count >= 5, let first = moving.first,
+                  let widest = moving.max(by: { $0.rect.width < $1.rect.width }),
                   let finish = samples.first(where: { $0.phase == .finished }),
-                  middle.rect.width > early.rect.width * 5,
-                  finish.rect.width < middle.rect.width / 20,
-                  hypot(middle.rect.midX - early.rect.midX, middle.rect.midY - early.rect.midY) > 10000,
-                  hypot(middle.rect.midX - late.rect.midX, middle.rect.midY - late.rect.midY) > 10000,
-                  hypot(late.rect.midX - finish.rect.midX, late.rect.midY - finish.rect.midY) > 1
+                  widest.rect.width > first.rect.width * 10,
+                  finish.rect.width < widest.rect.width / 20,
+                  hypot(widest.rect.midX - first.rect.midX, widest.rect.midY - first.rect.midY) > 10000,
+                  hypot(widest.rect.midX - finish.rect.midX, widest.rect.midY - finish.rect.midY) > 10000,
+                  moving.contains(where: { $0.elapsed < widest.elapsed && $0.rect.width > first.rect.width * 1.1 && hypot($0.rect.midX - first.rect.midX, $0.rect.midY - first.rect.midY) > 1 }),
+                  moving.contains(where: { $0.elapsed > widest.elapsed && $0.rect.width < widest.rect.width * 0.9 && hypot($0.rect.midX - finish.rect.midX, $0.rect.midY - finish.rect.midY) > 1 })
             else { throw VerificationError.failed("Desplazamiento y zoom simultáneos") }
             checks.append("Desplazamiento y zoom simultáneos en una curva continua")
             finder.locationManager(CLLocationManager(), didUpdateLocations: [madrid])
@@ -2048,7 +2051,7 @@ enum MapCameraVerification {
             finder.selectPlace(nil, focus: false)
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
         } catch {
-            try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": String(describing: error)], options: .prettyPrinted).write(to: output)
+            try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": String(describing: error), "samples": samples.map { ["elapsed": $0.elapsed, "width": $0.rect.width, "x": $0.rect.midX, "y": $0.rect.midY] }], options: .prettyPrinted).write(to: output)
         }
     }
 
