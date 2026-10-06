@@ -70,15 +70,22 @@ xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl ui "$task_device" appearance light
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-portal "reviewnfcgo://business/$task_record_id" --verification-editor
 sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/sales-editor-light.png"
+xcrun simctl ui "$task_device" appearance dark
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/sales-editor-dark.png"
+# Mutate the editor only in a separate process, after capturing its untouched UI.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-portal "reviewnfcgo://business/$task_record_id" --verification-editor --verification-unit-calculation
+for task_attempt in $(seq 1 20); do
+    if [ -f "$task_container/Documents/unit-earnings-verification.json" ]; then break; fi
+    sleep 1
+done
 cp "$task_container/Documents/unit-earnings-verification.json" "$task_output_dir/unit-earnings-verification.log"
 python3 - "$task_output_dir/unit-earnings-verification.log" <<'PYCHECK'
 import json,sys
 result=json.load(open(sys.argv[1]));print(result);assert result['passed'],result
 PYCHECK
-xcrun simctl io "$task_device" screenshot "$task_output_dir/sales-editor-light.png"
-xcrun simctl ui "$task_device" appearance dark
-sleep 2
-xcrun simctl io "$task_device" screenshot "$task_output_dir/sales-editor-dark.png"
 xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-profile
 sleep 3
@@ -129,7 +136,7 @@ xcrun simctl io "$task_device" screenshot "$task_output_dir/reminder-dates-light
 # Use the same widget views/providers as the extension, with real MapKit snapshots and App Group data.
 xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-widgets
-for task_attempt in $(seq 1 65); do
+for task_attempt in $(seq 1 90); do
     if [ -f "$task_container/Documents/widgets-verification.json" ]; then break; fi
     sleep 1
 done

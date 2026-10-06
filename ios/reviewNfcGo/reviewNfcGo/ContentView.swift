@@ -1468,6 +1468,12 @@ struct RecordEditView: View {
                         Text(calculatedTotal ?? 0, format: .currency(code: "EUR")).bold()
                     }
                     LabeledContent("Máximo por tarjeta", value: "50,00 €")
+                    if let original, let amount = parsedUnitEarnings,
+                       original.unitEarnings == nil, !unitPriceChanged,
+                       VisitRecord.totalEarnings(perCard: amount, count: original.cardsSold) != original.earnings {
+                        Text("Total de una venta anterior conservado. Cambiar el precio o la cantidad de tarjetas recalcula el total.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     if !earningsAreValid {
                         Text("Introduce una ganancia por tarjeta entre 0 € y 50 €.")
                             .font(.footnote).foregroundStyle(.red)
@@ -1519,7 +1525,7 @@ struct RecordEditView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { focusedField = nil; attemptDismiss() } label: { Label("Atrás", systemImage: "chevron.left") }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(id: "save-business-record", placement: .confirmationAction) {
                 Button("Guardar") { saveAndDismiss() }.bold().disabled(!earningsAreValid)
             }
             ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("OK") { focusedField = nil } }
@@ -1531,7 +1537,7 @@ struct RecordEditView: View {
                 unitEarningsText = value.earningsPerCard == 0 ? "" : SaleAmountFormatting.text(for: value.earningsPerCard)
                 if value.notificationDate == nil { draft?.notificationDate = value.reminderDate }
                 #if DEBUG
-                if ProcessInfo.processInfo.arguments.contains("--verification-editor") { verifyUnitEarningsEditor() }
+                if ProcessInfo.processInfo.arguments.contains("--verification-unit-calculation") { verifyUnitEarningsEditor() }
                 #endif
             }
         }

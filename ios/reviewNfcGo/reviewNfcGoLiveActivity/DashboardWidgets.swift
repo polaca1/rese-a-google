@@ -225,7 +225,13 @@ enum WidgetMapRenderer {
     }
     static func render(places: [WidgetPlace], size: CGSize, style: UIUserInterfaceStyle) async -> UIImage? {
         let options = MKMapSnapshotter.Options()
-        options.region = region(for: places)
+        var visibleRegion = region(for: places)
+        if size.height < 250 {
+            // Reserve space above the pins for the floating title on medium widgets.
+            visibleRegion.center.latitude = min(85, visibleRegion.center.latitude + visibleRegion.span.latitudeDelta * 0.12)
+            visibleRegion.span.latitudeDelta *= 1.17
+        }
+        options.region = visibleRegion
         options.size = CGSize(width: max(1, size.width), height: max(1, size.height))
         options.scale = 2
         options.mapType = .standard
@@ -300,6 +306,8 @@ enum WidgetScreenshotVerification {
             guard dense.mapLight != nil, dense.mapDark != nil, all.mapLight != nil else { throw NSError(domain: "WidgetMap", code: 3) }
             checks.append("Mapas MapKit de zona densa y todos los sitios, claros y oscuros")
             try save(PendingMapWidgetView(entry: dense), name: "widget-map-dense-light", size: CGSize(width: 360, height: 170), scheme: .light, folder: folder)
+            let allMedium = await WidgetMapRenderer.entry(snapshot: WidgetSamples.snapshot, all: true, size: CGSize(width: 360, height: 170))
+            try save(PendingMapWidgetView(entry: allMedium), name: "widget-map-all-medium-light", size: CGSize(width: 360, height: 170), scheme: .light, folder: folder)
             try save(PendingMapWidgetView(entry: all), name: "widget-map-all-dark", size: CGSize(width: 360, height: 370), scheme: .dark, folder: folder)
             let entry = DashboardEntry(date: Date(), snapshot: WidgetSamples.snapshot)
             try save(UpcomingVisitsWidgetView(entry: entry, familyOverride: .systemMedium), name: "widget-visits-medium-light", size: CGSize(width: 360, height: 170), scheme: .light, folder: folder)
