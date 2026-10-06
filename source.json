@@ -33,6 +33,15 @@
           "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.0-build16.ipa",
           "size": 3856799,
           "minOSVersion": "16.1"
+        },
+        {
+          "version": "3.4",
+          "buildVersion": "15",
+          "date": "2026-10-06T22:07:46Z",
+          "localizedDescription": "Widgets de mapa, próximas visitas y ganancias.\nFechas y horas alineadas y ganancia por tarjeta.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.4-build15.ipa",
+          "size": 3577853,
+          "minOSVersion": "16.1"
         }
       ],
       "version": "4.1",
@@ -67,6 +76,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 3.4 (15)",
+      "identifier": "reviewnfcgo-3.4-build15",
+      "caption": "Widgets de mapa, próximas visitas y ganancias.",
+      "date": "2026-10-06T22:07:46Z",
+      "tintColor": "1976EC",
+      "notify": false,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-3.4-build15",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 4.0 (16)",
       "identifier": "reviewnfcgo-4.0-build16",
