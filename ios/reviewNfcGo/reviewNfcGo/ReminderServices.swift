@@ -56,15 +56,23 @@ enum NotificationManager {
 
     static func scheduleTest() {
         Task {
-            guard await authorizationAllowed() else { return }
+            guard let owner = AlertHistoryStore.shared.scope, await authorizationAllowed() else { return }
             let content = UNMutableNotificationContent()
             content.title = "reviewNfcGo funciona"
             content.body = "Las notificaciones están activadas correctamente."
             content.sound = .default
-            let request = UNNotificationRequest(identifier: "resenago.test", content: content,
+            let systemID = "resenago.test.\(UUID().uuidString)"
+            let entryID = AlertHistoryStore.shared.register(scope: owner, systemID: systemID, fingerprint: systemID,
+                kind: .test, recordID: nil, businessName: nil, title: content.title, body: content.body,
+                scheduledDate: Date().addingTimeInterval(5))
+            content.userInfo = [AlertHistoryStore.accountKey: owner, AlertHistoryStore.entryKey: entryID.uuidString]
+            let request = UNNotificationRequest(identifier: systemID, content: content,
                 trigger: UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false))
             do { try await UNUserNotificationCenter.current().add(request) }
-            catch { print("No se pudo programar la notificación de prueba: \(error)") }
+            catch {
+                AlertHistoryStore.shared.transition(scope: owner, id: entryID, to: .failed)
+                print("No se pudo programar la notificación de prueba: \(error)")
+            }
         }
     }
 }
@@ -77,22 +85,35 @@ final class SystemVisitNotifications: VisitNotificationBackend {
 
     func pending() async -> [String: String] {
         let requests = await center.pendingNotificationRequests()
+        requests.forEach { _ = AlertHistoryStore.shared.observe($0) }
         return Dictionary(uniqueKeysWithValues: requests.filter { VisitNotification.owns($0.identifier) }.map {
             ($0.identifier, $0.content.userInfo[NotificationManager.fingerprintKey] as? String ?? "")
         })
     }
 
     func deliveredIDs() async -> [String] {
-        await center.deliveredNotifications().map(\.request.identifier).filter(VisitNotification.owns)
+        let delivered = await center.deliveredNotifications()
+        delivered.forEach { _ = AlertHistoryStore.shared.observe($0.request, deliveredAt: $0.date) }
+        return delivered.map(\.request.identifier).filter(VisitNotification.owns)
     }
 
     func remove(ids: [String]) {
         guard !ids.isEmpty else { return }
+        if let owner = AlertHistoryStore.shared.scope { AlertHistoryStore.shared.cancelNotifications(scope: owner, ids: ids) }
         center.removePendingNotificationRequests(withIdentifiers: ids)
-        center.removeDeliveredNotifications(withIdentifiers: ids)
+        // Archive banners before clearing them, including those delivered while the app was closed.
+        center.getDeliveredNotifications { [center] delivered in
+            Task { @MainActor in
+                for notification in delivered where ids.contains(notification.request.identifier) {
+                    AlertHistoryStore.shared.observe(notification.request, deliveredAt: notification.date)
+                }
+                center.removeDeliveredNotifications(withIdentifiers: ids)
+            }
+        }
     }
 
     func add(_ notification: VisitNotification) async throws {
+        guard let owner = AlertHistoryStore.shared.scope else { return }
         let visit = notification.visit
         let content = UNMutableNotificationContent()
         content.title = "Volver a \(visit.name)"
@@ -110,8 +131,18 @@ final class SystemVisitNotifications: VisitNotificationBackend {
         // a past T−5h to a new time; the activity coordinator handles that case instead.
         let interval = notification.fireDate.timeIntervalSinceNow
         guard interval > 0 else { return }
+        let entryID = AlertHistoryStore.shared.register(scope: owner, systemID: notification.id,
+            fingerprint: notification.fingerprint, kind: notification.kind == .reminder ? .reminder : .activityAlert,
+            recordID: visit.id, businessName: visit.name, title: content.title, body: content.body,
+            scheduledDate: notification.fireDate, startsNewPlan: true)
+        content.userInfo[AlertHistoryStore.accountKey] = owner
+        content.userInfo[AlertHistoryStore.entryKey] = entryID.uuidString
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
-        try await center.add(UNNotificationRequest(identifier: notification.id, content: content, trigger: trigger))
+        do { try await center.add(UNNotificationRequest(identifier: notification.id, content: content, trigger: trigger)) }
+        catch {
+            AlertHistoryStore.shared.transition(scope: owner, id: entryID, to: .failed)
+            throw error
+        }
     }
 }
 
@@ -129,7 +160,9 @@ final class SystemVisitActivities: VisitActivityBackend {
 
     func activities() -> [RunningVisitActivity] {
         guard #available(iOS 16.1, *) else { return [] }
-        return Activity<ReminderActivityAttributes>.activities
+        let activities = Activity<ReminderActivityAttributes>.activities
+        activities.forEach { AlertHistoryStore.shared.observe($0) }
+        return activities
             .filter { $0.activityState != .ended && $0.activityState != .dismissed }
             .map {
                 let pending: Bool
@@ -145,6 +178,7 @@ final class SystemVisitActivities: VisitActivityBackend {
 
     func end(id: String) async {
         guard #available(iOS 16.1, *), let activity = Activity<ReminderActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        AlertHistoryStore.shared.ending(activity)
         if #available(iOS 16.2, *) {
             await activity.end(nil, dismissalPolicy: .immediate)
         } else {
@@ -154,22 +188,35 @@ final class SystemVisitActivities: VisitActivityBackend {
 
     func start(_ visit: ScheduledVisit) throws {
         guard #available(iOS 16.1, *), canStart, let date = visit.visitDate, visit.isUpcoming(at: Date()) else { return }
-        let attributes = ReminderActivityAttributes(recordID: visit.id.uuidString, placeName: visit.name, address: visit.address)
+        let attributes = ReminderActivityAttributes(recordID: visit.id.uuidString, placeName: visit.name,
+            address: visit.address, historyAccount: AlertHistoryStore.shared.scope)
         let state = ReminderActivityAttributes.ContentState(visitDate: date)
         let start = date.addingTimeInterval(-ScheduledVisit.leadTime)
+        let activity: Activity<ReminderActivityAttributes>
+        do {
         if #available(iOS 26.0, *), start > Date() {
             // iOS owns this pending activity and starts it even when our process isn't running.
             let alert = AlertConfiguration(title: "Próxima visita",
                 body: "Faltan 5 horas para visitar \(visit.name)", sound: .default)
-            _ = try Activity<ReminderActivityAttributes>.request(attributes: attributes,
+            activity = try Activity<ReminderActivityAttributes>.request(attributes: attributes,
                 content: ActivityContent(state: state, staleDate: date), pushType: nil,
                 style: .standard, alertConfiguration: alert, start: start)
         } else if #available(iOS 16.2, *), visit.needsActivity(at: Date()) {
-            _ = try Activity<ReminderActivityAttributes>.request(attributes: attributes,
+            activity = try Activity<ReminderActivityAttributes>.request(attributes: attributes,
                 content: ActivityContent(state: state, staleDate: date), pushType: nil)
         } else if visit.needsActivity(at: Date()) {
-            _ = try Activity<ReminderActivityAttributes>.request(attributes: attributes, contentState: state, pushType: nil)
+            activity = try Activity<ReminderActivityAttributes>.request(attributes: attributes, contentState: state, pushType: nil)
+        } else { return }
+        } catch {
+            if let owner = AlertHistoryStore.shared.scope {
+                let failureID = "resenago.failed.activity.\(visit.id).\(date.timeIntervalSince1970)"
+                AlertHistoryStore.shared.register(scope: owner, systemID: failureID, fingerprint: failureID,
+                    kind: .liveActivity, recordID: visit.id, businessName: visit.name,
+                    title: "Cuenta atrás para \(visit.name)", body: visit.address, scheduledDate: start, status: .failed)
+            }
+            throw error
         }
+        AlertHistoryStore.shared.observe(activity)
     }
 }
 

@@ -30,7 +30,10 @@ container,bundle,record_id=sys.argv[1:]
 now=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime(2001,1,1,tzinfo=datetime.timezone.utc)).total_seconds()
 profile={'name':'Prueba iOS','email':'validation@example.invalid'}
 record={'id':record_id,'place':{'id':'validation-place','name':'Negocio de prueba','address':'Calle Mayor, Madrid','latitude':40.4168,'longitude':-3.7038},'createdAt':now,'earnings':100,'cardsSold':2,'notes':'Portal abierto desde Live Activity o recordatorio','status':'completed'}
-prefs={'resenago.currentUser':json.dumps(profile).encode(),'resenago.records.validation@example.invalid':json.dumps([record]).encode()}
+events=[{'id':'57D4CD2B-C98C-4244-B628-F8041E94EAD8','status':'scheduled','date':now-7200},{'id':'B8F0C42D-75A1-4D8F-B80D-AFF1F0DEBB9B','status':'delivered','date':now-3600},{'id':'73243651-D941-48A2-9034-26E6E54A27AD','status':'opened','date':now-3500}]
+entry={'id':'839CA204-B64D-4EA8-90DD-B1E1DB884661','systemID':'validation-reminder','fingerprint':'validation-reminder','kind':'reminder','recordID':record_id,'businessName':record['place']['name'],'title':'Volver al negocio de prueba','body':'Visita programada en Calle Mayor','scheduledDate':now-3600,'createdAt':now-7200,'events':events}
+activity=dict(entry,id='5A6E0F17-9962-4E32-A149-E26A1A4668EF',systemID='validation-activity',fingerprint='validation-activity',kind='liveActivity',title='Cuenta atrás para el negocio de prueba',events=events+[{'id':'4787CF44-9E03-45D0-ADEB-3F4B77D99EB4','status':'finished','date':now-1800}])
+prefs={'resenago.currentUser':json.dumps(profile).encode(),'resenago.records.validation@example.invalid':json.dumps([record]).encode(),'resenago.alertHistory.validation@example.invalid':json.dumps({'entries':[entry,activity]}).encode()}
 path=pathlib.Path(container)/'Library/Preferences'/f'{bundle}.plist'
 path.parent.mkdir(parents=True,exist_ok=True)
 path.write_bytes(plistlib.dumps(prefs))
@@ -64,3 +67,12 @@ xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-profile
 sleep 3
 xcrun simctl io "$task_device" screenshot "$task_output_dir/profile-credit.png"
+
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-history
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/history-light.png"
+xcrun simctl ui "$task_device" appearance dark
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/history-dark.png"

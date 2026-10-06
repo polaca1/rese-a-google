@@ -20,6 +20,9 @@
 		D10000000000000000000002 /* PortalRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* PortalRouter.swift */; };
 		D10000000000000000000003 /* PortalLink.swift in Widget Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* PortalLink.swift */; };
 		E10000000000000000000001 /* VisitRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* VisitRecord.swift */; };
+		E10000000000000000000002 /* AlertHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000002 /* AlertHistory.swift */; };
+		E10000000000000000000003 /* AlertHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000003 /* AlertHistoryStore.swift */; };
+		E10000000000000000000004 /* AlertHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000004 /* AlertHistoryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +41,9 @@
 		D20000000000000000000002 /* PortalRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortalRouter.swift; sourceTree = "<group>"; };
 		D20000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E20000000000000000000001 /* VisitRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitRecord.swift; sourceTree = "<group>"; };
+		E20000000000000000000002 /* AlertHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertHistory.swift; sourceTree = "<group>"; };
+		E20000000000000000000003 /* AlertHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertHistoryStore.swift; sourceTree = "<group>"; };
+		E20000000000000000000004 /* AlertHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertHistoryView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -88,6 +94,9 @@
 				D20000000000000000000003 /* Info.plist */,
 				A20000000000000000000001 /* ReviewNfcGoApp.swift */,
 				A20000000000000000000002 /* ContentView.swift */,
+				E20000000000000000000002 /* AlertHistory.swift */,
+				E20000000000000000000003 /* AlertHistoryStore.swift */,
+				E20000000000000000000004 /* AlertHistoryView.swift */,
 				E20000000000000000000001 /* VisitRecord.swift */,
 				A20000000000000000000005 /* ReminderActivityAttributes.swift */,
 				A20000000000000000000007 /* ReminderServices.swift */,
@@ -225,6 +234,9 @@
 				D10000000000000000000002 /* PortalRouter.swift in Sources */,
 				A10000000000000000000001 /* ReviewNfcGoApp.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
+				E10000000000000000000002 /* AlertHistory.swift in Sources */,
+				E10000000000000000000003 /* AlertHistoryStore.swift in Sources */,
+				E10000000000000000000004 /* AlertHistoryView.swift in Sources */,
 				E10000000000000000000001 /* VisitRecord.swift in Sources */,
 				A10000000000000000000005 /* ReminderActivityAttributes.swift in Sources */,
 				A10000000000000000000007 /* ReminderServices.swift in Sources */,
@@ -285,7 +297,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = reviewNfcGo/Info.plist;
@@ -302,7 +314,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0;
+				MARKETING_VERSION = 3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -319,7 +331,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = reviewNfcGo/Info.plist;
@@ -336,7 +348,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0;
+				MARKETING_VERSION = 3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -351,13 +363,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = reviewNfcGoLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks");
-				MARKETING_VERSION = 3.0;
+				MARKETING_VERSION = 3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -370,13 +382,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = reviewNfcGoLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks");
-				MARKETING_VERSION = 3.0;
+				MARKETING_VERSION = 3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

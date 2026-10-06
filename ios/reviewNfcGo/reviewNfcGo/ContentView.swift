@@ -125,6 +125,7 @@ final class AppStore: ObservableObject {
         userKey = email
         load()
         loadedUserEmail = email
+        AlertHistoryStore.shared.switchUser(email, records: records)
         hasLoadedRecords = true
         ReminderCoordinator.replaceRecords(records)
     }
@@ -186,6 +187,7 @@ final class AppStore: ObservableObject {
         if let data = try? JSONEncoder().encode(records) {
             UserDefaults.standard.set(data, forKey: storageKey())
         }
+        AlertHistoryStore.shared.updateRecords(records)
         ReminderCoordinator.replaceRecords(records)
     }
 }
@@ -572,6 +574,7 @@ struct MainTabView: View {
             openPendingBusiness()
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--verification-profile") { selectedTab = 4 }
+            if ProcessInfo.processInfo.arguments.contains("--verification-history") { selectedTab = 3 }
             #endif
         }
         .onChange(of: portalRouter.pendingRecordID) { _ in openPendingBusiness() }
@@ -1374,6 +1377,9 @@ struct EarningsView: View {
 
 struct RemindersView: View {
     @EnvironmentObject var store: AppStore
+    #if DEBUG
+    @State private var verificationHistoryPresented = false
+    #endif
 
     var body: some View {
         List {
@@ -1415,15 +1421,24 @@ struct RemindersView: View {
         .navigationTitle("Recordatorios")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    NotificationManager.scheduleTest()
-                } label: {
+                NavigationLink(destination: AlertHistoryView()) {
                     Image(systemName: "bell.badge")
                 }
-                .accessibilityLabel("Probar notificación en 5 segundos")
+                .accessibilityLabel("Ver historial de notificaciones y Live Activities")
             }
         }
-        .onAppear { NotificationManager.requestPermission() }
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-history") {
+                verificationHistoryPresented = true
+                return
+            }
+            #endif
+            NotificationManager.requestPermission()
+        }
+        #if DEBUG
+        .navigationDestination(isPresented: $verificationHistoryPresented) { AlertHistoryView() }
+        #endif
     }
 }
 
@@ -1522,7 +1537,7 @@ struct ProfileView: View {
             Section("Acerca de reviewNfcGo") {
                 Text("Desarrollado por Pablo Cancho Flores")
                     .font(.subheadline)
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.0")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.1")
             }
             Section("Cuenta") {
                 Text("Esta versión guarda la cuenta y sus datos localmente en este iPhone. No se envían a un servidor.")

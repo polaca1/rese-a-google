@@ -10,4 +10,5 @@ struct ReminderActivityAttributes: ActivityAttributes {
     var recordID: String
     var placeName: String
     var address: String
+    var historyAccount: String? = nil
 }

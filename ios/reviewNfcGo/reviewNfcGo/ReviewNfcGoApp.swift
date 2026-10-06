@@ -13,12 +13,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         Task { @MainActor in
             let current = ReminderCoordinator.received(notification.request)
+            if current { AlertHistoryStore.shared.observe(notification.request, deliveredAt: notification.date) }
             completionHandler(current ? [.banner, .sound, .list] : [])
         }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         Task { @MainActor in
+            AlertHistoryStore.shared.observe(response.notification.request, deliveredAt: response.notification.date, opened: true)
             _ = ReminderCoordinator.received(response.notification.request)
             let info = response.notification.request.content.userInfo
             let latitude = info["latitude"] as? Double
@@ -58,7 +60,10 @@ struct ReviewNfcGoApp: App {
                 .environmentObject(store)
                 .environmentObject(portalRouter)
                 .tint(AppTheme.blue)
-                .onOpenURL { portalRouter.open(url: $0) }
+                .onOpenURL { url in
+                    portalRouter.open(url: url)
+                    if let id = PortalLink.recordID(from: url) { AlertHistoryStore.shared.openActivityPortal(recordID: id) }
+                }
                 .onAppear {
                     store.switchUser(auth.currentUser?.email)
                     #if DEBUG
@@ -78,6 +83,7 @@ struct ReviewNfcGoApp: App {
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {
                         ReminderCoordinator.refresh()
+                        AlertHistoryStore.shared.refresh()
                     } else {
                         ReminderCoordinator.suspendTimer()
                     }

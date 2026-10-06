@@ -41,3 +41,7 @@ En Swift 6.2.1: 57 comprobaciones de planificación y concurrencia y 15 de rutas
 ## Versión 3.0: tarjetas vendidas
 
 En Ficha → Editar se selecciona la cantidad de tarjetas vendidas. La ganancia es editable, con un máximo de 50 € por tarjeta. Reducir la cantidad ajusta la ganancia al límite nuevo. Los registros anteriores se conservan e infieren la cantidad mínima de tarjetas necesaria para mantener sus ganancias; los negocios vendidos tienen al menos una tarjeta. El crédito «Desarrollado por Pablo Cancho Flores» aparece en Perfil.
+
+## Versión 3.1: historial de avisos
+
+La campana superior de Avisos abre el historial persistente de notificaciones y Live Activities, separado por cuenta. Se incluyen las pruebas, los avisos de T−5h y cada programación, entrega confirmada, apertura, finalización o cancelación. Se recuperan las notificaciones conservadas por iOS y las actividades disponibles. Los mensajes que iOS ya retiró antes de esta actualización no son recuperables. Si pasó la hora prevista pero no hay confirmación, se muestra «Entrega sin confirmar»; una programación no se presenta como una entrega. Cada entrada conserva los estados y el nombre del negocio aunque se elimine su ficha.
