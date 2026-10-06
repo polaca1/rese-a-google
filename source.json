@@ -14,6 +14,15 @@
       "tintColor": "1976EC",
       "versions": [
         {
+          "version": "4.2",
+          "buildVersion": "19",
+          "date": "2026-10-06T22:12:54Z",
+          "localizedDescription": "Nuevo icono minimalista con relieve nativo y estrella vacía.\nDesenfoque gradual en las cabeceras sin panel superior fijo.\nInterfaz de producción sin botones de prueba ni identificadores técnicos.\nCredenciales protegidas y migración de las cuentas existentes.\nCorrecciones de recordatorios y del historial de dinero; inventario, widgets y foto de perfil.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.2-build19.ipa",
+          "size": 6201761,
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "4.1",
           "buildVersion": "17",
           "date": "2026-10-06T22:04:46Z",
@@ -77,11 +86,11 @@
           "minOSVersion": "16.1"
         }
       ],
-      "version": "4.1",
-      "versionDate": "2026-10-06T22:04:46Z",
-      "versionDescription": "Correcciones al guardar visitas y al mostrar el historial de dinero.\nIconos claro y oscuro y controles nativos de iOS 26.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.1-build17.ipa",
-      "size": 5770984,
+      "version": "4.2",
+      "versionDate": "2026-10-06T22:12:54Z",
+      "versionDescription": "Nuevo icono minimalista con relieve nativo y estrella vacía.\nDesenfoque gradual en las cabeceras sin panel superior fijo.\nInterfaz de producción sin botones de prueba ni identificadores técnicos.\nCredenciales protegidas y migración de las cuentas existentes.\nCorrecciones de recordatorios y del historial de dinero; inventario, widgets y foto de perfil.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.2-build19.ipa",
+      "size": 6201761,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
@@ -109,6 +118,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 4.2 (19)",
+      "identifier": "reviewnfcgo-4.2-build19",
+      "caption": "Nuevo icono minimalista con relieve nativo y estrella vacía.",
+      "date": "2026-10-06T22:12:54Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-4.2-build19",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 2.9 (10)",
       "identifier": "reviewnfcgo-2.9-build10",
