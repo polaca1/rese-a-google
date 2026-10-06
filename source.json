@@ -1,10 +1,7 @@
 {
   "name": "reviewNfcGo · Pablo Cancho Flores",
   "identifier": "com.pablo.reviewnfcgo.source",
-  "subtitle": "Tu negocio, tus tarjetas y tu dinero",
-  "description": "Actualizaciones de reviewNfcGo por Pablo Cancho Flores.",
   "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/icon.png",
-  "tintColor": "1976EC",
   "sourceURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/source.json",
   "apps": [
     {
@@ -69,6 +66,15 @@
           "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.1-build12.ipa",
           "size": 3411976,
           "minOSVersion": "16.1"
+        },
+        {
+          "version": "2.9",
+          "buildVersion": "10",
+          "date": "2026-10-06T22:12:09Z",
+          "localizedDescription": "Liquid Glass nativo, iconos claro y oscuro y acceso a negocios desde recordatorios y Live Activities.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-2.9-build10.ipa",
+          "size": 3307041,
+          "minOSVersion": "16.1"
         }
       ],
       "version": "4.1",
@@ -103,6 +109,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 2.9 (10)",
+      "identifier": "reviewnfcgo-2.9-build10",
+      "caption": "Liquid Glass nativo, iconos claro y oscuro y acceso a negocios desde recordatorios y Live Activities.",
+      "date": "2026-10-06T22:12:09Z",
+      "tintColor": "1976EC",
+      "notify": false,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-2.9-build10",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 3.1 (12)",
       "identifier": "reviewnfcgo-3.1-build12",
