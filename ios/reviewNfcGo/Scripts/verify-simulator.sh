@@ -230,3 +230,17 @@ PYCHECK
     xcrun simctl io "$task_device" screenshot "$task_output_dir/blur-$task_blur_screen-dark.png"
 done
 echo 'Blur variable nativo: Inicio y acceso verificados.'
+
+# Actual Keychain migration and authentication, using an isolated account namespace.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-production
+for task_attempt in $(seq 1 25); do
+    if [ -f "$task_container/Documents/production-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/production-verification.json" "$task_output_dir/production-verification.log"
+python3 - "$task_output_dir/production-verification.log" <<'PYCHECK'
+import json,sys
+result=json.load(open(sys.argv[1]));print(json.dumps(result,ensure_ascii=False,indent=2))
+assert result['passed'] and len(result['checks'])>=12,result
+PYCHECK

@@ -29,7 +29,7 @@ struct AlertHistoryView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "bell.and.waves.left.and.right").font(.largeTitle).foregroundStyle(.secondary)
                         Text("Sin registros todavía").font(.headline)
-                        Text("Aquí aparecerán tus recordatorios, notificaciones de prueba y Live Activities.")
+                        Text("Aquí aparecerán tus recordatorios y Live Activities.")
                             .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 32)

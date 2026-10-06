@@ -54,6 +54,7 @@ enum NotificationManager {
         return allowed
     }
 
+    #if DEBUG
     static func scheduleTest() {
         Task {
             guard let owner = AlertHistoryStore.shared.scope, await authorizationAllowed() else { return }
@@ -75,6 +76,7 @@ enum NotificationManager {
             }
         }
     }
+    #endif
 }
 
 @MainActor

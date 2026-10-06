@@ -38,6 +38,7 @@
 		F10000000000000000000205 /* SearchSuggestions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000205 /* SearchSuggestions.swift */; };
 		F10000000000000000000206 /* MajorUpdateVerification.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000206 /* MajorUpdateVerification.swift */; };
 		F10000000000000000000301 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000301 /* AppIcon.icon */; };
+		F10000000000000000000302 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000302 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -70,6 +71,7 @@
 		F20000000000000000000205 /* SearchSuggestions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchSuggestions.swift; sourceTree = "<group>"; };
 		F20000000000000000000206 /* MajorUpdateVerification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajorUpdateVerification.swift; sourceTree = "<group>"; };
 		F20000000000000000000301 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		F20000000000000000000302 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -138,6 +140,7 @@
 				A20000000000000000000006 /* VisitScheduling.swift */,
 				A20000000000000000000004 /* Assets.xcassets */,
 				F20000000000000000000301 /* AppIcon.icon */,
+				F20000000000000000000302 /* PrivacyInfo.xcprivacy */,
 			);
 			path = reviewNfcGo;
 			sourceTree = "<group>";
@@ -254,6 +257,7 @@
 			files = (
 				A10000000000000000000004 /* Assets.xcassets in Resources */,
 				F10000000000000000000301 /* AppIcon.icon in Resources */,
+				F10000000000000000000302 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -351,7 +355,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = reviewNfcGo/Info.plist;
@@ -386,7 +390,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = reviewNfcGo/Info.plist;
@@ -419,7 +423,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = reviewNfcGoLiveActivity/Info.plist;
@@ -440,7 +444,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = reviewNfcGoLiveActivity/Info.plist;

@@ -3,6 +3,8 @@ import MapKit
 import CoreLocation
 import UserNotifications
 import CryptoKit
+import CommonCrypto
+import Security
 import UIKit
 import ActivityKit
 
@@ -30,14 +32,22 @@ final class AuthStore: ObservableObject {
 
     private let userKey = "resenago.currentUser"
     private let accountsKey = "resenago.accounts"
+    private let defaults: UserDefaults
+    private let credentialService: String
 
     struct Account: Codable {
         let profile: UserProfile
         let passwordHash: String
+        var passwordSalt: Data?
+        var passwordIterations: Int?
     }
 
-    init() {
-        if let data = UserDefaults.standard.data(forKey: userKey),
+    init(defaults: UserDefaults = .standard,
+         credentialService: String = (Bundle.main.bundleIdentifier ?? "reviewNfcGo") + ".accounts") {
+        self.defaults = defaults
+        self.credentialService = credentialService
+        _ = loadAccounts() // Safely migrate legacy credentials before removing their old copy.
+        if let data = defaults.data(forKey: userKey),
            let profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
             currentUser = profile
         }
@@ -46,18 +56,20 @@ final class AuthStore: ObservableObject {
     func createAccount(name: String, email: String, password: String) -> Bool {
         let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              cleanEmail.contains("@"), password.count >= 4 else {
-            errorMessage = "Completa los datos. La contraseña debe tener al menos 4 caracteres."
+              cleanEmail.range(of: #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#, options: .regularExpression) != nil,
+              (8...128).contains(password.count) else {
+            errorMessage = "Introduce un nombre y un correo válidos. La contraseña debe tener entre 8 y 128 caracteres."
             return false
         }
-        var accounts = loadAccounts()
+        guard var accounts = loadAccounts() else { return storageFailure() }
         guard accounts[cleanEmail] == nil else {
             errorMessage = "Ya existe una cuenta con ese correo."
             return false
         }
         let profile = UserProfile(name: name.trimmingCharacters(in: .whitespacesAndNewlines), email: cleanEmail)
-        accounts[cleanEmail] = Account(profile: profile, passwordHash: Self.hash(password))
-        saveAccounts(accounts)
+        guard let account = Self.secureAccount(profile, password: password) else { return storageFailure() }
+        accounts[cleanEmail] = account
+        guard saveAccounts(accounts) else { return storageFailure() }
         setCurrent(profile)
         errorMessage = nil
         return true
@@ -65,10 +77,26 @@ final class AuthStore: ObservableObject {
 
     func login(email: String, password: String) -> Bool {
         let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let accounts = loadAccounts()
-        guard let account = accounts[cleanEmail], account.passwordHash == Self.hash(password) else {
+        guard var accounts = loadAccounts() else { return storageFailure() }
+        guard let account = accounts[cleanEmail] else {
             errorMessage = "Correo o contraseña incorrectos."
             return false
+        }
+        let candidate: String?
+        if let salt = account.passwordSalt, let iterations = account.passwordIterations {
+            candidate = Self.derive(password, salt: salt, iterations: iterations)
+        } else {
+            candidate = Self.legacyHash(password)
+        }
+        guard let candidate, Self.equal(candidate, account.passwordHash) else {
+            errorMessage = "Correo o contraseña incorrectos."
+            return false
+        }
+        // Existing short passwords remain valid. Strengthen their stored hash on login.
+        if account.passwordSalt == nil {
+            guard let upgraded = Self.secureAccount(account.profile, password: password) else { return storageFailure() }
+            accounts[cleanEmail] = upgraded
+            guard saveAccounts(accounts) else { return storageFailure() }
         }
         setCurrent(account.profile)
         errorMessage = nil
@@ -77,30 +105,81 @@ final class AuthStore: ObservableObject {
 
     func logout() {
         currentUser = nil
-        UserDefaults.standard.removeObject(forKey: userKey)
+        defaults.removeObject(forKey: userKey)
+        errorMessage = nil
     }
 
     private func setCurrent(_ profile: UserProfile) {
         currentUser = profile
-        if let data = try? JSONEncoder().encode(profile) {
-            UserDefaults.standard.set(data, forKey: userKey)
+        if let data = try? JSONEncoder().encode(profile) { defaults.set(data, forKey: userKey) }
+    }
+
+    private var credentialQuery: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: credentialService, kSecAttrAccount as String: "local-accounts"]
+    }
+    private func loadAccounts() -> [String: Account]? {
+        var query = credentialQuery
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecSuccess {
+            guard let data = result as? Data,
+                  let value = try? JSONDecoder().decode([String: Account].self, from: data) else { return nil }
+            return value
         }
+        guard status == errSecItemNotFound else { return nil }
+        guard let data = defaults.data(forKey: accountsKey) else { return [:] }
+        guard let legacy = try? JSONDecoder().decode([String: Account].self, from: data) else { return nil }
+        // Delete the preferences copy only after the Keychain write succeeds.
+        if saveAccounts(legacy) { defaults.removeObject(forKey: accountsKey) }
+        return legacy
     }
-
-    private func loadAccounts() -> [String: Account] {
-        guard let data = UserDefaults.standard.data(forKey: accountsKey),
-              let value = try? JSONDecoder().decode([String: Account].self, from: data) else { return [:] }
-        return value
-    }
-
-    private func saveAccounts(_ accounts: [String: Account]) {
-        if let data = try? JSONEncoder().encode(accounts) {
-            UserDefaults.standard.set(data, forKey: accountsKey)
+    private func saveAccounts(_ accounts: [String: Account]) -> Bool {
+        guard let data = try? JSONEncoder().encode(accounts) else { return false }
+        let attributes: [String: Any] = [kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly]
+        var status = SecItemUpdate(credentialQuery as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            status = SecItemAdd(credentialQuery.merging(attributes) { _, new in new } as CFDictionary, nil)
         }
+        return status == errSecSuccess
     }
-
-    private static func hash(_ value: String) -> String {
+    private func storageFailure() -> Bool {
+        errorMessage = "No se pudo acceder a tus credenciales. Desbloquea el iPhone y vuelve a intentarlo."
+        return false
+    }
+    private static func secureAccount(_ profile: UserProfile, password: String) -> Account? {
+        var salt = Data(count: 16)
+        let status = salt.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 16, $0.baseAddress!) }
+        guard status == errSecSuccess, let hash = derive(password, salt: salt, iterations: 120_000) else { return nil }
+        return Account(profile: profile, passwordHash: hash, passwordSalt: salt, passwordIterations: 120_000)
+    }
+    private static func derive(_ password: String, salt: Data, iterations: Int) -> String? {
+        guard salt.count == 16, (10_000...500_000).contains(iterations), password.utf8.count <= 1024 else { return nil }
+        let input = Array(password.utf8)
+        var output = Data(count: 32)
+        let status = input.withUnsafeBytes { bytes in
+            salt.withUnsafeBytes { saltBytes in
+                output.withUnsafeMutableBytes { result in
+                    CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2), bytes.baseAddress?.assumingMemoryBound(to: Int8.self), input.count,
+                        saltBytes.baseAddress?.assumingMemoryBound(to: UInt8.self), salt.count,
+                        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256), UInt32(iterations),
+                        result.baseAddress?.assumingMemoryBound(to: UInt8.self), 32)
+                }
+            }
+        }
+        guard status == kCCSuccess else { return nil }
+        return output.map { String(format: "%02x", $0) }.joined()
+    }
+    private static func legacyHash(_ value: String) -> String {
         SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+    private static func equal(_ left: String, _ right: String) -> Bool {
+        let a = Array(left.utf8), b = Array(right.utf8)
+        guard a.count == b.count else { return false }
+        return zip(a, b).reduce(UInt8(0)) { $0 | ($1.0 ^ $1.1) } == 0
     }
 }
 
@@ -357,7 +436,7 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
             status = "Negocio más cercano seleccionado"
         } catch {
             guard searchRevision == revision else { return }
-            errorMessage = "No se pudo consultar Google Places: \(error.localizedDescription)"
+            errorMessage = "No se pudieron consultar los negocios. Comprueba la conexión y vuelve a intentarlo."
         }
     }
 
@@ -444,14 +523,16 @@ struct GooglePlacesService {
     }
 
     private func execute(_ request: URLRequest) async throws -> [PlaceResult] {
-        let (data, response) = try await URLSession.shared.data(for: request)
-        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-            let text = String(data: data, encoding: .utf8) ?? "Error HTTP \(http.statusCode)"
-            throw NSError(domain: "GooglePlaces", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: text])
+        var boundedRequest = request
+        boundedRequest.timeoutInterval = 20
+        let (data, response) = try await URLSession.shared.data(for: boundedRequest)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode), data.count <= 2_000_000 else {
+            throw NSError(domain: "PlaceSearch", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "La búsqueda no está disponible. Vuelve a intentarlo más tarde."])
         }
         let decoded = try JSONDecoder().decode(NearbyResponse.self, from: data)
         return (decoded.places ?? []).compactMap { place in
-            guard let loc = place.location else { return nil }
+            guard let loc = place.location, !place.id.isEmpty, CLLocationCoordinate2DIsValid(CLLocationCoordinate2D(latitude: loc.latitude, longitude: loc.longitude)) else { return nil }
             return PlaceResult(
                 id: place.id,
                 name: place.displayName?.text ?? "Negocio",
@@ -588,7 +669,9 @@ struct AuthView: View {
                             NativeField(title: "Nombre", icon: "person", text: $name)
                         }
                         NativeField(title: "Correo electrónico", icon: "envelope", text: $email)
+                            .keyboardType(.emailAddress).textContentType(.emailAddress)
                         NativeSecureField(title: "Contraseña", text: $password)
+                            .textContentType(createMode ? .newPassword : .password)
                     }
 
                     if let error = auth.errorMessage {
@@ -947,11 +1030,6 @@ struct HomeView: View {
 
             Divider()
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("PLACE ID").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                Text(place.id).font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
-            }
-
             Button {
                 UIPasteboard.general.string = place.reviewURL
                 store.addOrUpdatePlace(place)
@@ -979,14 +1057,6 @@ struct HomeView: View {
                 reminderPlace = place
             } label: {
                 Label("Volver más tarde", systemImage: "calendar.badge.clock")
-                    .frame(maxWidth: .infinity)
-            }
-            .appSecondaryButton()
-
-            Button {
-                UIPasteboard.general.string = place.id
-            } label: {
-                Label("Copiar Place ID", systemImage: "number")
                     .frame(maxWidth: .infinity)
             }
             .appSecondaryButton()
@@ -1822,7 +1892,7 @@ struct RemindersView: View {
     var body: some View {
         List {
             Section {
-                NotificationDiagnosticsRow()
+                NotificationPermissionsRow()
             }
             if store.pendingReminders.isEmpty {
                 VStack(spacing: 12) {
@@ -1880,7 +1950,7 @@ struct RemindersView: View {
     }
 }
 
-struct NotificationDiagnosticsRow: View {
+struct NotificationPermissionsRow: View {
     @State private var statusText = "Comprobando notificaciones…"
     @State private var denied = false
 
@@ -1891,10 +1961,6 @@ struct NotificationDiagnosticsRow: View {
                     .foregroundStyle(denied ? .red : AppTheme.blue)
                 Text(statusText).font(.subheadline.weight(.semibold))
             }
-            Button("Probar notificación en 5 segundos") {
-                NotificationManager.scheduleTest()
-            }
-            .appSecondaryButton()
             if denied {
                 Button("Abrir Ajustes de notificaciones") {
                     if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
@@ -1979,7 +2045,7 @@ struct ProfileView: View {
                 LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.2")
             }
             Section("Cuenta") {
-                Text("Esta versión guarda la cuenta y sus datos localmente en este iPhone. No se envían a un servidor.")
+                Text("Tus datos se guardan en este iPhone.")
                     .font(.footnote).foregroundStyle(.secondary)
                 Button("Cerrar sesión", role: .destructive) { auth.logout() }
             }

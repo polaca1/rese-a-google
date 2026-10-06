@@ -104,3 +104,87 @@ enum MajorUpdateVerification {
     }
 }
 #endif
+
+#if DEBUG
+import Security
+import CryptoKit
+
+@MainActor
+enum ProductionVerification {
+    static func run() {
+        let suite = "reviewnfcgo.production-verification.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let service = (Bundle.main.bundleIdentifier ?? "reviewNfcGo") + "." + suite
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service, kSecAttrAccount as String: "local-accounts"]
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("production-verification.json")
+        var checks: [String] = []
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            SecItemDelete(query as CFDictionary)
+        }
+        func check(_ value: Bool, _ name: String) throws {
+            guard value else { throw NSError(domain: "ProductionVerification", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: name]) }
+            checks.append(name)
+        }
+        func storedData() throws -> Data {
+            var read = query; read[kSecReturnData as String] = true
+            var result: CFTypeRef?
+            try check(SecItemCopyMatching(read as CFDictionary, &result) == errSecSuccess,
+                "Credenciales accesibles en el Keychain")
+            return result as! Data
+        }
+        do {
+            let legacyHash = SHA256.hash(data: Data("1234".utf8)).map { String(format: "%02x", $0) }.joined()
+            let profile = UserProfile(name: "Cuenta anterior", email: "legacy@example.invalid")
+            let legacy = AuthStore.Account(profile: profile, passwordHash: legacyHash)
+            defaults.set(try JSONEncoder().encode([profile.email: legacy]), forKey: "resenago.accounts")
+            let auth = AuthStore(defaults: defaults, credentialService: service)
+            try check(defaults.data(forKey: "resenago.accounts") == nil,
+                "Migración conserva cuentas y elimina hashes de preferencias después de escribir Keychain")
+            try check(auth.login(email: profile.email, password: "1234") && auth.currentUser == profile,
+                "Una contraseña anterior de cuatro caracteres sigue permitiendo entrar")
+            var stored = try JSONDecoder().decode([String: AuthStore.Account].self, from: storedData())
+            try check(stored[profile.email]?.passwordSalt?.count == 16 &&
+                stored[profile.email]?.passwordIterations == 120_000 && stored[profile.email]?.passwordHash != legacyHash,
+                "El inicio de sesión actualiza el hash anterior a PBKDF2 con sal aleatoria")
+            auth.logout()
+            try check(!auth.login(email: profile.email, password: "incorrecta") && auth.currentUser == nil,
+                "Una contraseña incorrecta no inicia sesión")
+            try check(!auth.createAccount(name: "Nueva", email: "new@example.invalid", password: "1234"),
+                "Las cuentas nuevas requieren una contraseña de al menos ocho caracteres")
+            try check(!auth.createAccount(name: "Nueva", email: "correo inválido", password: "Valida-2026"),
+                "No se crean cuentas con correos inválidos")
+            try check(auth.createAccount(name: " Nueva ", email: " NEW@example.invalid ", password: "Valida-2026"),
+                "Registro válido normaliza nombre y correo")
+            try check(auth.createAccount(name: "Otra", email: "other@example.invalid", password: "Valida-2026"),
+                "Una segunda cuenta se guarda sin alterar la primera")
+            stored = try JSONDecoder().decode([String: AuthStore.Account].self, from: storedData())
+            try check(stored["new@example.invalid"]?.passwordHash != stored["other@example.invalid"]?.passwordHash,
+                "La misma contraseña genera hashes distintos por cuenta")
+            let reloaded = AuthStore(defaults: defaults, credentialService: service)
+            try check(reloaded.currentUser?.email == "other@example.invalid", "La sesión se recupera tras reiniciar")
+            reloaded.logout()
+            try check(reloaded.login(email: "new@example.invalid", password: "Valida-2026"),
+                "Las credenciales nuevas permiten entrar después de reiniciar")
+            var attributes = query; attributes[kSecReturnAttributes as String] = true
+            var result: CFTypeRef?
+            let status = SecItemCopyMatching(attributes as CFDictionary, &result)
+            try check(status == errSecSuccess &&
+                (result as? [String: Any])?[kSecAttrAccessible as String] as? String == (kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String),
+                "Keychain exige iPhone desbloqueado y no migra las credenciales a otros dispositivos")
+            let corrupt = Data("invalid".utf8)
+            try check(SecItemUpdate(query as CFDictionary, [kSecValueData as String: corrupt] as CFDictionary) == errSecSuccess,
+                "Preparación de caso de almacenamiento dañado")
+            try check(!reloaded.createAccount(name: "Preservar", email: "preserve@example.invalid", password: "Valida-2026") &&
+                (try storedData()) == corrupt, "El almacenamiento dañado muestra un error y nunca se sobrescribe")
+            try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
+        } catch {
+            try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks,
+                "error": error.localizedDescription], options: .prettyPrinted).write(to: output)
+        }
+    }
+}
+#endif
