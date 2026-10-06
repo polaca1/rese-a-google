@@ -6,7 +6,7 @@ on:
       source_ref:
         description: Rama o commit de la app nativa
         required: true
-        default: ios/liquid-glass-2.9
+        default: ios/minimal-icon-4.2
 
 permissions:
   contents: read
@@ -43,7 +43,7 @@ jobs:
       - name: Guardar IPA
         uses: actions/upload-artifact@v4
         with:
-          name: reviewNfcGo-2.9-LiquidGlass-AltStore
+          name: reviewNfcGo-IPA
           path: ${{ runner.temp }}/reviewNfcGo-build/*.ipa
           if-no-files-found: error
 
@@ -59,3 +59,34 @@ jobs:
             ${{ runner.temp }}/reviewNfcGo-build/*.log
             ${{ runner.temp }}/reviewNfcGo-build/*.png
           if-no-files-found: ignore
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: reviewnfcgo-sidestore-publication
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-IPA
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-verificacion
+          path: verification
+      - name: Publicar IPA verificado y actualizar fuente SideStore
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          task_ipa=$(python3 -c 'import pathlib; files=list(pathlib.Path("release").glob("*.ipa")); assert len(files)==1; print(files[0])')
+          task_source_commit=$(git rev-parse HEAD)
+          python3 ios/reviewNfcGo/Scripts/publish-sidestore.py \
+            --ipa "$task_ipa" --source-commit "$task_source_commit" \
+            --notes ios/reviewNfcGo/RELEASE-NOTES.txt --previews verification
