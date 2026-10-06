@@ -966,7 +966,10 @@ struct NativeMapView: UIViewRepresentable {
         tap.cancelsTouchesInView = false
         map.addGestureRecognizer(tap)
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--verification-map") { MapCameraVerification.map = map }
+        if ProcessInfo.processInfo.arguments.contains("--verification-map") {
+            MapCameraVerification.map = map
+            MapCameraVerification.coordinator = context.coordinator
+        }
         #endif
         return map
     }
@@ -987,17 +990,104 @@ struct NativeMapView: UIViewRepresentable {
         }
         guard let request = focusRequest, coordinator.lastFocusID != request.id else { return }
         coordinator.lastFocusID = request.id
-        map.setUserTrackingMode(request.target == .user ? .follow : .none, animated: false)
-        let distance: CLLocationDistance = request.target == .user ? 850 : 650
-        map.setRegion(MKCoordinateRegion(center: request.coordinate,
-            latitudinalMeters: distance, longitudinalMeters: distance), animated: true)
+        coordinator.focus(map, request: request)
+    }
+
+    static func dismantleUIView(_ map: MKMapView, coordinator: Coordinator) {
+        coordinator.cancelFlight()
+        map.delegate = nil
     }
 
     final class Coordinator: NSObject, MKMapViewDelegate {
         var parent: NativeMapView
         var lastPlace: PlaceResult?
         var lastFocusID: UUID?
+        private weak var flightMap: MKMapView?
+        private var flight: MapFlightPlan?
+        var isFlying: Bool { flight != nil }
+        private var flightRequest: MapFocusRequest?
+        private var flightStarted: CFTimeInterval = 0
+        private var displayLink: CADisplayLink?
         init(parent: NativeMapView) { self.parent = parent }
+
+        private final class FrameTarget: NSObject {
+            weak var owner: Coordinator?
+            init(_ owner: Coordinator) { self.owner = owner }
+            @objc func tick(_ link: CADisplayLink) { owner?.advanceFlight(link) }
+        }
+
+        func focus(_ map: MKMapView, request: MapFocusRequest) {
+            cancelFlight()
+            // Following must start after arrival; enabling it first jumps to the GPS fix.
+            map.setUserTrackingMode(.none, animated: false)
+            let distance: CLLocationDistance = request.target == .user ? 850 : 650
+            let region = map.regionThatFits(MKCoordinateRegion(center: request.coordinate,
+                latitudinalMeters: distance, longitudinalMeters: distance))
+            if UIAccessibility.isReduceMotionEnabled {
+                map.setRegion(region, animated: false)
+                if request.target == .user { map.setUserTrackingMode(.follow, animated: false) }
+                return
+            }
+            let from = map.visibleMapRect
+            let west = MKMapPoint(CLLocationCoordinate2D(latitude: region.center.latitude,
+                longitude: region.center.longitude - region.span.longitudeDelta / 2))
+            let east = MKMapPoint(CLLocationCoordinate2D(latitude: region.center.latitude,
+                longitude: region.center.longitude + region.span.longitudeDelta / 2))
+            let north = MKMapPoint(CLLocationCoordinate2D(latitude: region.center.latitude + region.span.latitudeDelta / 2,
+                longitude: region.center.longitude))
+            let south = MKMapPoint(CLLocationCoordinate2D(latitude: region.center.latitude - region.span.latitudeDelta / 2,
+                longitude: region.center.longitude))
+            let center = MKMapPoint(request.coordinate)
+            let width = abs(east.x - west.x)
+            let height = abs(south.y - north.y)
+            guard from.width > 0, from.height > 0, width > 0, height > 0 else { return }
+            flight = MapFlightPlan(start: .init(x: from.midX, y: from.midY, width: from.width, height: from.height),
+                destination: .init(x: center.x, y: center.y, width: width, height: height), worldWidth: MKMapRect.world.width)
+            flightMap = map
+            flightRequest = request
+            flightStarted = CACurrentMediaTime()
+            let target = FrameTarget(self)
+            let link = CADisplayLink(target: target, selector: #selector(FrameTarget.tick(_:)))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+            displayLink = link
+            link.add(to: .main, forMode: .common)
+        }
+
+        private func advanceFlight(_ link: CADisplayLink) {
+            guard let map = flightMap, let flight, let request = flightRequest else { cancelFlight(); return }
+            let elapsed = max(0, link.timestamp - flightStarted)
+            let frame = flight.frame(at: elapsed)
+            let v = frame.viewport
+            map.setVisibleMapRect(MKMapRect(x: v.x - v.width / 2, y: v.y - v.height / 2,
+                                            width: v.width, height: v.height), animated: false)
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-map") {
+                MapCameraVerification.samples.append(.init(elapsed: elapsed, phase: frame.phase,
+                    rect: map.visibleMapRect))
+            }
+            #endif
+            if frame.phase == .finished {
+                cancelFlight()
+                if request.target == .user { map.setUserTrackingMode(.follow, animated: false) }
+            }
+        }
+
+        func cancelFlight() {
+            displayLink?.invalidate()
+            displayLink = nil
+            flight = nil
+            flightRequest = nil
+            flightMap = nil
+        }
+
+        func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+            // Native pans and pinches take control immediately, without waiting for the flight.
+            func isInteracting(_ view: UIView) -> Bool {
+                if view.gestureRecognizers?.contains(where: { $0.state == .began || $0.state == .changed }) == true { return true }
+                return view.subviews.contains(where: isInteracting)
+            }
+            if isInteracting(mapView) { cancelFlight() }
+        }
 
         @objc func didTap(_ gesture: UITapGestureRecognizer) {
             guard let map = gesture.view as? MKMapView else { return }
@@ -1595,7 +1685,7 @@ struct ProfileView: View {
             Section("Acerca de reviewNfcGo") {
                 Text("Desarrollado por Pablo Cancho Flores")
                     .font(.subheadline)
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.2")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.3")
             }
             Section("Cuenta") {
                 Text("Esta versión guarda la cuenta y sus datos localmente en este iPhone. No se envían a un servidor.")
@@ -1683,6 +1773,13 @@ struct ContentView: View {
 @MainActor
 enum MapCameraVerification {
     static weak var map: MKMapView?
+    static weak var coordinator: NativeMapView.Coordinator?
+    struct Sample {
+        let elapsed: Double
+        let phase: MapFlightPlan.Phase
+        let rect: MKMapRect
+    }
+    static var samples: [Sample] = []
 
     static func run(finder: PlaceFinder) async {
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -1701,8 +1798,21 @@ enum MapCameraVerification {
             finder.prepareMapVerification()
             finder.locationManager(CLLocationManager(), didUpdateLocations: [madrid])
             try await assertFocus(map, on: madrid.coordinate, label: "Primera ubicación", checks: &checks)
+            samples.removeAll()
             finder.selectPlace(seville, focus: true)
             try await assertFocus(map, on: seville.coordinate, label: "Búsqueda lejos de la ubicación", checks: &checks)
+            guard let out = samples.first(where: { $0.phase == .zoomOut }),
+                  let travel = samples.first(where: { $0.phase == .travel }),
+                  let zoomIn = samples.first(where: { $0.phase == .zoomIn }),
+                  let middle = samples.first(where: { $0.phase == .travel && $0.elapsed > 1.1 && $0.elapsed < 1.25 }),
+                  let finish = samples.first(where: { $0.phase == .finished }),
+                  abs((zoomIn.elapsed - travel.elapsed) - 1) < 0.15,
+                  travel.rect.width > out.rect.width * 20,
+                  finish.rect.width < travel.rect.width / 20,
+                  hypot(middle.rect.midX - out.rect.midX, middle.rect.midY - out.rect.midY) > 10000,
+                  hypot(middle.rect.midX - finish.rect.midX, middle.rect.midY - finish.rect.midY) > 10000
+            else { throw VerificationError.failed("Alejar, viajar un segundo y acercar") }
+            checks.append("Alejar según distancia, desplazarse un segundo y acercar")
             finder.locationManager(CLLocationManager(), didUpdateLocations: [madrid])
             try await Task.sleep(nanoseconds: 500_000_000)
             try await assertFocus(map, on: seville.coordinate, label: "El GPS no interrumpe el negocio buscado", checks: &checks)
@@ -1715,6 +1825,19 @@ enum MapCameraVerification {
             map.setRegion(MKCoordinateRegion(center: barcelona, latitudinalMeters: 900, longitudinalMeters: 900), animated: false)
             finder.focusOnUserLocation()
             try await assertFocus(map, on: madrid.coordinate, label: "Mi ubicación después de arrastrar el mapa", checks: &checks)
+            // A new search interrupts the flight and starts from the current visible camera.
+            finder.selectPlace(seville, focus: true)
+            try await Task.sleep(nanoseconds: 900_000_000)
+            finder.focusOnUserLocation()
+            try await assertFocus(map, on: madrid.coordinate, label: "Interrumpir el vuelo con un nuevo destino", checks: &checks)
+            finder.selectPlace(seville, focus: true)
+            try await Task.sleep(nanoseconds: 900_000_000)
+            coordinator?.cancelFlight()
+            map.setRegion(MKCoordinateRegion(center: barcelona, latitudinalMeters: 900, longitudinalMeters: 900), animated: false)
+            try await Task.sleep(nanoseconds: 1_800_000_000)
+            try await assertFocus(map, on: barcelona, label: "Cancelar el vuelo devuelve el control al mapa", checks: &checks)
+            finder.focusOnUserLocation()
+            try await assertFocus(map, on: madrid.coordinate, label: "Volver a ubicación después de cancelar el vuelo", checks: &checks)
             finder.selectPlace(nil, focus: false)
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
         } catch {
@@ -1725,9 +1848,9 @@ enum MapCameraVerification {
     private static func assertFocus(_ map: MKMapView, on coordinate: CLLocationCoordinate2D,
                                     label: String, checks: inout [String]) async throws {
         let target = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        for _ in 0..<40 {
+        for _ in 0..<60 {
             let actual = CLLocation(latitude: map.centerCoordinate.latitude, longitude: map.centerCoordinate.longitude)
-            if actual.distance(from: target) < 100 && map.region.span.latitudeDelta < 0.03 {
+            if actual.distance(from: target) < 100 && map.region.span.latitudeDelta < 0.03 && coordinator?.isFlying != true {
                 checks.append(label)
                 return
             }

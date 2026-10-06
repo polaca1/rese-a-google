@@ -27,3 +27,9 @@ xcrun swiftc -parse-as-library -swift-version 5 \
     "$task_project_dir/Tests/AlertHistoryTests.swift" \
     -o "$task_test_dir/history-tests"
 "$task_test_dir/history-tests"
+xcrun swiftc -parse-as-library -swift-version 5 \
+    -module-cache-path "$task_test_dir/ModuleCache" \
+    "$task_project_dir/reviewNfcGo/MapFlightPlan.swift" \
+    "$task_project_dir/Tests/MapFlightTests.swift" \
+    -o "$task_test_dir/map-flight-tests"
+"$task_test_dir/map-flight-tests"

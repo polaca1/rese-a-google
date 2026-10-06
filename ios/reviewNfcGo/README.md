@@ -49,3 +49,7 @@ La campana superior de Avisos abre el historial persistente de notificaciones y 
 ## Versión 3.2: enfoque automático del mapa
 
 Cada búsqueda y selección de negocio centra y acerca el mapa al marcador, incluso al buscar el mismo sitio otra vez. La primera ubicación válida centra el mapa automáticamente; «Mi ubicación» vuelve a centrarlo y activa el seguimiento nativo. Las nuevas posiciones GPS no interrumpen la vista de un negocio buscado. Las respuestas de búsquedas anteriores no sustituyen una selección más reciente.
+
+## Versión 3.3: vuelo animado del mapa
+
+Buscar un negocio o pulsar «Mi ubicación» aleja suavemente el mapa durante 0,65 s, viaja al destino durante 1 s y se acerca durante 0,65 s. El nivel de alejamiento se calcula con la distancia proyectada y las dimensiones visibles: el recorrido ocupa como máximo el 70 % del ancho o alto del mapa. Se recorre el camino corto al cruzar el meridiano 180°. Una selección nueva sustituye el vuelo desde la cámara actual; arrastrar o pellizcar lo cancela. El seguimiento GPS comienza al terminar el vuelo. Se respeta «Reducir movimiento».

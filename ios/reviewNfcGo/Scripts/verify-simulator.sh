@@ -88,7 +88,7 @@ xcrun simctl io "$task_device" screenshot "$task_output_dir/history-dark.png"
 xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl ui "$task_device" appearance light
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-map
-for task_attempt in $(seq 1 35); do
+for task_attempt in $(seq 1 55); do
     if [ -f "$task_container/Documents/map-camera-verification.json" ]; then break; fi
     sleep 1
 done
@@ -97,6 +97,6 @@ python3 - "$task_output_dir/map-camera-verification.log" <<'PYCHECK'
 import json,sys
 result=json.load(open(sys.argv[1]))
 print(json.dumps(result,ensure_ascii=False,indent=2))
-assert result['passed'] and len(result['checks']) == 6,result
+assert result['passed'] and len(result['checks']) == 10,result
 PYCHECK
 xcrun simctl io "$task_device" screenshot "$task_output_dir/map-user-focused.png"
