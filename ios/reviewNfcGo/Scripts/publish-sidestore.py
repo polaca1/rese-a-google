@@ -68,11 +68,11 @@ def publish(args):
     source = json.loads(base64.b64decode(current_file['content'])) if current_file else {
         'name': 'reviewNfcGo · Pablo Cancho Flores',
         'identifier': 'com.pablo.reviewnfcgo.source',
-        'subtitle': 'Tu negocio, tus tarjetas y tu dinero',
-        'description': 'Actualizaciones de reviewNfcGo por Pablo Cancho Flores.',
-        'iconURL': RAW + '/icon.png', 'tintColor': '1976EC',
+        'iconURL': RAW + '/icon.png',
         'sourceURL': RAW + '/source.json', 'apps': [], 'news': []}
     assert source['identifier'] == 'com.pablo.reviewnfcgo.source', 'No se cambia el identificador de la fuente'
+    for key in ['subtitle', 'description', 'tintColor']:
+        source.pop(key, None)
     if not source['apps']:
         source['apps'] = [{
             'name': 'reviewNfcGo', 'bundleIdentifier': BUNDLE, 'developerName': 'Pablo Cancho Flores',
