@@ -1,8 +1,8 @@
 {
   "name": "reviewNfcGo · Pablo Cancho Flores",
   "identifier": "com.pablo.reviewnfcgo.source",
-  "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/icon.png",
-  "sourceURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/source.json",
+  "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/icon.png",
+  "sourceURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/source.json",
   "apps": [
     {
       "name": "reviewNfcGo",
@@ -10,7 +10,7 @@
       "developerName": "Pablo Cancho Flores",
       "subtitle": "Negocios, tarjetas NFC, visitas y dinero",
       "localizedDescription": "Encuentra negocios y organiza tus visitas, tarjetas NFC e ingresos y gastos. Incluye inventario por color, historial de operaciones, foto de perfil, widgets y recordatorios con cuenta atrás.",
-      "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/icon.png",
+      "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/icon.png",
       "tintColor": "1976EC",
       "versions": [
         {
@@ -18,7 +18,7 @@
           "buildVersion": "19",
           "date": "2026-10-06T22:12:54Z",
           "localizedDescription": "Nuevo icono minimalista con relieve nativo y estrella vacía.\nDesenfoque gradual en las cabeceras sin panel superior fijo.\nInterfaz de producción sin botones de prueba ni identificadores técnicos.\nCredenciales protegidas y migración de las cuentas existentes.\nCorrecciones de recordatorios y del historial de dinero; inventario, widgets y foto de perfil.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.2-build19.ipa",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-4.2-build19.ipa",
           "size": 6201761,
           "minOSVersion": "16.1"
         },
@@ -89,7 +89,7 @@
       "version": "4.2",
       "versionDate": "2026-10-06T22:12:54Z",
       "versionDescription": "Nuevo icono minimalista con relieve nativo y estrella vacía.\nDesenfoque gradual en las cabeceras sin panel superior fijo.\nInterfaz de producción sin botones de prueba ni identificadores técnicos.\nCredenciales protegidas y migración de las cuentas existentes.\nCorrecciones de recordatorios y del historial de dinero; inventario, widgets y foto de perfil.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.2-build19.ipa",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-4.2-build19.ipa",
       "size": 6201761,
       "appPermissions": {
         "entitlements": [
@@ -110,10 +110,10 @@
         }
       ],
       "screenshotURLs": [
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/screenshots/blur-home-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/screenshots/money-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/screenshots/inventory-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/screenshots/reminder-dates-light.png"
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/blur-home-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/money-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/inventory-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/reminder-dates-light.png"
       ]
     }
   ],
