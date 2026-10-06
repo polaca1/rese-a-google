@@ -51,6 +51,15 @@
           "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.3-build14.ipa",
           "size": 3424558,
           "minOSVersion": "16.1"
+        },
+        {
+          "version": "3.2",
+          "buildVersion": "13",
+          "date": "2026-10-06T22:11:42Z",
+          "localizedDescription": "El mapa enfoca automáticamente los resultados de búsqueda y tu ubicación.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.2-build13.ipa",
+          "size": 3419356,
+          "minOSVersion": "16.1"
         }
       ],
       "version": "4.1",
@@ -85,6 +94,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 3.2 (13)",
+      "identifier": "reviewnfcgo-3.2-build13",
+      "caption": "El mapa enfoca automáticamente los resultados de búsqueda y tu ubicación.",
+      "date": "2026-10-06T22:11:42Z",
+      "tintColor": "1976EC",
+      "notify": false,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-3.2-build13",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 3.3 (14)",
       "identifier": "reviewnfcgo-3.3-build14",
