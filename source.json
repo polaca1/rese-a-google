@@ -77,6 +77,15 @@
           "minOSVersion": "16.1"
         },
         {
+          "version": "3.0",
+          "buildVersion": "11",
+          "date": "2026-10-06T22:16:16Z",
+          "localizedDescription": "Número de tarjetas vendidas y límite de ganancia de 50 € por tarjeta.\nCrédito de desarrollo de Pablo Cancho Flores.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-3.0-build11.ipa",
+          "size": 3315405,
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "2.9",
           "buildVersion": "10",
           "date": "2026-10-06T22:12:09Z",
@@ -118,6 +127,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 3.0 (11)",
+      "identifier": "reviewnfcgo-3.0-build11",
+      "caption": "Número de tarjetas vendidas y límite de ganancia de 50 € por tarjeta.",
+      "date": "2026-10-06T22:16:16Z",
+      "tintColor": "1976EC",
+      "notify": false,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-3.0-build11",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 4.2 (19)",
       "identifier": "reviewnfcgo-4.2-build19",

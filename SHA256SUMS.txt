@@ -1,4 +1,5 @@
 a8e19f891ab6458d26eb4bcc895348126c69ff64cc70d37589a6d6c20e0fa77c  ipas/reviewNfcGo-2.9-build10.ipa
+0d9653c5b966a88f22a7b964edb02cf71238ec762e00dc52e3dfcdf2115b484d  ipas/reviewNfcGo-3.0-build11.ipa
 15b719308eeb09f050a467c785e38b3eaa0eef3212b8c3ab55de4100383003c0  ipas/reviewNfcGo-3.1-build12.ipa
 7e1fab133f767a1ea71c006aa746ca7d3e709173a35727199e905a4fbfa4ef7b  ipas/reviewNfcGo-3.2-build13.ipa
 fed85801427e543f42f84bb25a99bd51d34a960038096a1f8e099fc877f8f34b  ipas/reviewNfcGo-3.3-build14.ipa
