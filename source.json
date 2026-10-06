@@ -42,6 +42,15 @@
           "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.4-build15.ipa",
           "size": 3577853,
           "minOSVersion": "16.1"
+        },
+        {
+          "version": "3.3",
+          "buildVersion": "14",
+          "date": "2026-10-06T22:11:25Z",
+          "localizedDescription": "Movimiento del mapa con alejamiento, desplazamiento y acercamiento en una animación continua.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.3-build14.ipa",
+          "size": 3424558,
+          "minOSVersion": "16.1"
         }
       ],
       "version": "4.1",
@@ -76,6 +85,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 3.3 (14)",
+      "identifier": "reviewnfcgo-3.3-build14",
+      "caption": "Movimiento del mapa con alejamiento, desplazamiento y acercamiento en una animación continua.",
+      "date": "2026-10-06T22:11:25Z",
+      "tintColor": "1976EC",
+      "notify": false,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-3.3-build14",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 3.4 (15)",
       "identifier": "reviewnfcgo-3.4-build15",
