@@ -55,7 +55,7 @@ def publish(args):
     release_name = f'reviewNfcGo {version} ({build})'
     if existing_release is None:
         subprocess.run(['gh', 'release', 'create', tag, '--repo', REPO, '--target', args.source_commit,
-                        '--title', release_name, '--notes-file', args.notes], check=True)
+                        '--title', release_name, '--notes-file', args.notes, '--latest=false'], check=True)
     else:
         assert not existing_release['draft'] and not existing_release['prerelease']
     filename = f'reviewNfcGo-{version}-build{build}.ipa'
@@ -149,7 +149,10 @@ def publish(args):
     with tempfile.TemporaryDirectory() as folder:
         release_notes = pathlib.Path(folder) / 'notes.md'
         release_notes.write_text(notes + f'\n\n[Descargar IPA]({download_url})\n\nSHA256: `{digest}`\n')
-        subprocess.run(['gh', 'release', 'edit', tag, '--repo', REPO, '--notes-file', str(release_notes)], check=True)
+        edit = ['gh', 'release', 'edit', tag, '--repo', REPO, '--notes-file', str(release_notes)]
+        if entry == newest:
+            edit.append('--latest')
+        subprocess.run(edit, check=True)
     print(f'Publicado {release_name}: {RAW}/source.json')
 
 
