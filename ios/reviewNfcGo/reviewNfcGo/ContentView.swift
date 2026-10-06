@@ -576,15 +576,6 @@ struct AuthView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Spacer(minLength: 36)
-                    HStack(spacing: 14) {
-                        LogoMark(size: 58)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("reviewNfcGo").font(.system(size: 34, weight: .bold, design: .rounded))
-                            Text("Encuentra. Copia. Gestiona.").foregroundStyle(.secondary)
-                        }
-                    }
-
                     VStack(alignment: .leading, spacing: 8) {
                         Text(createMode ? "Crear cuenta" : "Iniciar sesión")
                             .font(.title2.bold())
@@ -628,7 +619,17 @@ struct AuthView: View {
                 .padding(24)
                 .background(TopScrollBlurVerification(screen: "auth"))
             }
-            .appTopScrollBlur()
+            .appTopScrollBlur {
+                HStack(spacing: 14) {
+                    LogoMark(size: 58)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("reviewNfcGo").font(.system(size: 34, weight: .bold, design: .rounded))
+                        Text("Encuentra. Copia. Gestiona.").foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 24).padding(.top, 60)
+            }
             .background(Color(uiColor: .systemBackground))
             .navigationBarHidden(true)
         }
@@ -749,7 +750,6 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                header
                 VStack(spacing: 8) {
                     searchBar
                     if showSearchResults && searchText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 { searchSuggestions }
@@ -781,7 +781,9 @@ struct HomeView: View {
             .padding(.bottom, 24)
             .background(TopScrollBlurVerification(screen: "home"))
         }
-        .appTopScrollBlur()
+        .appTopScrollBlur {
+            header.padding(.horizontal, 16).padding(.bottom, 12)
+        }
         .background(AppTheme.background)
         .navigationBarHidden(true)
         .onAppear {
@@ -2060,19 +2062,16 @@ private struct ScrollBlurProbe: UIViewRepresentable {
 #endif
 
 extension View {
-    /// Register a transparent top edge with the system's variable blur, without
-    /// adding a second navigation panel. iOS controls contrast and accessibility.
+    /// The actual header content registers the blur region with iOS. A clear
+    /// spacer has no visible elements for the system to protect with an effect.
     @ViewBuilder
-    func appTopScrollBlur() -> some View {
+    func appTopScrollBlur<Bar: View>(@ViewBuilder content: () -> Bar) -> some View {
         if #available(iOS 26.0, *) {
-            self.safeAreaBar(edge: .top, spacing: 0) {
-                Color.clear.frame(height: 8)
-                    .allowsHitTesting(false).accessibilityHidden(true)
-            }
+            self.safeAreaBar(edge: .top, spacing: 0, content: content)
             .scrollEdgeEffectStyle(.soft, for: .top)
             .scrollEdgeEffectHidden(false, for: .top)
         } else {
-            self
+            self.safeAreaInset(edge: .top, spacing: 0) { content().background(.ultraThinMaterial) }
         }
     }
 

@@ -8,6 +8,7 @@ xcodebuild -project "$task_project_dir/reviewNfcGo.xcodeproj" \
     -scheme reviewNfcGo -configuration Debug -sdk iphonesimulator \
     -destination 'generic/platform=iOS Simulator' \
     -derivedDataPath "$task_output_dir/SimulatorData" \
+    ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES \
     CODE_SIGNING_ALLOWED=NO build > "$task_output_dir/simulator-build.log" 2>&1 || {
         tail -n 100 "$task_output_dir/simulator-build.log"
         exit 1
