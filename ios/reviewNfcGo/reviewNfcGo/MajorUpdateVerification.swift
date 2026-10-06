@@ -56,7 +56,7 @@ enum MajorUpdateVerification {
             store.switchUser(owner)
             try check(store.money == persisted, "Historial y existencias se recuperan al volver a la cuenta")
             store.delete(at: IndexSet(integer: 0))
-            try check(store.money.incomeCents == 4000 && store.money.sold(card.id) == 2, "Eliminar negocio conserva ingresos e inventario vendido")
+            try check(store.money.incomeCents == 4000 && store.money.sold(card.id) == 2 && store.totalCardsSold == 2, "Eliminar negocio conserva ingresos e inventario vendido")
             let finder = PlaceFinder(); finder.prepareMapVerification()
             finder.beginNameSearch("café", saved: searchPlaces)
             try check(finder.searchResults.count == 3 && finder.selectedPlace == nil && finder.mapFocus == nil, "Búsqueda presenta coincidencias sin seleccionar una automáticamente")

@@ -115,7 +115,7 @@ final class AppStore: ObservableObject {
     private var userKey: String?
 
     var totalEarnings: Double { Double(money.incomeCents) / 100 }
-    var totalCardsSold: Int { records.reduce(0) { $0 + $1.cardsSold } }
+    var totalCardsSold: Int { money.sales.values.reduce(0) { $0 + $1.cards } }
     var pendingReminders: [VisitRecord] {
         records.filter { $0.reminderDate != nil && $0.status != .completed }
             .sorted { ($0.reminderDate ?? .distantFuture) < ($1.reminderDate ?? .distantFuture) }
@@ -231,6 +231,7 @@ final class AppStore: ObservableObject {
             snapshot.moneyBalance = Double(money.balanceCents) / 100
             snapshot.moneyExpenses = Double(money.expenseCents) / 100
             snapshot.totalEarnings = totalEarnings
+            snapshot.totalCards = totalCardsSold
             snapshot.moneyOperations = money.history.filter { $0.cents != 0 }.prefix(10).map {
                 WidgetMoneyOperation(id: $0.id, name: $0.title, amount: $0.amount, date: $0.date,
                     businessID: $0.businessID.flatMap { id in records.contains(where: { $0.id == id }) ? id : nil })
