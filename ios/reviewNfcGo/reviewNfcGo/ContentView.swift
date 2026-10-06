@@ -22,49 +22,6 @@ struct UserProfile: Codable, Equatable {
     let email: String
 }
 
-struct PlaceResult: Identifiable, Codable, Equatable {
-    let id: String
-    let name: String
-    let address: String
-    let latitude: Double
-    let longitude: Double
-
-    var coordinate: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-    }
-
-    var reviewURL: String {
-        "https://search.google.com/local/writereview?placeid=\(id)"
-    }
-}
-
-enum VisitStatus: String, Codable, CaseIterable {
-    case contacted = "Contactado"
-    case pending = "Volver otro día"
-    case completed = "Completado"
-
-    var displayName: String {
-        switch self {
-        case .contacted: return "Contactado"
-        case .pending: return "Volver otro día"
-        case .completed: return "Ya lo he vendido"
-        }
-    }
-}
-
-struct VisitRecord: Identifiable, Codable, Equatable {
-    var id: UUID = UUID()
-    var place: PlaceResult
-    var createdAt: Date = Date()
-    var earnings: Double = 0
-    var notes: String = ""
-    var status: VisitStatus = .contacted
-    /// Fecha/hora de la visita prevista.
-    var reminderDate: Date? = nil
-    /// Momento en el que el usuario quiere recibir el aviso. Si es nil, se avisa a la hora de la visita.
-    var notificationDate: Date? = nil
-}
-
 // MARK: - Authentication (local account on this iPhone)
 
 final class AuthStore: ObservableObject {
@@ -157,6 +114,7 @@ final class AppStore: ObservableObject {
     private var userKey: String?
 
     var totalEarnings: Double { records.reduce(0) { $0 + $1.earnings } }
+    var totalCardsSold: Int { records.reduce(0) { $0 + $1.cardsSold } }
     var pendingReminders: [VisitRecord] {
         records.filter { $0.reminderDate != nil && $0.status != .completed }
             .sorted { ($0.reminderDate ?? .distantFuture) < ($1.reminderDate ?? .distantFuture) }
@@ -200,7 +158,9 @@ final class AppStore: ObservableObject {
 
     func update(_ record: VisitRecord) {
         guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
-        records[index] = record
+        var value = record
+        value.normalizeSales()
+        records[index] = value
         save()
     }
 
@@ -608,7 +568,12 @@ struct MainTabView: View {
             NavigationStack { ProfileView() }
                 .tabItem { Label("Perfil", systemImage: "person.crop.circle.fill") }.tag(4)
         }
-        .onAppear { openPendingBusiness() }
+        .onAppear {
+            openPendingBusiness()
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-profile") { selectedTab = 4 }
+            #endif
+        }
         .onChange(of: portalRouter.pendingRecordID) { _ in openPendingBusiness() }
         .onChange(of: store.hasLoadedRecords) { _ in openPendingBusiness() }
         .onChange(of: store.loadedUserEmail) { _ in openPendingBusiness() }
@@ -1031,6 +996,9 @@ struct HistoryView: View {
 struct RecordDetailView: View {
     @EnvironmentObject var store: AppStore
     let recordID: UUID
+    #if DEBUG
+    @State private var verificationEditorPresented = false
+    #endif
 
     private var record: VisitRecord? { store.records.first(where: { $0.id == recordID }) }
 
@@ -1057,6 +1025,10 @@ struct RecordDetailView: View {
                                 Divider()
                                 Label(record.notes, systemImage: "note.text")
                                     .font(.subheadline)
+                            }
+                            if record.cardsSold > 0 {
+                                Divider()
+                                LabeledContent("Tarjetas vendidas", value: "\(record.cardsSold)")
                             }
                             if record.earnings > 0 {
                                 Divider()
@@ -1154,6 +1126,14 @@ struct RecordDetailView: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        #if DEBUG
+        .navigationDestination(isPresented: $verificationEditorPresented) {
+            RecordEditView(recordID: recordID)
+        }
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("--verification-editor") { verificationEditorPresented = true }
+        }
+        #endif
     }
 
     private static func remainingString(from: Date, to: Date) -> String {
@@ -1183,7 +1163,8 @@ struct RecordEditView: View {
 
     private var hasChanges: Bool {
         guard var draft, let original else { return false }
-        draft.earnings = parsedEarnings
+        guard let amount = parsedEarnings else { return true }
+        draft.earnings = amount
         if !reminderEnabled || draft.status == .completed {
             draft.reminderDate = nil
             draft.notificationDate = nil
@@ -1191,9 +1172,16 @@ struct RecordEditView: View {
         return draft != original
     }
 
-    private var parsedEarnings: Double {
+    private var parsedEarnings: Double? {
         let normalized = earningsText.replacingOccurrences(of: "€", with: "").replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ",", with: ".")
-        return Double(normalized) ?? 0
+        if normalized.isEmpty { return 0 }
+        guard let amount = Double(normalized), amount.isFinite, amount >= 0 else { return nil }
+        return amount
+    }
+
+    private var earningsAreValid: Bool {
+        guard let draft, let amount = parsedEarnings else { return false }
+        return amount <= draft.maximumEarnings
     }
 
     var body: some View {
@@ -1213,17 +1201,39 @@ struct RecordEditView: View {
                     .pickerStyle(.segmented)
                     .onChange(of: binding.wrappedValue.status) { status in
                         if status == .completed {
+                            draft?.cardsSold = max(1, draft?.cardsSold ?? 0)
                             reminderEnabled = false
                             draft?.reminderDate = nil
                             draft?.notificationDate = nil
                         }
                     }
                     TextField("Notas", text: binding.notes, axis: .vertical).lineLimit(3...7).focused($focusedField, equals: .notes)
+                }
+                Section {
+                    Stepper(value: binding.cardsSold, in: (isSold ? 1 : 0)...Int.max) {
+                        LabeledContent("Tarjetas vendidas", value: "\(binding.wrappedValue.cardsSold)")
+                    }
+                    .onChange(of: binding.wrappedValue.cardsSold) { _ in
+                        if let amount = parsedEarnings, amount > binding.wrappedValue.maximumEarnings {
+                            earningsText = Self.earningsFormatter.string(from: NSNumber(value: binding.wrappedValue.maximumEarnings)) ?? "0"
+                        }
+                    }
                     HStack {
                         Text("Ganado"); Spacer()
                         TextField("0,00", text: $earningsText).keyboardType(.decimalPad).multilineTextAlignment(.trailing).focused($focusedField, equals: .earnings).frame(maxWidth: 110)
                         Text("€").foregroundStyle(.secondary)
                     }
+                    LabeledContent("Límite de ganancia") {
+                        Text(binding.wrappedValue.maximumEarnings, format: .currency(code: "EUR"))
+                    }
+                    if !earningsAreValid {
+                        Text("Introduce una cantidad entre 0 € y \(binding.wrappedValue.maximumEarnings.formatted(.currency(code: "EUR"))).")
+                            .font(.footnote).foregroundStyle(.red)
+                    }
+                } header: {
+                    Text("Venta de tarjetas")
+                } footer: {
+                    Text("Hasta 50 € por tarjeta. Al reducir las tarjetas vendidas, la ganancia se ajusta al nuevo límite.")
                 }
                 Section("Recordatorio") {
                     Toggle("Volver otro día", isOn: $reminderEnabled)
@@ -1268,7 +1278,7 @@ struct RecordEditView: View {
                 Button { focusedField = nil; attemptDismiss() } label: { Label("Atrás", systemImage: "chevron.left") }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Guardar") { saveAndDismiss() }.bold().disabled(draft == nil)
+                Button("Guardar") { saveAndDismiss() }.bold().disabled(!earningsAreValid)
             }
             ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("OK") { focusedField = nil } }
         }
@@ -1290,8 +1300,9 @@ struct RecordEditView: View {
 
     private func saveAndDismiss() {
         focusedField = nil
-        guard var value = draft else { return }
-        value.earnings = parsedEarnings
+        guard earningsAreValid, var value = draft, let amount = parsedEarnings else { return }
+        value.earnings = amount
+        value.normalizeSales()
         if value.status == .completed || !reminderEnabled {
             value.reminderDate = nil; value.notificationDate = nil
         } else {
@@ -1335,6 +1346,7 @@ struct EarningsView: View {
                         HStack {
                             VStack(alignment: .leading) {
                                 Text(record.place.name).font(.subheadline.weight(.semibold))
+                                Text(record.cardsSoldDescription).font(.caption).foregroundStyle(.secondary)
                                 Text(record.createdAt, style: .date).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
@@ -1504,7 +1516,13 @@ struct ProfileView: View {
             Section("Resumen") {
                 LabeledContent("Sitios guardados", value: "\(store.records.count)")
                 LabeledContent("Ganancias", value: store.totalEarnings.formatted(.currency(code: "EUR")))
+                LabeledContent("Tarjetas vendidas", value: "\(store.totalCardsSold)")
                 LabeledContent("Recordatorios", value: "\(store.pendingReminders.count)")
+            }
+            Section("Acerca de reviewNfcGo") {
+                Text("Desarrollado por Pablo Cancho Flores")
+                    .font(.subheadline)
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.0")
             }
             Section("Cuenta") {
                 Text("Esta versión guarda la cuenta y sus datos localmente en este iPhone. No se envían a un servidor.")

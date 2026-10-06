@@ -37,3 +37,7 @@ Referencias: [Liquid Glass](https://developer.apple.com/documentation/technology
 ## Verificación de esta versión
 
 En Swift 6.2.1: 57 comprobaciones de planificación y concurrencia y 15 de rutas correctas. Sintaxis de los archivos Swift de app y widget comprobada. La compilación de iPhone y la comprobación visual se ejecutan por separado con Xcode 26.2 en GitHub Actions; consulta el resultado del flujo para la compilación de la versión que estés usando.
+
+## Versión 3.0: tarjetas vendidas
+
+En Ficha → Editar se selecciona la cantidad de tarjetas vendidas. La ganancia es editable, con un máximo de 50 € por tarjeta. Reducir la cantidad ajusta la ganancia al límite nuevo. Los registros anteriores se conservan e infieren la cantidad mínima de tarjetas necesaria para mantener sus ganancias; los negocios vendidos tienen al menos una tarjeta. El crédito «Desarrollado por Pablo Cancho Flores» aparece en Perfil.

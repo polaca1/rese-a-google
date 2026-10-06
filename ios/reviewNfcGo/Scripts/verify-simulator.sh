@@ -29,7 +29,7 @@ import sys,json,plistlib,datetime,pathlib
 container,bundle,record_id=sys.argv[1:]
 now=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime(2001,1,1,tzinfo=datetime.timezone.utc)).total_seconds()
 profile={'name':'Prueba iOS','email':'validation@example.invalid'}
-record={'id':record_id,'place':{'id':'validation-place','name':'Negocio de prueba','address':'Calle Mayor, Madrid','latitude':40.4168,'longitude':-3.7038},'createdAt':now,'earnings':25,'notes':'Portal abierto desde Live Activity o recordatorio','status':'contacted'}
+record={'id':record_id,'place':{'id':'validation-place','name':'Negocio de prueba','address':'Calle Mayor, Madrid','latitude':40.4168,'longitude':-3.7038},'createdAt':now,'earnings':100,'cardsSold':2,'notes':'Portal abierto desde Live Activity o recordatorio','status':'completed'}
 prefs={'resenago.currentUser':json.dumps(profile).encode(),'resenago.records.validation@example.invalid':json.dumps([record]).encode()}
 path=pathlib.Path(container)/'Library/Preferences'/f'{bundle}.plist'
 path.parent.mkdir(parents=True,exist_ok=True)
@@ -51,3 +51,16 @@ xcrun simctl launch "$task_device" "$task_bundle_id" --verification-portal "revi
 sleep 3
 xcrun simctl io "$task_device" screenshot "$task_output_dir/portal-cold-launch.png"
 echo 'Simulador: portal desde arranque en frio, capturas clara/oscura guardadas.'
+
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-portal "reviewnfcgo://business/$task_record_id" --verification-editor
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/sales-editor-light.png"
+xcrun simctl ui "$task_device" appearance dark
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/sales-editor-dark.png"
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-profile
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/profile-credit.png"
