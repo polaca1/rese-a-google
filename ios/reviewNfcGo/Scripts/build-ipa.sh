@@ -24,6 +24,11 @@ if [ -n "${GOOGLE_PLACES_API_KEY:-}" ]; then
     /usr/libexec/PlistBuddy -c "Set :GooglePlacesAPIKey $GOOGLE_PLACES_API_KEY" "$task_info_plist"
 fi
 
+bash "$task_project_dir/Scripts/prepare-icon.sh" "$task_output_dir" > "$task_output_dir/icon-render.log" 2>&1 || {
+    cat "$task_output_dir/icon-render.log"
+    cat "$task_output_dir/icon-tool-help.log" 2>/dev/null || true
+    exit 1
+}
 sh "$task_project_dir/Tests/run.sh"
 xcodebuild -project "$task_project_dir/reviewNfcGo.xcodeproj" \
     -scheme reviewNfcGo -configuration Release -sdk iphoneos \
@@ -48,7 +53,7 @@ codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGo/reviewNf
 task_package_dir=$(mktemp -d)
 mkdir -p "$task_package_dir/Payload"
 ditto "$task_app" "$task_package_dir/Payload/reviewNfcGo.app"
-task_ipa="$task_output_dir/reviewNfcGo-4.1-AltStore.ipa"
+task_ipa="$task_output_dir/reviewNfcGo-4.2-AltStore.ipa"
 rm -f "$task_ipa"
 (cd "$task_package_dir" && /usr/bin/zip -qry "$task_ipa" Payload)
 rm -rf "$task_package_dir"

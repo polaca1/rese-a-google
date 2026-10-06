@@ -542,7 +542,9 @@ struct RootView: View {
     var body: some View {
         Group {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--verification-widgets") {
+            if ProcessInfo.processInfo.arguments.contains("--verification-blur-auth") {
+                AuthView()
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-widgets") {
                 WidgetVerificationView()
             } else if ProcessInfo.processInfo.arguments.contains("--verification-dates") || ProcessInfo.processInfo.arguments.contains("--verification-reminder-save") {
                 QuickReminderView(place: PlaceResult(id: "date-verification", name: "Negocio de prueba", address: "Calle Mayor, Madrid", latitude: 40.4168, longitude: -3.7038))
@@ -624,7 +626,9 @@ struct AuthView: View {
                     Spacer(minLength: 20)
                 }
                 .padding(24)
+                .background(TopScrollBlurVerification(screen: "auth"))
             }
+            .appTopScrollBlur()
             .background(Color(uiColor: .systemBackground))
             .navigationBarHidden(true)
         }
@@ -775,11 +779,18 @@ struct HomeView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
+            .background(TopScrollBlurVerification(screen: "home"))
         }
+        .appTopScrollBlur()
         .background(AppTheme.background)
         .navigationBarHidden(true)
         .onAppear {
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-blur-home") {
+                finder.prepareMapVerification()
+                finder.chooseSearchResult(MajorUpdateVerification.searchPlaces[0])
+                return
+            }
             if ProcessInfo.processInfo.arguments.contains("--verification-map") {
                 Task { await MapCameraVerification.run(finder: finder) }
                 return
@@ -1963,7 +1974,7 @@ struct ProfileView: View {
             Section("Acerca de reviewNfcGo") {
                 Text("Desarrollado por Pablo Cancho Flores")
                     .font(.subheadline)
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.1")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.2")
             }
             Section("Cuenta") {
                 Text("Esta versión guarda la cuenta y sus datos localmente en este iPhone. No se envían a un servidor.")
@@ -1989,7 +2000,82 @@ struct LogoMark: View {
     }
 }
 
+private struct TopScrollBlurVerification: View {
+    let screen: String
+    var body: some View {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--verification-blur-\(screen)") {
+            ScrollBlurProbe(screen: screen)
+        } else {
+            EmptyView()
+        }
+        #else
+        EmptyView()
+        #endif
+    }
+}
+
+#if DEBUG
+private struct ScrollBlurProbe: UIViewRepresentable {
+    let screen: String
+    func makeUIView(context: Context) -> ProbeView { ProbeView(screen: screen) }
+    func updateUIView(_ view: ProbeView, context: Context) {}
+
+    final class ProbeView: UIView {
+        let screen: String
+        private var scheduled = false
+        init(screen: String) { self.screen = screen; super.init(frame: .zero); isUserInteractionEnabled = false }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard window != nil, !scheduled else { return }
+            scheduled = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                guard let self, #available(iOS 26.0, *) else { return }
+                var ancestor = self.superview
+                while ancestor != nil && !(ancestor is UIScrollView) { ancestor = ancestor?.superview }
+                guard let scroll = ancestor as? UIScrollView else {
+                    self.report(["passed": false, "error": "No native scroll view"]); return
+                }
+                let maxOffset = max(-scroll.adjustedContentInset.top,
+                    scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)
+                let target = min(150, maxOffset)
+                scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    self.report(["passed": scroll.topEdgeEffect.style == .soft && !scroll.topEdgeEffect.isHidden,
+                        "screen": self.screen, "nativeSoftEffect": scroll.topEdgeEffect.style == .soft,
+                        "effectHidden": scroll.topEdgeEffect.isHidden,
+                        "scrollOffset": scroll.contentOffset.y, "maximumOffset": maxOffset])
+                }
+            }
+        }
+        private func report(_ result: [String: Any]) {
+            guard let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) else { return }
+            let file = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("blur-\(screen)-verification.json")
+            try? data.write(to: file)
+        }
+    }
+}
+#endif
+
 extension View {
+    /// Register a transparent top edge with the system's variable blur, without
+    /// adding a second navigation panel. iOS controls contrast and accessibility.
+    @ViewBuilder
+    func appTopScrollBlur() -> some View {
+        if #available(iOS 26.0, *) {
+            self.safeAreaBar(edge: .top, spacing: 0) {
+                Color.clear.frame(height: 8)
+                    .allowsHitTesting(false).accessibilityHidden(true)
+            }
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .scrollEdgeEffectHidden(false, for: .top)
+        } else {
+            self
+        }
+    }
+
     @ViewBuilder
     func appGlassSearch() -> some View {
         if #available(iOS 26.0, *) { self.glassEffect(.regular, in: .capsule) }

@@ -206,3 +206,26 @@ xcrun simctl launch "$task_device" "$task_bundle_id" --verification-profile
 sleep 3
 xcrun simctl io "$task_device" screenshot "$task_output_dir/profile-photo.png"
 echo 'Major update: dinero, inventario, selección de búsqueda y fotos verificados en simulador.'
+
+# Inspect the actual native scroll edge on each screen without a navigation panel.
+for task_blur_screen in home auth; do
+    xcrun simctl terminate "$task_device" "$task_bundle_id"
+    xcrun simctl ui "$task_device" appearance light
+    xcrun simctl launch "$task_device" "$task_bundle_id" "--verification-blur-$task_blur_screen"
+    for task_attempt in $(seq 1 20); do
+        if [ -f "$task_container/Documents/blur-$task_blur_screen-verification.json" ]; then break; fi
+        sleep 1
+    done
+    cp "$task_container/Documents/blur-$task_blur_screen-verification.json" "$task_output_dir/blur-$task_blur_screen-verification.log"
+    python3 - "$task_output_dir/blur-$task_blur_screen-verification.log" <<'PYCHECK'
+import json,sys
+result=json.load(open(sys.argv[1]));print(result)
+assert result['passed'] and result['nativeSoftEffect'] and not result['effectHidden'],result
+if result['screen']=='home': assert result['scrollOffset']>0,result
+PYCHECK
+    xcrun simctl io "$task_device" screenshot "$task_output_dir/blur-$task_blur_screen-light.png"
+    xcrun simctl ui "$task_device" appearance dark
+    sleep 2
+    xcrun simctl io "$task_device" screenshot "$task_output_dir/blur-$task_blur_screen-dark.png"
+done
+echo 'Blur variable nativo: Inicio y acceso verificados.'
