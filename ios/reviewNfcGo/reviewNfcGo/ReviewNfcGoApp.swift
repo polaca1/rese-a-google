@@ -73,6 +73,7 @@ struct ReviewNfcGoApp: App {
                     // Simulator verification enters the same validated route without
                     // SpringBoard's external-URL consent dialog. Absent from the IPA.
                     let arguments = ProcessInfo.processInfo.arguments
+                    if arguments.contains("--verification-money") { Task { await MajorUpdateVerification.run(store: store, photos: photos) } }
                     if let index = arguments.firstIndex(of: "--verification-portal"),
                        arguments.indices.contains(index + 1),
                        let url = URL(string: arguments[index + 1]) {

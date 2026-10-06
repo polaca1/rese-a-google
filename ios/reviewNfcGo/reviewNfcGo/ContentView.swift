@@ -192,11 +192,11 @@ final class AppStore: ObservableObject {
     }
 
     private func save() {
-        money.synchronize(records)
-        persistMoney()
         if let data = try? JSONEncoder().encode(records) {
             UserDefaults.standard.set(data, forKey: storageKey())
         }
+        money.synchronize(records)
+        persistMoney()
         AlertHistoryStore.shared.updateRecords(records)
         ReminderCoordinator.replaceRecords(records)
         publishWidgets()
@@ -693,6 +693,7 @@ struct MainTabView: View {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--verification-profile") { selectedTab = 4 }
             if ProcessInfo.processInfo.arguments.contains("--verification-history") { selectedTab = 3 }
+            if ProcessInfo.processInfo.arguments.contains("--verification-money") || ProcessInfo.processInfo.arguments.contains("--verification-inventory") || ProcessInfo.processInfo.arguments.contains("--verification-expense") { selectedTab = 2 }
             #endif
         }
         .onChange(of: portalRouter.pendingRecordID) { _ in openPendingBusiness() }
@@ -782,14 +783,28 @@ struct HomeView: View {
                 return
             }
             #endif
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-search") {
+                finder.prepareMapVerification(); searchText = "Café"; searchFocused = false
+                return
+            }
+            #endif
             finder.start()
         }
         .onDisappear { reminderPlace = nil }
         .onChange(of: searchText) { query in
             showSearchResults = true
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-search") {
+                finder.beginNameSearch(query, saved: MajorUpdateVerification.searchPlaces); return
+            }
+            #endif
             finder.beginNameSearch(query, saved: store.records.map(\.place))
         }
         .task(id: searchText) {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-search") { return }
+            #endif
             let query = searchText
             guard showSearchResults, query.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 else { return }
             do { try await Task.sleep(nanoseconds: 450_000_000) } catch { return }

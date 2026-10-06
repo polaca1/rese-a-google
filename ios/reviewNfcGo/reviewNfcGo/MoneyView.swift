@@ -4,6 +4,9 @@ struct MoneyView: View {
     @EnvironmentObject private var store: AppStore
     @State private var showExpense = false
     @State private var filter = "Todos"
+    #if DEBUG
+    @State private var verificationInventory = false
+    #endif
     private var history: [MoneyTransaction] {
         store.money.history.filter { filter == "Todos" || (filter == "Ingresos" ? $0.kind.isIncome : !$0.kind.isIncome) }
     }
@@ -56,6 +59,13 @@ struct MoneyView: View {
         .navigationTitle("Dinero")
         .toolbar { ToolbarItem(placement: .primaryAction) { Button { showExpense = true } label: { Image(systemName: "plus") }.accessibilityLabel("Añadir gasto") } }
         .sheet(isPresented: $showExpense) { ExpenseForm() }
+        #if DEBUG
+        .navigationDestination(isPresented: $verificationInventory) { InventoryView() }
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("--verification-inventory") { verificationInventory = true }
+            if ProcessInfo.processInfo.arguments.contains("--verification-expense") { showExpense = true }
+        }
+        #endif
     }
     private func summary(_ label: String, cents: Int64, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {

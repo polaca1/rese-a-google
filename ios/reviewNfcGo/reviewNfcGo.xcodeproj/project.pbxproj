@@ -36,6 +36,7 @@
 		F10000000000000000000203 /* ProductMetadataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000203 /* ProductMetadataService.swift */; };
 		F10000000000000000000204 /* ProfilePhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000204 /* ProfilePhoto.swift */; };
 		F10000000000000000000205 /* SearchSuggestions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000205 /* SearchSuggestions.swift */; };
+		F10000000000000000000206 /* MajorUpdateVerification.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000206 /* MajorUpdateVerification.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +67,7 @@
 		F20000000000000000000203 /* ProductMetadataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductMetadataService.swift; sourceTree = "<group>"; };
 		F20000000000000000000204 /* ProfilePhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePhoto.swift; sourceTree = "<group>"; };
 		F20000000000000000000205 /* SearchSuggestions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchSuggestions.swift; sourceTree = "<group>"; };
+		F20000000000000000000206 /* MajorUpdateVerification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajorUpdateVerification.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -116,6 +118,7 @@
 				D20000000000000000000003 /* Info.plist */,
 				A20000000000000000000001 /* ReviewNfcGoApp.swift */,
 				A20000000000000000000002 /* ContentView.swift */,
+				F20000000000000000000206 /* MajorUpdateVerification.swift */,
 				F20000000000000000000205 /* SearchSuggestions.swift */,
 				F20000000000000000000204 /* ProfilePhoto.swift */,
 				F20000000000000000000203 /* ProductMetadataService.swift */,
@@ -267,6 +270,7 @@
 				D10000000000000000000002 /* PortalRouter.swift in Sources */,
 				A10000000000000000000001 /* ReviewNfcGoApp.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
+				F10000000000000000000206 /* MajorUpdateVerification.swift in Sources */,
 				F10000000000000000000205 /* SearchSuggestions.swift in Sources */,
 				F10000000000000000000204 /* ProfilePhoto.swift in Sources */,
 				F10000000000000000000203 /* ProductMetadataService.swift in Sources */,

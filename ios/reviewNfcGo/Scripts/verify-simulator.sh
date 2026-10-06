@@ -152,3 +152,41 @@ xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-portal reviewnfcgo://widgets/earnings
 sleep 3
 xcrun simctl io "$task_device" screenshot "$task_output_dir/widget-earnings-deeplink.png"
+
+# Major update: actual AppStore persistence/finance, photos and search selection.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-money
+for task_attempt in $(seq 1 35); do
+    if [ -f "$task_container/Documents/major-update-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/major-update-verification.json" "$task_output_dir/major-update-verification.log"
+python3 - "$task_output_dir/major-update-verification.log" <<'PYCHECK'
+import json,sys
+result=json.load(open(sys.argv[1]));print(json.dumps(result,ensure_ascii=False,indent=2))
+assert result['passed'] and len(result['checks'])>=18,result
+PYCHECK
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/money-light.png"
+xcrun simctl ui "$task_device" appearance dark
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/money-dark.png"
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-inventory
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/inventory-light.png"
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-expense
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/expense-light.png"
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-search
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/search-suggestions.png"
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-profile
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/profile-photo.png"
+echo 'Major update: dinero, inventario, selección de búsqueda y fotos verificados en simulador.'
