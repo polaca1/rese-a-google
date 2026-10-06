@@ -63,23 +63,6 @@ struct PendingMapWidget: Widget {
         .contentMarginsDisabled()
     }
 }
-struct LegacyMapProvider: TimelineProvider {
-    func placeholder(in context: Context) -> DashboardEntry { DashboardEntry(date: Date(), snapshot: WidgetSamples.snapshot) }
-    func getSnapshot(in context: Context, completion: @escaping (DashboardEntry) -> Void) {
-        Task { completion(await WidgetMapRenderer.entry(snapshot: context.isPreview ? WidgetSamples.snapshot : WidgetSharedStore.load(), all: false, size: context.displaySize)) }
-    }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<DashboardEntry>) -> Void) {
-        getSnapshot(in: context) { completion(Timeline(entries: [$0], policy: .after(Date().addingTimeInterval(900)))) }
-    }
-}
-struct LegacyPendingMapWidget: Widget {
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "ReviewNfcGoPendingMap", provider: LegacyMapProvider()) { entry in
-            PendingMapWidgetView(entry: entry).dashboardBackground()
-        }.configurationDisplayName("Mapa de visitas").description("La zona con más visitas pendientes.")
-            .supportedFamilies([.systemMedium, .systemLarge])
-    }
-}
 struct UpcomingVisitsWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "ReviewNfcGoUpcomingVisits", provider: DashboardProvider()) { entry in

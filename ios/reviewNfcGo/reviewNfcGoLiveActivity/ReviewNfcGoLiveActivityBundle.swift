@@ -5,7 +5,7 @@ import ActivityKit
 @main
 struct ReviewNfcGoLiveActivityBundle: WidgetBundle {
     var body: some Widget {
-        if #available(iOS 17.0, *) { PendingMapWidget() } else { LegacyPendingMapWidget() }
+        if #available(iOS 17.0, *) { PendingMapWidget() }
         UpcomingVisitsWidget()
         EarningsSummaryWidget()
         ReviewNfcGoLiveActivity()
