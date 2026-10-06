@@ -1175,12 +1175,7 @@ struct RecordEditView: View {
         return draft != original
     }
 
-    private var parsedEarnings: Double? {
-        let normalized = earningsText.replacingOccurrences(of: "€", with: "").replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ",", with: ".")
-        if normalized.isEmpty { return 0 }
-        guard let amount = Double(normalized), amount.isFinite, amount >= 0 else { return nil }
-        return amount
-    }
+    private var parsedEarnings: Double? { SaleAmountFormatting.parse(earningsText) }
 
     private var earningsAreValid: Bool {
         guard let draft, let amount = parsedEarnings else { return false }
@@ -1218,7 +1213,7 @@ struct RecordEditView: View {
                     }
                     .onChange(of: binding.wrappedValue.cardsSold) { _ in
                         if let amount = parsedEarnings, amount > binding.wrappedValue.maximumEarnings {
-                            earningsText = Self.earningsFormatter.string(from: NSNumber(value: binding.wrappedValue.maximumEarnings)) ?? "0"
+                            earningsText = SaleAmountFormatting.text(for: binding.wrappedValue.maximumEarnings)
                         }
                     }
                     HStack {
@@ -1289,7 +1284,7 @@ struct RecordEditView: View {
             if let value = store.records.first(where: { $0.id == recordID }) {
                 original = value; draft = value
                 reminderEnabled = value.reminderDate != nil && value.status != .completed
-                earningsText = value.earnings == 0 ? "" : Self.earningsFormatter.string(from: NSNumber(value: value.earnings)) ?? "\(value.earnings)"
+                earningsText = value.earnings == 0 ? "" : SaleAmountFormatting.text(for: value.earnings)
                 if value.notificationDate == nil { draft?.notificationDate = value.reminderDate }
             }
         }
@@ -1317,9 +1312,7 @@ struct RecordEditView: View {
         original = value; draft = value; dismiss()
     }
 
-    private static let earningsFormatter: NumberFormatter = {
-        let formatter = NumberFormatter(); formatter.locale = Locale(identifier: "es_ES"); formatter.numberStyle = .decimal; formatter.minimumFractionDigits = 0; formatter.maximumFractionDigits = 2; return formatter
-    }()
+
 }
 
 // MARK: - Earnings

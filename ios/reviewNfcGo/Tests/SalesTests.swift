@@ -3,6 +3,13 @@ import Foundation
 @main
 struct SalesTests {
     static func main() throws {
+        for amount in [0.0, 25.5, 50.0, 100.0, 1000.0, 1250.75] {
+            precondition(SaleAmountFormatting.parse(SaleAmountFormatting.text(for: amount)) == amount,
+                "Editar una venta de varias tarjetas no puede cambiar la cantidad por los separadores")
+        }
+        precondition(SaleAmountFormatting.parse("1.250,75 €") == 1250.75)
+        precondition(SaleAmountFormatting.parse("25.50") == 25.5)
+        precondition(SaleAmountFormatting.parse("-1") == nil && SaleAmountFormatting.parse("nan") == nil)
         let place = PlaceResult(id: "test", name: "Negocio", address: "Madrid", latitude: 40, longitude: -3)
         var sale = VisitRecord(place: place, earnings: 50, cardsSold: 1, status: .completed)
         precondition(sale.maximumEarnings == 50)

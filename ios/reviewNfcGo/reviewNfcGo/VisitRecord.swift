@@ -84,3 +84,27 @@ extension VisitRecord {
     }
 }
 
+
+enum SaleAmountFormatting {
+    private static let formatter: NumberFormatter = {
+        let value = NumberFormatter()
+        value.locale = Locale(identifier: "es_ES")
+        value.numberStyle = .decimal
+        value.usesGroupingSeparator = false
+        value.minimumFractionDigits = 0
+        value.maximumFractionDigits = 2
+        return value
+    }()
+
+    static func text(for amount: Double) -> String {
+        formatter.string(from: NSNumber(value: amount)) ?? String(amount)
+    }
+
+    static func parse(_ text: String) -> Double? {
+        var value = text.replacingOccurrences(of: "€", with: "").replacingOccurrences(of: " ", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty { return 0 }
+        if value.contains(",") { value = value.replacingOccurrences(of: ".", with: "").replacingOccurrences(of: ",", with: ".") }
+        guard let amount = Double(value), amount.isFinite, amount >= 0 else { return nil }
+        return amount
+    }
+}
