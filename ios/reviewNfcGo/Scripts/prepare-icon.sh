@@ -4,14 +4,12 @@ task_project_dir=$(cd -- "$(dirname -- "$0")/.." && pwd)
 task_output_dir=$1
 task_icon="$task_project_dir/reviewNfcGo/AppIcon.icon"
 task_brand="$task_project_dir/reviewNfcGo/Assets.xcassets/BrandMark.imageset"
-task_ictool=$(xcrun --find ictool 2>/dev/null || true)
-if [ ! -x "$task_ictool" ]; then
-    task_ictool="$(dirname "$(xcode-select -p)")/Applications/Icon Composer.app/Contents/Executables/ictool"
-fi
+task_ictool="$(dirname "$(xcode-select -p)")/Applications/Icon Composer.app/Contents/Executables/ictool"
 if [ ! -x "$task_ictool" ]; then
     task_ictool='/Applications/Icon Composer.app/Contents/Executables/ictool'
 fi
 test -x "$task_ictool"
+echo "Renderizador de Icon Composer: $task_ictool"
 "$task_ictool" --help > "$task_output_dir/icon-tool-help.log" 2>&1 || true
 
 export_icon() {
