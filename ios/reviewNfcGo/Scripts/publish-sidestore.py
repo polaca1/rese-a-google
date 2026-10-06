@@ -14,7 +14,7 @@ import zipfile
 
 REPO = 'polaca1/rese-a-google'
 BRANCH = 'sidestore'
-RAW = f'https://raw.githubusercontent.com/{REPO}/{BRANCH}'
+RAW = f'https://raw.githubusercontent.com/{REPO}/refs/heads/{BRANCH}'
 BUNDLE = 'com.pablo.resenagoogle.20261004'
 
 
@@ -71,6 +71,8 @@ def publish(args):
         'iconURL': RAW + '/icon.png',
         'sourceURL': RAW + '/source.json', 'apps': [], 'news': []}
     assert source['identifier'] == 'com.pablo.reviewnfcgo.source', 'No se cambia el identificador de la fuente'
+    source['sourceURL'] = RAW + '/source.json'
+    source['iconURL'] = RAW + '/icon.png'
     for key in ['subtitle', 'description', 'tintColor']:
         source.pop(key, None)
     if not source['apps']:
@@ -82,6 +84,7 @@ def publish(args):
             'iconURL': RAW + '/icon.png', 'tintColor': '1976EC', 'versions': []}]
     app = source['apps'][0]
     assert app['bundleIdentifier'] == BUNDLE
+    app['iconURL'] = RAW + '/icon.png'
     entry = {'version': version, 'buildVersion': build, 'date': release['published_at'],
              'localizedDescription': notes, 'downloadURL': download_url,
              'size': ipa.stat().st_size, 'minOSVersion': max(minimums, key=version_key)}
