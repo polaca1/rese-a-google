@@ -6,6 +6,8 @@ import sqlite3
 import threading
 import time
 from datetime import datetime, timezone
+from contextlib import closing
+from uuid import uuid4
 from pathlib import Path
 
 
@@ -18,11 +20,9 @@ def backup_database(data: Path, now=None):
     destination = data / "copias"
     destination.mkdir(parents=True, exist_ok=True)
     target = destination / ("cuentas-" + now.strftime("%Y-%m-%d") + ".sqlite3")
-    if target.exists():
-        return target
-    temporary = target.with_suffix(".tmp")
+    temporary = target.with_suffix("." + uuid4().hex + ".tmp")
     try:
-        with sqlite3.connect(source, timeout=30) as original, sqlite3.connect(temporary) as copy:
+        with closing(sqlite3.connect(source, timeout=30)) as original, closing(sqlite3.connect(temporary)) as copy:
             original.backup(copy)
         os.replace(temporary, target)
     finally:
@@ -55,7 +55,7 @@ def main():
         if not source.exists():
             print("[]")
             return
-        with sqlite3.connect(source.as_uri() + "?mode=ro", uri=True, timeout=10) as db:
+        with closing(sqlite3.connect(source.as_uri() + "?mode=ro", uri=True, timeout=10)) as db:
             rows = db.execute("SELECT name,email,created_at FROM users ORDER BY created_at DESC").fetchall()
         print(json.dumps([{"Nombre": row[0], "Correo": row[1], "Registro": datetime.fromtimestamp(row[2], timezone.utc).isoformat()} for row in rows]))
         return

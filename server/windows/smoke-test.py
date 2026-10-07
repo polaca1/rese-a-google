@@ -1,6 +1,8 @@
 """Test the packaged Windows executable over real HTTP, including a PC-service restart."""
 import json
 import subprocess
+import sqlite3
+from contextlib import closing
 import sys
 import tempfile
 import time
@@ -44,7 +46,10 @@ with tempfile.TemporaryDirectory(prefix='reviewNfcGo-server-') as name:
         subprocess.run([binary, '--data', str(folder), '--backup'], check=True, timeout=30)
         accounts = json.loads(subprocess.check_output([binary, '--data', str(folder), '--list-accounts'], timeout=30))
         assert len(accounts) == 3 and set(accounts[0]) == {'Nombre', 'Correo', 'Registro'}
-        assert len(list((folder / 'copias').glob('*.sqlite3'))) == 1
+        copies = list((folder / 'copias').glob('*.sqlite3'))
+        assert len(copies) == 1
+        with closing(sqlite3.connect(copies[0])) as copy:
+            assert copy.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 3
         try:
             request('/v1/auth/login', {'email': 'user1@example.com', 'password': 'incorrect-password'})
             raise AssertionError('Wrong password accepted')

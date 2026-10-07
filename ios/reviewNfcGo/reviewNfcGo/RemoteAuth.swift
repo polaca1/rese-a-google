@@ -10,7 +10,7 @@ enum RemoteAuthError: LocalizedError {
         switch self {
         case .invalidURL: return "La dirección del servicio de cuentas no es válida."
         case .notReady: return "El servicio de cuentas todavía no está activado. Inténtalo cuando esté disponible."
-        case .unavailable: return "No se puede conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo. Tu cuenta no se ha creado en este dispositivo."
+        case .unavailable: return "No se puede conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo."
         case .keychain: return "No se ha podido guardar la sesión en el llavero."
         case .rejected(let message): return message
         }

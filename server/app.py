@@ -11,6 +11,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError, InvalidHashError
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field
 
 DATA = Path(os.environ.get("DATA_DIRECTORY", "/app/data"))
@@ -21,6 +22,42 @@ DUMMY_HASH = HASHER.hash(secrets.token_urlsafe(32))
 SESSION_SECONDS = 7 * 86400
 bearer = HTTPBearer(auto_error=False)
 app = FastAPI(title="reviewNfcGo Accounts", docs_url=None, redoc_url=None, openapi_url=None)
+
+
+class AccountRequestLimit:
+    """Bound authentication payloads before JSON parsing, including chunked requests."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("method") != "POST":
+            return await self.app(scope, receive, send)
+        chunks = []
+        count = 0
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            chunk = message.get("body", b"")
+            count += len(chunk)
+            if count > 16_384:
+                return await JSONResponse({"detail": "La solicitud es demasiado grande."}, status_code=413)(scope, receive, send)
+            chunks.append(chunk)
+            if not message.get("more_body", False):
+                break
+        replayed = False
+
+        async def replay():
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                return {"type": "http.request", "body": b"".join(chunks), "more_body": False}
+            return await receive()
+
+        await self.app(scope, replay, send)
+
+
+app.add_middleware(AccountRequestLimit)
 
 
 @contextmanager
@@ -72,7 +109,7 @@ def limit(request, email):
     now = time.time()
     # Persist limits across restarts. Only the TCP peer is trusted, never client-supplied X-Forwarded-For.
     ip = request.client.host if request.client else "unknown"
-    keys = [(digest("ip:" + ip), 60), (digest("email:" + email), 10)]
+    keys = [(digest("ip:" + ip), 300), (digest("email:" + email), 10)]
     with database() as db:
         db.execute("BEGIN IMMEDIATE")
         db.execute("DELETE FROM attempts WHERE timestamp < ?", (now - 300,))

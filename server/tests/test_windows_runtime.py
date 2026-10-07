@@ -1,5 +1,6 @@
 import importlib.util
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -20,15 +21,18 @@ def test_daily_backup_includes_wal_and_keeps_30_copies(tmp_path):
     source.commit()
     now = datetime(2026, 1, 1, tzinfo=timezone.utc)
     first = module.backup_database(tmp_path, now)
-    with sqlite3.connect(first) as copy:
+    with closing(sqlite3.connect(first)) as copy:
         assert copy.execute('SELECT email FROM users').fetchone()[0] == 'first@example.com'
     source.execute('INSERT INTO users VALUES (?)', ('second@example.com',))
     source.commit()
+    module.backup_database(tmp_path, now)
+    with closing(sqlite3.connect(first)) as copy:
+        assert copy.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 2
     for offset in range(1, 33):
         module.backup_database(tmp_path, now + timedelta(days=offset))
     copies = sorted((tmp_path / 'copias').glob('*.sqlite3'))
     assert len(copies) == 30 and not first.exists()
-    with sqlite3.connect(copies[-1]) as copy:
+    with closing(sqlite3.connect(copies[-1])) as copy:
         assert copy.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 2
     assert not list((tmp_path / 'copias').glob('*.tmp'))
     assert module.backup_database(tmp_path, now + timedelta(days=32)) == copies[-1]

@@ -100,3 +100,13 @@ def test_public_registration_default_and_persistence_after_restart(service, monk
     # No unauthenticated public account listing or database/backup download.
     for path in ['/users', '/accounts.sqlite3', '/copias', '/v1/auth/me']:
         assert again.get(path).status_code in (401, 404)
+
+
+
+def test_large_or_chunked_requests_do_not_write_accounts(service):
+    module, client = service
+    for data in [b'{' + b'x' * 20_000 + b'}', iter([b'x' * 9000, b'x' * 9000])]:
+        response = client.post('/v1/auth/register', content=data, headers={'Content-Type': 'application/json'})
+        assert response.status_code == 413
+    with module.database() as db:
+        assert db.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0
