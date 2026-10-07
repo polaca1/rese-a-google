@@ -169,7 +169,7 @@ struct MacSettingsView: View {
                 if let message = notifications.message { Text(message).foregroundStyle(.secondary) }
             }
             Section {
-                LabeledContent("Versión", value: "1.0")
+                LabeledContent("Versión", value: "1.0.1")
                 LabeledContent("Desarrollado por", value: "Pablo Cancho Flores")
             }
         }.formStyle(.grouped).padding().frame(width: 560, height: 680)

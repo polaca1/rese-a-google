@@ -1,9 +1,3 @@
-reviewNfcGo 5.1: Mac, inventario sin coste y servidor de cuentas.
+reviewNfcGo 5.1.1: búsquedas con respaldo.
 
-Escribir NFC es ahora la acción principal azul; copiar el enlace queda como acción secundaria.
-Puedes registrar productos Fabricados o Sin coste por 0 euros: aumentan las existencias y conservan su historial sin descontar saldo.
-El selector del historial de avisos pierde el fondo opaco exterior.
-Nueva app nativa para macOS 14, compatible con Intel y Apple Silicon: dashboard, negocios, visitas, dinero, inventario, mapa, CSV y copias compatibles con iPhone.
-Retirada la integración del Apple Watch.
-Login preparado para tu servidor de cuentas con HTTPS, sesiones en el llavero y contraseñas verificadas en el servidor. La guía explica cómo instalarlo en tu PC; los datos de negocios se transfieren mediante copias, sin sincronización automática.
-Clave de respaldo de Google Places preparada para configurarla cuando esté disponible.
+La búsqueda de negocios utiliza una segunda clave de Google Places si la principal tiene un problema de acceso, cuota o conexión. Se conserva la app de iPhone y Mac, con tus negocios, visitas, inventario y operaciones.
