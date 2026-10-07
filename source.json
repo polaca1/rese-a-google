@@ -18,7 +18,7 @@
           "buildVersion": "23",
           "date": "2026-10-07T22:13:25Z",
           "localizedDescription": "reviewNfcGo 5.1.1: búsquedas con respaldo.\n\nLa búsqueda de negocios utiliza una segunda clave de Google Places si la principal tiene un problema de acceso, cuota o conexión. Se conserva la app de iPhone y Mac, con tus negocios, visitas, inventario y operaciones.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.1.1-build23.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.1.1-build23/reviewNfcGo-5.1.1-build23.ipa",
           "size": 6382599,
           "minOSVersion": "16.1"
         },
@@ -134,7 +134,7 @@
       "version": "5.1.1",
       "versionDate": "2026-10-07T22:13:25Z",
       "versionDescription": "reviewNfcGo 5.1.1: búsquedas con respaldo.\n\nLa búsqueda de negocios utiliza una segunda clave de Google Places si la principal tiene un problema de acceso, cuota o conexión. Se conserva la app de iPhone y Mac, con tus negocios, visitas, inventario y operaciones.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.1.1-build23.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.1.1-build23/reviewNfcGo-5.1.1-build23.ipa",
       "size": 6382599,
       "appPermissions": {
         "entitlements": [
