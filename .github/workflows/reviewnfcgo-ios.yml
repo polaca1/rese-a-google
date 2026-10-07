@@ -19,7 +19,7 @@ jobs:
   build:
     if: ${{ !inputs.release_downloads_only }}
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 40
     env:
       GOOGLE_PLACES_API_KEY: ${{ secrets.REVIEWNFCGO_GOOGLE_PLACES_API_KEY }}
     steps:
@@ -45,15 +45,23 @@ jobs:
       - name: Tests, compilacion Release y paquete AltStore
         run: bash ios/reviewNfcGo/Scripts/build-ipa.sh "$RUNNER_TEMP/reviewNfcGo-build"
 
+      - name: Preparar proyecto de Xcode sin claves
+        run: bash ios/reviewNfcGo/Scripts/package-xcode.sh "$RUNNER_TEMP/reviewNfcGo-build"
+
       - name: Guardar IPA
         uses: actions/upload-artifact@v4
         with:
           name: reviewNfcGo-IPA
-          path: ${{ runner.temp }}/reviewNfcGo-build/*.ipa
+          path: |
+            ${{ runner.temp }}/reviewNfcGo-build/*.ipa
+            ${{ runner.temp }}/reviewNfcGo-build/*.zip
           if-no-files-found: error
 
       - name: Comprobacion visual en simulador iOS 26
         run: bash ios/reviewNfcGo/Scripts/verify-simulator.sh "$RUNNER_TEMP/reviewNfcGo-build"
+
+      - name: Verificar app y complicacion en simulador watchOS 26
+        run: bash ios/reviewNfcGo/Scripts/verify-watch.sh "$RUNNER_TEMP/reviewNfcGo-build"
 
       - name: Guardar capturas y logs de verificacion
         if: always()
