@@ -47,6 +47,7 @@ struct SaleCheckpoint: Codable, Equatable {
     var productID: UUID?
     /// Cost captured when the sale is saved. Nil means the purchase cost is unknown.
     var costCents: Int64? = nil
+    var preciseCostCents: Double? = nil
 }
 enum MoneyError: LocalizedError {
     case invalidAmount, invalidQuantity, insufficientStock, invalidProduct, alreadyReversed
@@ -78,14 +79,24 @@ struct MoneyLedger: Codable, Equatable {
         transactions.filter { $0.productID == id && [.expense, .refund, .stockAdjustment].contains($0.kind) }.reduce(0) { $0 + $1.quantity } - sold(id)
     }
     func spent(_ id: UUID) -> Double { -Double(transactions.filter { $0.productID == id && [.expense, .refund].contains($0.kind) }.reduce(Int64(0)) { $0 + $1.cents }) / 100 }
-    func averageCostCents(_ productID: UUID) -> Int64? {
+    func averageCostCents(_ productID: UUID) -> Double? {
         let quantity = purchased(productID)
         guard quantity > 0 else { return nil }
         let cost = -transactions.filter { $0.productID == productID && [.expense, .refund].contains($0.kind) }.reduce(Int64(0)) { $0 + $1.cents }
         guard cost >= 0 else { return nil }
-        return Int64((Double(cost) / Double(quantity)).rounded())
+        return Double(cost) / Double(quantity)
     }
-    func isReversed(_ id: UUID) -> Bool { transactions.contains { $0.kind == .refund && $0.originalID == id } }
+    func isReversed(_ id: UUID) -> Bool {
+        // An undo can cancel a refund. Evaluate compensating descendants from newest to oldest.
+        var active: [UUID: Bool] = [:]
+        var cancelled = Set<UUID>()
+        for item in transactions.reversed() {
+            let value = !cancelled.contains(item.id)
+            active[item.id] = value
+            if value, let original = item.originalID { cancelled.insert(original) }
+        }
+        return transactions.contains { $0.kind == .refund && $0.originalID == id && active[$0.id] == true }
+    }
     func canAssign(_ record: VisitRecord) -> Bool {
         guard let id = record.inventoryProductID else { return true }
         guard products.contains(where: { $0.id == id && $0.kind == .nfcCard }) else { return false }
@@ -108,15 +119,17 @@ struct MoneyLedger: Codable, Equatable {
                     quantity: record.cardsSold - (previous?.cards ?? 0),
                     notes: difference == 0 ? "Cambio de inventario: \(record.cardsSold) tarjetas vendidas. El importe del negocio no cambia." : previous == nil ? record.place.address : "Corrección de venta: \(SaleAmountFormatting.text(for: Double(previous!.cents) / 100)) € → \(SaleAmountFormatting.text(for: Double(amount) / 100)) €"))
             }
-            let cost: Int64?
-            if record.cardsSold == 0 { cost = 0 }
+            let preciseCost: Double?
+            if record.cardsSold == 0 { preciseCost = 0 }
             else if let id = record.inventoryProductID, let currentUnit = averageCostCents(id) {
                 if let previous, previous.productID == id, let oldCost = previous.costCents {
-                    if record.cardsSold >= previous.cards { cost = oldCost + Int64(record.cardsSold - previous.cards) * currentUnit }
-                    else { cost = previous.cards > 0 ? Int64((Double(oldCost) * Double(record.cardsSold) / Double(previous.cards)).rounded()) : 0 }
-                } else { cost = Int64(record.cardsSold) * currentUnit }
-            } else { cost = nil }
-            sales[key] = SaleCheckpoint(cents: amount, cards: record.cardsSold, productID: record.inventoryProductID, costCents: cost)
+                    let basis = previous.preciseCostCents ?? Double(oldCost)
+                    if record.cardsSold >= previous.cards { preciseCost = basis + Double(record.cardsSold - previous.cards) * currentUnit }
+                    else { preciseCost = previous.cards > 0 ? basis * Double(record.cardsSold) / Double(previous.cards) : 0 }
+                } else { preciseCost = Double(record.cardsSold) * currentUnit }
+            } else { preciseCost = nil }
+            let cost = preciseCost.map { Int64($0.rounded()) }
+            sales[key] = SaleCheckpoint(cents: amount, cards: record.cardsSold, productID: record.inventoryProductID, costCents: cost, preciseCostCents: preciseCost)
         }
     }
     mutating func addExpense(title: String, amount: Double, quantity: Int, productID: UUID?, newProduct: InventoryProduct? = nil,

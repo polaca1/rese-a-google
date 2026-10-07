@@ -44,7 +44,8 @@ struct BusinessBackup: Codable {
             guard UUID(uuidString: key) != nil, (0...100_000).contains(sale.cards),
                   (0...1_000_000_000).contains(sale.cents),
                   sale.productID.map({ products.contains($0) }) ?? true,
-                  sale.costCents.map({ (0...100_000_000_000_000).contains($0) }) ?? true else { throw BackupError.invalid }
+                  sale.costCents.map({ (0...100_000_000_000_000).contains($0) }) ?? true,
+                  sale.preciseCostCents.map({ $0.isFinite && (0...100_000_000_000_000).contains($0) }) ?? true else { throw BackupError.invalid }
         }
         var stock: [UUID: Int] = [:]
         for transaction in money.transactions where [.expense, .refund, .stockAdjustment].contains(transaction.kind) {
@@ -139,7 +140,10 @@ extension MoneyLedger {
         }
         synchronize(records, now: now)
         for record in records {
-            if let old = previous.sales[record.id.uuidString] { sales[record.id.uuidString]?.costCents = old.costCents }
+            if let old = previous.sales[record.id.uuidString] {
+                sales[record.id.uuidString]?.costCents = old.costCents
+                sales[record.id.uuidString]?.preciseCostCents = old.preciseCostCents
+            }
         }
     }
 }

@@ -63,6 +63,20 @@ import Foundation
         check(DailyRoute.distance(place, place) == 0 && DailyRoute.distance(place, far.place) > 100_000, "Geographic distance")
         let nextDay = calendar.date(byAdding: .day, value: 1, to: now)!
         check(DailyRoute.stops(records: [early], day: nextDay, calendar: calendar).isEmpty, "Date filtering honors local calendar")
+        var refundUndo = purchased
+        let purchaseID = refundUndo.transactions.first!.id
+        try refundUndo.reverseExpense(purchaseID, now: now)
+        check(refundUndo.isReversed(purchaseID), "Refund marks original reversed")
+        refundUndo.undo(to: purchased, records: [VisitRecord(id: record.id, place: place, createdAt: now)], now: now)
+        check(!refundUndo.isReversed(purchaseID) && refundUndo.balanceCents == purchased.balanceCents, "Undo refund restores original purchase status")
+        let cheapCard = InventoryProduct(name: "Tarjeta", kind: .nfcCard, color: "Blanco")
+        var cheap = MoneyLedger()
+        try cheap.addExpense(title: "Lote", amount: 4.50, quantity: 16, productID: cheapCard.id, newProduct: cheapCard, date: now, merchant: "", method: "", url: "", notes: "")
+        var bulk = VisitRecord(place: place, createdAt: now, earnings: 60, cardsSold: 6, inventoryProductID: cheapCard.id)
+        cheap.synchronize([bulk], now: now)
+        bulk.cardsSold = 16; bulk.earnings = 160
+        cheap.synchronize([bulk], now: now)
+        check(cheap.sales[bulk.id.uuidString]?.costCents == 450, "Bulk purchase cost retains fractions of a cent across partial sales")
         print("Business tools: \(checks) checks passed")
     }
 }

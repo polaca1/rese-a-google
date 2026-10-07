@@ -8,16 +8,14 @@ struct ReviewNfcGoLiveActivityBundle: WidgetBundle {
         if #available(iOS 17.0, *) { PendingMapWidget() }
         UpcomingVisitsWidget()
         EarningsSummaryWidget()
-        ReviewNfcGoLiveActivity()
+        if #available(iOS 18.0, *) { ReviewNfcGoMirroredLiveActivity() }
+        else { ReviewNfcGoLiveActivity() }
     }
 }
 
 struct ReviewNfcGoLiveActivity: Widget {
-    var body: some WidgetConfiguration {
-        if #available(iOS 18.0, *) { configuration.supplementalActivityFamilies([.small, .medium]) }
-        else { configuration }
-    }
-    private var configuration: some WidgetConfiguration {
+    var body: some WidgetConfiguration { configuration }
+    fileprivate var configuration: some WidgetConfiguration {
         ActivityConfiguration(for: ReminderActivityAttributes.self) { context in
             Group {
                 if #available(iOS 18.0, *) { AdaptiveVisitActivity(context: context) }
@@ -72,4 +70,9 @@ private struct AdaptiveVisitActivity: View {
     let context: ActivityViewContext<ReminderActivityAttributes>
     @Environment(\.activityFamily) private var family
     var body: some View { VisitActivityCard(context: context, compact: family == .small) }
+}
+
+@available(iOS 18.0, *)
+private struct ReviewNfcGoMirroredLiveActivity: Widget {
+    var body: some WidgetConfiguration { ReviewNfcGoLiveActivity().configuration.supplementalActivityFamilies([.small, .medium]) }
 }
