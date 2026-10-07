@@ -18,7 +18,7 @@
           "buildVersion": "19",
           "date": "2026-10-06T22:12:54Z",
           "localizedDescription": "Nuevo icono minimalista con relieve nativo y estrella vacía.\nDesenfoque gradual en las cabeceras sin panel superior fijo.\nInterfaz de producción sin botones de prueba ni identificadores técnicos.\nCredenciales protegidas y migración de las cuentas existentes.\nCorrecciones de recordatorios y del historial de dinero; inventario, widgets y foto de perfil.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-4.2-build19.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-4.2-build19/reviewNfcGo-4.2-build19.ipa",
           "size": 6201761,
           "minOSVersion": "16.1"
         },
@@ -27,7 +27,7 @@
           "buildVersion": "17",
           "date": "2026-10-06T22:04:46Z",
           "localizedDescription": "Correcciones al guardar visitas y al mostrar el historial de dinero.\nIconos claro y oscuro y controles nativos de iOS 26.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.1-build17.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-4.1-build17/reviewNfcGo-4.1-build17.ipa",
           "size": 5770984,
           "minOSVersion": "16.1"
         },
@@ -36,7 +36,7 @@
           "buildVersion": "16",
           "date": "2026-10-06T22:07:27Z",
           "localizedDescription": "Gestor de dinero con saldo, ingresos y gastos, inventario NFC por color y productos personalizados.\nBúsqueda con recomendaciones, mapa fluido y foto de perfil.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-4.0-build16.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-4.0-build16/reviewNfcGo-4.0-build16.ipa",
           "size": 3856799,
           "minOSVersion": "16.1"
         },
@@ -45,7 +45,7 @@
           "buildVersion": "15",
           "date": "2026-10-06T22:07:46Z",
           "localizedDescription": "Widgets de mapa, próximas visitas y ganancias.\nFechas y horas alineadas y ganancia por tarjeta.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.4-build15.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-3.4-build15/reviewNfcGo-3.4-build15.ipa",
           "size": 3577853,
           "minOSVersion": "16.1"
         },
@@ -54,7 +54,7 @@
           "buildVersion": "14",
           "date": "2026-10-06T22:11:25Z",
           "localizedDescription": "Movimiento del mapa con alejamiento, desplazamiento y acercamiento en una animación continua.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.3-build14.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-3.3-build14/reviewNfcGo-3.3-build14.ipa",
           "size": 3424558,
           "minOSVersion": "16.1"
         },
@@ -63,7 +63,7 @@
           "buildVersion": "13",
           "date": "2026-10-06T22:11:42Z",
           "localizedDescription": "El mapa enfoca automáticamente los resultados de búsqueda y tu ubicación.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.2-build13.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-3.2-build13/reviewNfcGo-3.2-build13.ipa",
           "size": 3419356,
           "minOSVersion": "16.1"
         },
@@ -72,7 +72,7 @@
           "buildVersion": "12",
           "date": "2026-10-06T22:11:57Z",
           "localizedDescription": "Historial de notificaciones y Live Activities desde la campana de Avisos.\nNúmero de tarjetas vendidas y límite de ganancia por tarjeta.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-3.1-build12.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-3.1-build12/reviewNfcGo-3.1-build12.ipa",
           "size": 3411976,
           "minOSVersion": "16.1"
         },
@@ -81,7 +81,7 @@
           "buildVersion": "11",
           "date": "2026-10-06T22:16:16Z",
           "localizedDescription": "Número de tarjetas vendidas y límite de ganancia de 50 € por tarjeta.\nCrédito de desarrollo de Pablo Cancho Flores.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-3.0-build11.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-3.0-build11/reviewNfcGo-3.0-build11.ipa",
           "size": 3315405,
           "minOSVersion": "16.1"
         },
@@ -90,7 +90,7 @@
           "buildVersion": "10",
           "date": "2026-10-06T22:12:09Z",
           "localizedDescription": "Liquid Glass nativo, iconos claro y oscuro y acceso a negocios desde recordatorios y Live Activities.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/sidestore/ipas/reviewNfcGo-2.9-build10.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-2.9-build10/reviewNfcGo-2.9-build10.ipa",
           "size": 3307041,
           "minOSVersion": "16.1"
         }
@@ -98,7 +98,7 @@
       "version": "4.2",
       "versionDate": "2026-10-06T22:12:54Z",
       "versionDescription": "Nuevo icono minimalista con relieve nativo y estrella vacía.\nDesenfoque gradual en las cabeceras sin panel superior fijo.\nInterfaz de producción sin botones de prueba ni identificadores técnicos.\nCredenciales protegidas y migración de las cuentas existentes.\nCorrecciones de recordatorios y del historial de dinero; inventario, widgets y foto de perfil.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-4.2-build19.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-4.2-build19/reviewNfcGo-4.2-build19.ipa",
       "size": 6201761,
       "appPermissions": {
         "entitlements": [
