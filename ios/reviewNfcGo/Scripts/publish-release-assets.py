@@ -12,12 +12,16 @@ REPO = 'polaca1/rese-a-google'
 BRANCH = 'sidestore'
 
 
-def api(path, method='GET', payload=None):
+def api(path, method='GET', payload=None, missing=False):
     command = ['gh', 'api', '--method', method, f'repos/{REPO}/{path}']
     if payload is not None:
         command += ['--input', '-']
     result = subprocess.run(command, input=json.dumps(payload) if payload else None,
-                            text=True, capture_output=True, check=True)
+                            text=True, capture_output=True)
+    if result.returncode:
+        if missing and '404' in result.stderr:
+            return None
+        raise RuntimeError(result.stderr.strip())
     return json.loads(result.stdout)
 
 
@@ -70,7 +74,44 @@ def publish():
             'message': 'Use verified GitHub release assets for SideStore downloads',
             'branch': BRANCH, 'sha': source_file['sha'],
             'content': base64.b64encode((json.dumps(source, ensure_ascii=False, indent=2) + '\n').encode()).decode()})
+    publish_compatible_source(source)
     print('Fuente SideStore actualizada con descargas de GitHub Releases', flush=True)
+
+
+def publish_compatible_source(source):
+    """Maintain the classic flat source format, with the identical latest IPA."""
+    app = source['apps'][0]
+    latest = app['versions'][0]
+    url = f'https://raw.githubusercontent.com/{REPO}/refs/heads/{BRANCH}/source-compatible.json'
+    compatible = {
+        'name': 'reviewNfcGo · Compatible',
+        'identifier': 'com.pablo.reviewnfcgo.source.compatible',
+        'sourceURL': url,
+        'apps': [{
+            'name': app['name'], 'bundleIdentifier': app['bundleIdentifier'],
+            'developerName': app['developerName'],
+            'localizedDescription': app['localizedDescription'],
+            'iconURL': app['iconURL'],
+            'version': latest['version'], 'versionDate': latest['date'],
+            'versionDescription': latest['localizedDescription'],
+            'downloadURL': latest['downloadURL'], 'size': latest['size'],
+            'appPermissions': app['appPermissions'],
+        }],
+        'news': [],
+    }
+    encoded = (json.dumps(compatible, ensure_ascii=False, indent=2) + '\n').encode()
+    previous = api(f'contents/source-compatible.json?ref={BRANCH}', missing=True)
+    if previous and base64.b64decode(previous['content']) == encoded:
+        return
+    payload = {
+        'message': 'Maintain classic SideStore source for latest verified release',
+        'branch': BRANCH,
+        'content': base64.b64encode(encoded).decode(),
+    }
+    if previous:
+        payload['sha'] = previous['sha']
+    api('contents/source-compatible.json', method='PUT', payload=payload)
+    print(f'Fuente clásica compatible publicada: {url}', flush=True)
 
 
 if __name__ == '__main__':
