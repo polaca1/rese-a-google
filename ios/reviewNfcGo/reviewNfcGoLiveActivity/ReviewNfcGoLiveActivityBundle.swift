@@ -9,7 +9,7 @@ struct ReviewNfcGoLiveActivityBundle: WidgetBundle {
         UpcomingVisitsWidget()
         EarningsSummaryWidget()
         if #available(iOS 18.0, *) { ReviewNfcGoMirroredLiveActivity() }
-        else { ReviewNfcGoLiveActivity() }
+        if #unavailable(iOS 18.0) { ReviewNfcGoLiveActivity() }
     }
 }
 

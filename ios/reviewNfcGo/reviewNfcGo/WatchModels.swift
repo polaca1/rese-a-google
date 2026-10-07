@@ -66,7 +66,8 @@ struct WatchAction: Codable, Identifiable, Equatable {
             guard (1...100_000).contains(cards), (0...5000).contains(unitCents), business.cardsSold <= 100_000 - cards else { return "Revisa la cantidad y el precio (hasta 50 € por tarjeta)." }
             if let existing = business.productID, productID != existing { return "La venta debe usar el mismo color que las tarjetas ya asignadas al negocio." }
             if let productID {
-                guard let product = snapshot.products.first(where: { $0.id == productID }), product.stock >= cards else { return "No hay suficientes tarjetas de ese color." }
+                let needed = business.productID == productID ? cards : business.cardsSold + cards
+                guard let product = snapshot.products.first(where: { $0.id == productID }), product.stock >= needed else { return "No hay suficientes tarjetas de ese color." }
             }
         }
         return nil
@@ -80,7 +81,7 @@ struct WatchActionJournal: Codable {
     mutating func process(_ action: WatchAction, snapshot: WatchSnapshot, now: Date = Date(), apply: () -> String?) -> WatchReceipt {
         if let receipt = receipts[action.id.uuidString] { return receipt }
         let error = action.validate(snapshot: snapshot, now: now) ?? apply()
-        let receipt = WatchReceipt(id: action.id, accepted: error == nil, message: error ?? "Guardado en el iPhone.")
+        let receipt = WatchReceipt(id: action.id, accepted: error == nil, message: error ?? (action.kind == .prepareNFC ? "Abre el iPhone para escribir la tarjeta desde la ficha preparada." : "Guardado en el iPhone."))
         receipts[action.id.uuidString] = receipt
         order = (order ?? []) + [action.id.uuidString]
         return receipt

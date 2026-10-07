@@ -77,6 +77,7 @@ struct ReviewNfcGoApp: App {
                     photos.switchUser(auth.currentUser?.email)
                     store.restorePhoto = { [weak photos] data in try? photos?.restoreBackupData(data) }
                     PhoneWatchBridge.shared.attach(store)
+                    PhoneWatchBridge.shared.openPreparedBusiness()
                     #if DEBUG
                     // Simulator verification enters the same validated route without
                     // SpringBoard's external-URL consent dialog. Absent from the IPA.
@@ -100,6 +101,7 @@ struct ReviewNfcGoApp: App {
                         ReminderCoordinator.refresh()
                         AlertHistoryStore.shared.refresh()
                         PhoneWatchBridge.shared.publish()
+                        PhoneWatchBridge.shared.openPreparedBusiness()
                     } else {
                         ReminderCoordinator.suspendTimer()
                     }

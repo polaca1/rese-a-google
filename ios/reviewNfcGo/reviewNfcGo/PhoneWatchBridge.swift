@@ -82,6 +82,16 @@ import WatchConnectivity
         publish()
         return (try? JSONEncoder().encode(receipt)).map { ["receipt": $0] } ?? [:]
     }
+    func openPreparedBusiness() {
+        loadAccount()
+        guard UIApplication.shared.applicationState == .active,
+              let value = UserDefaults.standard.dictionary(forKey: "resenago.watch.preparedNFC") as? [String: String] else { return }
+        guard value["owner"] == owner, let id = value["business"].flatMap(UUID.init(uuidString:)), store?.records.contains(where: { $0.id == id }) == true else {
+            UserDefaults.standard.removeObject(forKey: "resenago.watch.preparedNFC"); return
+        }
+        PortalRouter.shared.open(recordID: id)
+        UserDefaults.standard.removeObject(forKey: "resenago.watch.preparedNFC")
+    }
     func invalidatePendingActions() {
         loadAccount()
         guard let owner else { return }
@@ -108,7 +118,8 @@ import WatchConnectivity
             record.reminderDate = nil; record.notificationDate = nil
         case .prepareNFC:
             // NFC sessions require a foreground user action on the iPhone.
-            PortalRouter.shared.open(recordID: record.id)
+            UserDefaults.standard.set(["owner": action.owner, "business": record.id.uuidString], forKey: "resenago.watch.preparedNFC")
+            openPreparedBusiness()
             return nil
         }
         return store.update(record) ? nil : "Revisa las tarjetas y el importe en el iPhone."
