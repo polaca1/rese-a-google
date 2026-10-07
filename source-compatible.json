@@ -9,11 +9,11 @@
       "developerName": "Pablo Cancho Flores",
       "localizedDescription": "Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Versión de escritorio para macOS 14 disponible en la release.",
       "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/icon.png",
-      "version": "5.1",
-      "versionDate": "2026-10-07T21:22:04Z",
-      "versionDescription": "reviewNfcGo 5.1: Mac, inventario sin coste y servidor de cuentas.\n\nEscribir NFC es ahora la acción principal azul; copiar el enlace queda como acción secundaria.\nPuedes registrar productos Fabricados o Sin coste por 0 euros: aumentan las existencias y conservan su historial sin descontar saldo.\nEl selector del historial de avisos pierde el fondo opaco exterior.\nNueva app nativa para macOS 14, compatible con Intel y Apple Silicon: dashboard, negocios, visitas, dinero, inventario, mapa, CSV y copias compatibles con iPhone.\nRetirada la integración del Apple Watch.\nLogin preparado para tu servidor de cuentas con HTTPS, sesiones en el llavero y contraseñas verificadas en el servidor. La guía explica cómo instalarlo en tu PC; los datos de negocios se transfieren mediante copias, sin sincronización automática.\nClave de respaldo de Google Places preparada para configurarla cuando esté disponible.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.1-build22/reviewNfcGo-5.1-build22.ipa",
-      "size": 6382549,
+      "version": "5.1.1",
+      "versionDate": "2026-10-07T22:13:25Z",
+      "versionDescription": "reviewNfcGo 5.1.1: búsquedas con respaldo.\n\nLa búsqueda de negocios utiliza una segunda clave de Google Places si la principal tiene un problema de acceso, cuota o conexión. Se conserva la app de iPhone y Mac, con tus negocios, visitas, inventario y operaciones.",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.1.1-build23/reviewNfcGo-5.1.1-build23.ipa",
+      "size": 6382599,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
