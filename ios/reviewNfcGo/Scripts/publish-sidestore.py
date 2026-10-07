@@ -154,6 +154,7 @@ def publish(args):
             edit.append('--latest')
         subprocess.run(edit, check=True)
     print(f'Publicado {release_name}: {RAW}/source.json')
+    subprocess.run(['python3', str(pathlib.Path(__file__).with_name('publish-release-assets.py'))], check=True)
 
 
 if __name__ == '__main__':
