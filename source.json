@@ -18,7 +18,7 @@
           "buildVersion": "21",
           "date": "2026-10-07T17:01:49Z",
           "localizedDescription": "reviewNfcGo 5.0: visitas, dinero y Apple Watch.\n\nCopia y restauración de negocios, visitas, inventario, movimientos y foto desde Perfil, con revisión y copia de recuperación.\nRuta del día con citas ordenadas por horario y visitas sin hora ordenadas por cercanía.\nBeneficio por negocio descontando el coste de las tarjetas, avisos de stock bajo por color y deshacer cambios con historial de correcciones.\nApp nativa de Apple Watch: próxima visita, llegada, volver mañana, ventas con cantidad y precio, indicaciones y resumen del día. Complicación y widget de próximas visitas; Live Activity adaptada a la Smart Stack.\nLa fuente de SideStore actualiza la app de iPhone y conserva tus datos. La app del Watch se distribuye aparte para firmarla e instalarla desde Xcode; las instrucciones están en WATCH-INSTALL.md.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.0-build21.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.0-build21/reviewNfcGo-5.0-build21.ipa",
           "size": 6389863,
           "minOSVersion": "16.1"
         },
@@ -116,7 +116,7 @@
       "version": "5.0",
       "versionDate": "2026-10-07T17:01:49Z",
       "versionDescription": "reviewNfcGo 5.0: visitas, dinero y Apple Watch.\n\nCopia y restauración de negocios, visitas, inventario, movimientos y foto desde Perfil, con revisión y copia de recuperación.\nRuta del día con citas ordenadas por horario y visitas sin hora ordenadas por cercanía.\nBeneficio por negocio descontando el coste de las tarjetas, avisos de stock bajo por color y deshacer cambios con historial de correcciones.\nApp nativa de Apple Watch: próxima visita, llegada, volver mañana, ventas con cantidad y precio, indicaciones y resumen del día. Complicación y widget de próximas visitas; Live Activity adaptada a la Smart Stack.\nLa fuente de SideStore actualiza la app de iPhone y conserva tus datos. La app del Watch se distribuye aparte para firmarla e instalarla desde Xcode; las instrucciones están en WATCH-INSTALL.md.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.0-build21.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.0-build21/reviewNfcGo-5.0-build21.ipa",
       "size": 6389863,
       "appPermissions": {
         "entitlements": [
