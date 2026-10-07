@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import MapKit
 import UserNotifications
+import CryptoKit
 
 struct BackupDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }
@@ -158,7 +159,7 @@ enum StockNotifications {
         let low = Set(money.lowStockProducts.map { $0.id.uuidString })
         let key = "resenago.lowStock." + owner
         let previous = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
-        let ownerToken = WatchIdentity.token(owner)
+        let ownerToken = SHA256.hash(data: Data(owner.utf8)).map { String(format: "%02x", $0) }.joined()
         let center = UNUserNotificationCenter.current()
         for id in previous.subtracting(low) { center.removePendingNotificationRequests(withIdentifiers: ["stock." + ownerToken + "." + id]) }
         let newlyLow = money.lowStockProducts.filter { !previous.contains($0.id.uuidString) }

@@ -325,10 +325,10 @@ struct ExpenseForm: View {
                         else { TextField("0,00", text: $amount).keyboardType(.decimalPad).multilineTextAlignment(.trailing) }
                         if !withoutCost { Text("€").foregroundStyle(.secondary) }
                     }
-                    if kind != nil, quantity > 0, let value = SaleAmountFormatting.parse(amount), value > 0 {
+                    if !withoutCost, kind != nil, quantity > 0, let value = SaleAmountFormatting.parse(amount), value > 0 {
                         LabeledContent("Coste por unidad", value: (value / Double(quantity)).formatted(.currency(code: "EUR")))
                     }
-                    DatePicker("Fecha del gasto", selection: $date, in: ...Date(), displayedComponents: .date)
+                    DatePicker(withoutCost ? "Fecha de entrada" : "Fecha del gasto", selection: $date, in: ...Date(), displayedComponents: .date)
                 }
                 Section {
                     TextField("Enlace de compra (opcional)", text: $link).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
