@@ -7,6 +7,10 @@ on:
         description: Rama o commit de la app nativa
         required: true
         default: ios/minimal-icon-4.2
+      watch_sideloadly_package_only:
+        description: Empaquetar iPhone y Watch ya verificados para prueba con Sideloadly
+        type: boolean
+        default: false
       watch_only_verification:
         description: Verificar solo watchOS sin publicar una release
         type: boolean
@@ -21,7 +25,7 @@ permissions:
 
 jobs:
   build:
-    if: ${{ !inputs.release_downloads_only && !inputs.watch_only_verification }}
+    if: ${{ !inputs.release_downloads_only && !inputs.watch_only_verification && !inputs.watch_sideloadly_package_only }}
     runs-on: macos-15
     timeout-minutes: 40
     outputs:
@@ -81,7 +85,7 @@ jobs:
           if-no-files-found: ignore
 
   watch:
-    if: ${{ !inputs.release_downloads_only }}
+    if: ${{ !inputs.release_downloads_only && !inputs.watch_sideloadly_package_only }}
     runs-on: macos-15
     timeout-minutes: 20
     steps:
@@ -140,7 +144,7 @@ jobs:
             --notes ios/reviewNfcGo/RELEASE-NOTES.txt --previews verification
 
   repair-downloads:
-    if: ${{ inputs.release_downloads_only }}
+    if: ${{ inputs.release_downloads_only && !inputs.watch_sideloadly_package_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -156,3 +160,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 ios/reviewNfcGo/Scripts/publish-release-assets.py
+
+  watch-sideloadly-package:
+    if: ${{ inputs.watch_sideloadly_package_only }}
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: Empaquetar binarios verificados sin cambiar la fuente SideStore
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ios/reviewNfcGo/Scripts/package-watch-sideloadly.py --output "$RUNNER_TEMP/reviewNfcGo-watch-sideloadly"
+      - name: Guardar paquete y comprobaciones
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewNfcGo-Watch-Sideloadly
+          path: ${{ runner.temp }}/reviewNfcGo-watch-sideloadly/*
+          if-no-files-found: error
