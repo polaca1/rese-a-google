@@ -9,10 +9,19 @@
       "bundleIdentifier": "com.pablo.resenagoogle.20261004",
       "developerName": "Pablo Cancho Flores",
       "subtitle": "Negocios, tarjetas NFC, visitas y dinero",
-      "localizedDescription": "Encuentra negocios y organiza tus visitas, tarjetas NFC e ingresos y gastos. Incluye inventario por color, historial de operaciones, foto de perfil, widgets y recordatorios con cuenta atrás.",
+      "localizedDescription": "Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Live Activities compatibles con Apple Watch; la app nativa del reloj se firma e instala aparte desde el proyecto de Xcode de la release.",
       "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/icon.png",
       "tintColor": "1976EC",
       "versions": [
+        {
+          "version": "5.0",
+          "buildVersion": "21",
+          "date": "2026-10-07T17:01:49Z",
+          "localizedDescription": "reviewNfcGo 5.0: visitas, dinero y Apple Watch.\n\nCopia y restauración de negocios, visitas, inventario, movimientos y foto desde Perfil, con revisión y copia de recuperación.\nRuta del día con citas ordenadas por horario y visitas sin hora ordenadas por cercanía.\nBeneficio por negocio descontando el coste de las tarjetas, avisos de stock bajo por color y deshacer cambios con historial de correcciones.\nApp nativa de Apple Watch: próxima visita, llegada, volver mañana, ventas con cantidad y precio, indicaciones y resumen del día. Complicación y widget de próximas visitas; Live Activity adaptada a la Smart Stack.\nLa fuente de SideStore actualiza la app de iPhone y conserva tus datos. La app del Watch se distribuye aparte para firmarla e instalarla desde Xcode; las instrucciones están en WATCH-INSTALL.md.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.0-build21.ipa",
+          "size": 6389863,
+          "minOSVersion": "16.1"
+        },
         {
           "version": "4.2.1",
           "buildVersion": "20",
@@ -104,11 +113,11 @@
           "minOSVersion": "16.1"
         }
       ],
-      "version": "4.2.1",
-      "versionDate": "2026-10-07T06:35:38Z",
-      "versionDescription": "El saludo de Inicio se queda al principio de la página y desaparece al desplazarte.\nLa búsqueda permanece accesible arriba con el desenfoque gradual nativo.\nSe conservan tus negocios, recordatorios, inventario y movimientos de dinero.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-4.2.1-build20/reviewNfcGo-4.2.1-build20.ipa",
-      "size": 6202408,
+      "version": "5.0",
+      "versionDate": "2026-10-07T17:01:49Z",
+      "versionDescription": "reviewNfcGo 5.0: visitas, dinero y Apple Watch.\n\nCopia y restauración de negocios, visitas, inventario, movimientos y foto desde Perfil, con revisión y copia de recuperación.\nRuta del día con citas ordenadas por horario y visitas sin hora ordenadas por cercanía.\nBeneficio por negocio descontando el coste de las tarjetas, avisos de stock bajo por color y deshacer cambios con historial de correcciones.\nApp nativa de Apple Watch: próxima visita, llegada, volver mañana, ventas con cantidad y precio, indicaciones y resumen del día. Complicación y widget de próximas visitas; Live Activity adaptada a la Smart Stack.\nLa fuente de SideStore actualiza la app de iPhone y conserva tus datos. La app del Watch se distribuye aparte para firmarla e instalarla desde Xcode; las instrucciones están en WATCH-INSTALL.md.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.0-build21.ipa",
+      "size": 6389863,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
@@ -136,6 +145,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 5.0 (21)",
+      "identifier": "reviewnfcgo-5.0-build21",
+      "caption": "reviewNfcGo 5.0: visitas, dinero y Apple Watch.",
+      "date": "2026-10-07T17:01:49Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-5.0-build21",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 4.2.1 (20)",
       "identifier": "reviewnfcgo-4.2.1-build20",
