@@ -7,13 +7,13 @@
       "name": "reviewNfcGo",
       "bundleIdentifier": "com.pablo.resenagoogle.20261004",
       "developerName": "Pablo Cancho Flores",
-      "localizedDescription": "Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Live Activities compatibles con Apple Watch; la app nativa del reloj se firma e instala aparte desde el proyecto de Xcode de la release.",
+      "localizedDescription": "Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Versión de escritorio para macOS 14 disponible en la release.",
       "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/icon.png",
-      "version": "5.0",
-      "versionDate": "2026-10-07T17:01:49Z",
-      "versionDescription": "reviewNfcGo 5.0: visitas, dinero y Apple Watch.\n\nCopia y restauración de negocios, visitas, inventario, movimientos y foto desde Perfil, con revisión y copia de recuperación.\nRuta del día con citas ordenadas por horario y visitas sin hora ordenadas por cercanía.\nBeneficio por negocio descontando el coste de las tarjetas, avisos de stock bajo por color y deshacer cambios con historial de correcciones.\nApp nativa de Apple Watch: próxima visita, llegada, volver mañana, ventas con cantidad y precio, indicaciones y resumen del día. Complicación y widget de próximas visitas; Live Activity adaptada a la Smart Stack.\nLa fuente de SideStore actualiza la app de iPhone y conserva tus datos. La app del Watch se distribuye aparte para firmarla e instalarla desde Xcode; las instrucciones están en WATCH-INSTALL.md.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.0-build21/reviewNfcGo-5.0-build21.ipa",
-      "size": 6389863,
+      "version": "5.1",
+      "versionDate": "2026-10-07T21:22:04Z",
+      "versionDescription": "reviewNfcGo 5.1: Mac, inventario sin coste y servidor de cuentas.\n\nEscribir NFC es ahora la acción principal azul; copiar el enlace queda como acción secundaria.\nPuedes registrar productos Fabricados o Sin coste por 0 euros: aumentan las existencias y conservan su historial sin descontar saldo.\nEl selector del historial de avisos pierde el fondo opaco exterior.\nNueva app nativa para macOS 14, compatible con Intel y Apple Silicon: dashboard, negocios, visitas, dinero, inventario, mapa, CSV y copias compatibles con iPhone.\nRetirada la integración del Apple Watch.\nLogin preparado para tu servidor de cuentas con HTTPS, sesiones en el llavero y contraseñas verificadas en el servidor. La guía explica cómo instalarlo en tu PC; los datos de negocios se transfieren mediante copias, sin sincronización automática.\nClave de respaldo de Google Places preparada para configurarla cuando esté disponible.",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.1-build22/reviewNfcGo-5.1-build22.ipa",
+      "size": 6382549,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
