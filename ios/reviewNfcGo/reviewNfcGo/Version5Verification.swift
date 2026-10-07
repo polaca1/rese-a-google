@@ -46,6 +46,18 @@ import UIKit
             try ProfilePhotoStore.validateBackupPhoto(photoBackup.photo)
             photos.remove(); try photos.restoreBackupData(photoBackup.photo)
             try check(photos.image != nil, "Foto incluida en copia y restauración")
+            let manufactured = InventoryProduct(name: "Stand fabricado", kind: .stand)
+            let balance = store.money.balanceCents
+            try store.receiveStock(title: manufactured.name, quantity: 3, productID: manufactured.id, newProduct: manufactured,
+                                   origin: .manufactured, date: Date(), notes: "Lote propio")
+            try check(store.money.stock(manufactured.id) == 3 && store.money.balanceCents == balance && store.money.averageCostCents(manufactured.id) == 0,
+                      "Fabricado aumenta inventario a cero euros")
+            let freeBackup = try store.backup(photo: photos.backupData)
+            let freeDecoded = try BusinessBackup.decode(freeBackup.encoded(), for: owner)
+            try check(freeDecoded.money.transactions.last?.stockOrigin == .manufactured, "Copia conserva origen y coste cero")
+            store.undoLastChange()
+            try check(store.money.stock(manufactured.id) == 0 && store.money.purchased(manufactured.id) == 0 && store.money.balanceCents == balance,
+                      "Deshacer fabricado conserva saldo y auditoría")
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
         } catch { try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": error.localizedDescription], options: .prettyPrinted).write(to: output) }
         store.switchUser(original); photos.switchUser(original)
