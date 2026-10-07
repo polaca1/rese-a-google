@@ -1,3 +1,5 @@
-reviewNfcGo 2.9 — Liquid Glass
+reviewNfcGo 5.1
 
-Consulta README.md para los cambios, requisitos y compilación del IPA.
+Instala el IPA mediante la fuente compatible de SideStore.
+App nativa para macOS 14 y guia del servidor de cuentas disponibles en la misma descarga de GitHub.
+Consulta README.md para requisitos y uso.
