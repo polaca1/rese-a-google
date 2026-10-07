@@ -132,6 +132,7 @@ struct MacWelcomeView: View {
             Text("Tu negocio, también en el Mac").font(.largeTitle.bold())
             Text("Organiza tus visitas, tarjetas NFC e ingresos desde una sola ventana.")
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
+            SettingsLink { Label("Conectar con mi servidor de cuentas", systemImage: "person.crop.circle") }
             Button("Importar copia del iPhone…") { MacFiles.chooseImport(store: store, navigation: navigation) }
                 .buttonStyle(.borderedProminent).controlSize(.large)
             Text("En el iPhone: Perfil → Copias de seguridad → Exportar. Pasa el archivo al Mac con AirDrop.")
@@ -152,6 +153,7 @@ struct MacSettingsView: View {
     @EnvironmentObject private var notifications: MacNotifications
     var body: some View {
         Form {
+            MacAccountSection()
             Section("Cuenta y datos") {
                 LabeledContent("Cuenta", value: store.owner ?? "Sin configurar")
                 Text("Las copias completas pasan los datos entre iPhone y Mac. Importar sustituye los datos; no los combina automáticamente.")
@@ -170,7 +172,52 @@ struct MacSettingsView: View {
                 LabeledContent("Versión", value: "1.0")
                 LabeledContent("Desarrollado por", value: "Pablo Cancho Flores")
             }
-        }.formStyle(.grouped).padding().frame(width: 520, height: 480)
+        }.formStyle(.grouped).padding().frame(width: 560, height: 680)
+    }
+}
+
+struct MacAccountSection: View {
+    @EnvironmentObject private var store: MacStore
+    @ObservedObject private var auth = RemoteAuthClient.shared
+    @State private var address = ""
+    @State private var name = ""
+    @State private var email = ""
+    @State private var password = ""
+    @State private var registering = false
+    @State private var busy = false
+    @State private var message: String?
+    var body: some View {
+        Section("Servidor de cuentas") {
+            TextField("Dirección HTTPS", text: $address)
+            Button("Guardar servidor") {
+                do { try auth.configure(address); message = nil }
+                catch { message = error.localizedDescription }
+            }.disabled(busy)
+            if let session = auth.session, auth.signedIn {
+                LabeledContent("Sesión", value: session.user.email)
+                Button("Cerrar sesión") { auth.logout() }
+            } else if auth.configured {
+                Toggle("Crear cuenta", isOn: $registering).disabled(busy)
+                if registering { TextField("Nombre", text: $name) }
+                TextField("Correo", text: $email)
+                SecureField("Contraseña", text: $password)
+                Button(registering ? "Crear cuenta" : "Iniciar sesión") {
+                    busy = true; message = nil
+                    Task {
+                        defer { busy = false; password = "" }
+                        do {
+                            let user = try await auth.authenticate(email: email, password: password, name: registering ? name : nil)
+                            if store.owner == nil { try store.createWorkspace(email: user.email) }
+                            if store.owner != user.email { message = "La cuenta está conectada. Importa su copia para cambiar los datos de este Mac." }
+                        } catch { message = error.localizedDescription }
+                    }
+                }.disabled(busy || email.isEmpty || password.isEmpty)
+                if busy { ProgressView().controlSize(.small) }
+            }
+            if let message { Text(message).foregroundStyle(.secondary) }
+            Text("El servidor verifica tu cuenta. Los negocios se guardan en el Mac y se transfieren mediante copias de seguridad.")
+                .font(.callout).foregroundStyle(.secondary)
+        }.onAppear { address = auth.server; email = store.owner ?? "" }
     }
 }
 

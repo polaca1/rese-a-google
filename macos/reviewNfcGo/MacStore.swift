@@ -121,6 +121,11 @@ enum DesktopError: LocalizedError {
         guard var value = backup else { throw DesktopError.invalidProfile }
         try value.money.reverseExpense(id); try commit(value, title: "Devolver gasto")
     }
+    func receiveStock(title: String, quantity: Int, productID: UUID, newProduct: InventoryProduct?, origin: InventoryAcquisition, date: Date, notes: String) throws {
+        guard var value = backup else { throw DesktopError.invalidProfile }
+        try value.money.receiveStock(title: title, quantity: quantity, productID: productID, newProduct: newProduct, origin: origin, date: date, notes: notes)
+        try commit(value, title: "Añadir existencias sin coste")
+    }
     func adjustStock(_ id: UUID, quantity: Int, reason: String) throws {
         guard var value = backup else { throw DesktopError.invalidProfile }
         guard !reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw MoneyError.invalidProduct }
@@ -166,17 +171,17 @@ enum DesktopAnalytics {
         }
     }
     static func csv(_ money: MoneyLedger) -> Data {
-        func quoted(_ value: String) -> String {
+        func quoted(_ value: String, protect: Bool = true) -> String {
             // Neutralize spreadsheet formula injection in user-controlled fields.
-            let safe = ["=", "+", "-", "@", "\t", "\r"].contains(value.first.map(String.init) ?? "") ? "'" + value : value
+            let safe = protect && ["=", "+", "-", "@", "\t", "\r"].contains(value.first.map(String.init) ?? "") ? "'" + value : value
             return "\"" + safe.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
         let formatter = ISO8601DateFormatter()
         let header = "Fecha;Tipo;Concepto;Importe EUR;Unidades;Negocio ID;Proveedor;Pago;Enlace;Notas"
         let lines = money.history.map { item in
-            [formatter.string(from: item.date), item.kind.title, item.title,
+            [formatter.string(from: item.date), item.typeTitle, item.title,
              String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), item.amount), String(item.quantity),
-             item.businessID?.uuidString ?? "", item.merchant, item.paymentMethod, item.purchaseURL, item.notes].map(quoted).joined(separator: ";")
+             item.businessID?.uuidString ?? "", item.merchant, item.paymentMethod, item.purchaseURL, item.notes].enumerated().map { quoted($0.element, protect: ![3, 4].contains($0.offset)) }.joined(separator: ";")
         }
         return Data(("\u{FEFF}" + ([header] + lines).joined(separator: "\r\n")).utf8)
     }

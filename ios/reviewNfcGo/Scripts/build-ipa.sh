@@ -4,6 +4,8 @@ task_project_dir=$(cd -- "$(dirname -- "$0")/.." && pwd)
 task_output_dir=${1:-"$task_project_dir/build"}
 mkdir -p "$task_output_dir"
 task_output_dir=$(cd -- "$task_output_dir" && pwd)
+task_project_root=$(git -C "$task_project_dir" rev-parse --show-toplevel)
+source "$task_project_dir/Scripts/load-places-key.sh"
 
 if ! command -v xcodebuild >/dev/null; then
     echo 'Se necesita macOS con Xcode 26 o posterior.' >&2
@@ -23,6 +25,10 @@ trap 'cp "$task_plist_backup" "$task_info_plist"; rm -f "$task_plist_backup"' EX
 if [ -n "${GOOGLE_PLACES_API_KEY:-}" ]; then
     /usr/libexec/PlistBuddy -c "Set :GooglePlacesAPIKey $GOOGLE_PLACES_API_KEY" "$task_info_plist"
 fi
+python3 - "$task_info_plist" <<'PY'
+import pathlib,plistlib,os,sys
+p=pathlib.Path(sys.argv[1]);v=plistlib.loads(p.read_bytes());v['GooglePlacesFallbackAPIKey']=os.environ.get('GOOGLE_PLACES_FALLBACK_API_KEY','');p.write_bytes(plistlib.dumps(v))
+PY
 
 bash "$task_project_dir/Scripts/prepare-icon.sh" "$task_output_dir" > "$task_output_dir/icon-render.log" 2>&1 || {
     cat "$task_output_dir/icon-render.log"

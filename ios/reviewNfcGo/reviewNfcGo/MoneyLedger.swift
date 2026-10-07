@@ -24,6 +24,13 @@ enum MoneyKind: String, Codable {
     }
     var isIncome: Bool { self == .income || self == .incomeAdjustment }
 }
+enum InventoryAcquisition: String, Codable, CaseIterable, Identifiable {
+    case purchase, manufactured, free
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .purchase: return "Compra"; case .manufactured: return "Fabricado"; case .free: return "Sin coste" }
+    }
+}
 struct MoneyTransaction: Identifiable, Codable, Equatable {
     var id = UUID()
     var date: Date
@@ -39,7 +46,10 @@ struct MoneyTransaction: Identifiable, Codable, Equatable {
     var purchaseURL = ""
     var notes = ""
     var originalID: UUID? = nil
+    /// Optional keeps old backups readable. Free receipts remain zero-value stock movements.
+    var stockOrigin: InventoryAcquisition? = nil
     var amount: Double { Double(cents) / 100 }
+    var typeTitle: String { stockOrigin?.title ?? kind.title }
 }
 struct SaleCheckpoint: Codable, Equatable {
     var cents: Int64
@@ -73,7 +83,7 @@ struct MoneyLedger: Codable, Equatable {
     var expenseCents: Int64 { -transactions.filter { $0.kind == .expense || $0.kind == .refund }.reduce(0) { $0 + $1.cents } }
     var balanceCents: Int64 { transactions.reduce(0) { $0 + $1.cents } }
     var history: [MoneyTransaction] { transactions.sorted { $0.date > $1.date } }
-    func purchased(_ id: UUID) -> Int { transactions.filter { $0.productID == id && ($0.kind == .expense || $0.kind == .refund) }.reduce(0) { $0 + $1.quantity } }
+    func purchased(_ id: UUID) -> Int { transactions.filter { $0.productID == id && ($0.kind == .expense || $0.kind == .refund || $0.stockOrigin != nil) }.reduce(0) { $0 + $1.quantity } }
     func sold(_ id: UUID) -> Int { sales.values.filter { $0.productID == id }.reduce(0) { $0 + $1.cards } }
     func stock(_ id: UUID) -> Int {
         transactions.filter { $0.productID == id && [.expense, .refund, .stockAdjustment].contains($0.kind) }.reduce(0) { $0 + $1.quantity } - sold(id)
@@ -151,6 +161,19 @@ struct MoneyLedger: Codable, Equatable {
         transactions.append(MoneyTransaction(date: now, kind: .refund, title: expense.title, cents: -expense.cents,
             productID: expense.productID, quantity: -expense.quantity, merchant: expense.merchant, paymentMethod: expense.paymentMethod,
             purchaseURL: expense.purchaseURL, notes: "Anulación del gasto del \(expense.date.formatted(date: .abbreviated, time: .shortened)). El movimiento original se conserva.", originalID: expense.id))
+    }
+    mutating func receiveStock(title: String, quantity: Int, productID: UUID, newProduct: InventoryProduct? = nil,
+                               origin: InventoryAcquisition, date: Date, notes: String) throws {
+        guard origin != .purchase else { throw MoneyError.invalidAmount }
+        guard (1...100_000).contains(quantity) else { throw MoneyError.invalidQuantity }
+        if let product = newProduct {
+            guard product.id == productID, !product.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  product.kind != .nfcCard || !product.color.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !products.contains(where: { $0.id == product.id }) else { throw MoneyError.invalidProduct }
+            products.append(product)
+        } else if !products.contains(where: { $0.id == productID }) { throw MoneyError.invalidProduct }
+        transactions.append(MoneyTransaction(date: date, kind: .stockAdjustment, title: title, cents: 0,
+            productID: productID, quantity: quantity, merchant: origin.title, notes: notes, stockOrigin: origin))
     }
     mutating func adjustStock(_ id: UUID, quantity: Int, reason: String, now: Date = Date()) throws {
         guard let product = products.first(where: { $0.id == id }) else { throw MoneyError.invalidProduct }

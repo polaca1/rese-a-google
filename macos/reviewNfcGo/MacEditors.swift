@@ -138,13 +138,15 @@ struct MacExpenseEditor: View {
     @State private var fetching = false
     @State private var fetchTask: Task<Void, Never>?
     @State private var owner: String?
+    @State private var origin: InventoryAcquisition = .purchase
     var body: some View {
         VStack(spacing: 0) {
-            sheetTitle("Registrar compra o gasto")
+            sheetTitle("Registrar compra o entrada")
             Form {
                 Section("Compra") {
                     TextField("Concepto", text: $title)
-                    TextField("Coste total (€)", text: $amount)
+                    if choice != "expense" && origin != .purchase { LabeledContent("Coste total", value: "0,00 €") }
+                    else { TextField("Coste total (€)", text: $amount) }
                     DatePicker("Fecha", selection: $date)
                     TextField("Proveedor o tienda", text: $merchant)
                     Picker("Forma de pago", selection: $method) { ForEach(["Tarjeta", "Efectivo", "Transferencia", "Otros"], id: \.self) { Text($0) } }
@@ -155,13 +157,16 @@ struct MacExpenseEditor: View {
                         Text("Crear producto").tag("new")
                         ForEach(store.money.products) { Text($0.displayName).tag($0.id.uuidString) }
                     }
+                    if choice != "expense" {
+                        Picker("Origen", selection: $origin) { ForEach(InventoryAcquisition.allCases) { Text($0.title).tag($0) } }
+                    }
                     if choice == "new" {
                         Picker("Categoría", selection: $kind) { ForEach(ProductKind.allCases) { Text($0.title).tag($0) } }
                         TextField("Nombre del producto", text: $productName)
                         if kind == .nfcCard { TextField("Color", text: $color) }
                     }
-                    if choice != "expense" { Stepper("Unidades compradas: \(quantity)", value: $quantity, in: 1...100_000) }
-                    Text("El coste total descuenta saldo y las unidades compradas aumentan las existencias.").font(.caption).foregroundStyle(.secondary)
+                    if choice != "expense" { Stepper("Unidades adquiridas: \(quantity)", value: $quantity, in: 1...100_000) }
+                    Text(origin == .purchase || choice == "expense" ? "El coste total descuenta saldo y las unidades adquiridas aumentan las existencias." : "La entrada aumenta las existencias sin cambiar tu saldo. El origen se conserva en el historial.").font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Enlace de compra") {
                     TextField("https://tienda…", text: $url)
@@ -196,13 +201,18 @@ struct MacExpenseEditor: View {
     private func save() {
         do {
             guard owner == store.owner else { throw BackupError.wrongAccount }
-            guard let amount = SaleAmountFormatting.parse(amount), amount > 0 else { throw MoneyError.invalidAmount }
+            let noCost = choice != "expense" && origin != .purchase
+            guard noCost || (SaleAmountFormatting.parse(amount) ?? 0) > 0 else { throw MoneyError.invalidAmount }
             guard url.isEmpty || ProductMetadataService.purchaseURL(url) != nil else { throw MoneyError.invalidProduct }
             var product: InventoryProduct?
             if choice == "new" { product = InventoryProduct(name: productName, kind: kind, color: kind == .nfcCard ? color : "", purchaseURL: url, imageURL: imageURL) }
             let id = product?.id ?? UUID(uuidString: choice)
-            try store.addExpense(title: title, amount: amount, quantity: quantity, productID: id, newProduct: product,
-                                 date: date, merchant: merchant, method: method, url: url, notes: notes)
+            if noCost, let id {
+                try store.receiveStock(title: title, quantity: quantity, productID: id, newProduct: product, origin: origin, date: date, notes: notes)
+            } else {
+                try store.addExpense(title: title, amount: SaleAmountFormatting.parse(amount) ?? 0, quantity: quantity, productID: id, newProduct: product,
+                                     date: date, merchant: merchant, method: method, url: url, notes: notes)
+            }
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -252,7 +262,7 @@ struct MacTransactionDetail: View {
             sheetTitle("Detalle de operación")
             Form {
                 LabeledContent("Concepto", value: item.title)
-                LabeledContent("Tipo", value: item.kind.title)
+                LabeledContent("Tipo", value: item.typeTitle)
                 LabeledContent("Importe", value: euro(item.cents))
                 LabeledContent("Fecha", value: item.date.formatted(date: .abbreviated, time: .shortened))
                 if item.productID != nil { LabeledContent("Unidades", value: String(item.quantity)) }
@@ -272,7 +282,7 @@ struct MacTransactionDetail: View {
             Button("Registrar devolución") {
                 do { try store.reverseExpense(item.id); dismiss() } catch { self.error = error.localizedDescription }
             }
-        } message: { Text("El gasto original se conserva. Se devuelve el importe y se retiran las unidades compradas; las unidades ya vendidas no se pueden devolver.") }
+        } message: { Text("El gasto original se conserva. Se devuelve el importe y se retiran las unidades adquiridas; las unidades ya vendidas no se pueden devolver.") }
     }
 }
 

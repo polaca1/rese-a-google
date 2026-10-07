@@ -21,6 +21,8 @@ struct AlertHistoryView: View {
                     ForEach(HistoryFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             } footer: {
                 Text("El historial se guarda en este iPhone desde esta versión. «Enviada» indica una entrega confirmada por iOS; «Entrega sin confirmar» indica que pasó la hora prevista y iOS ya no conserva el aviso.")
             }

@@ -79,7 +79,7 @@ struct MacDashboardView: View {
                                 Image(systemName: item.kind.isIncome ? "arrow.down.left.circle" : "arrow.up.right.circle").foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(item.title).foregroundStyle(.primary)
-                                    Text(item.kind.title + " · " + item.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                                    Text(item.typeTitle + " · " + item.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 Text(euro(item.cents)).monospacedDigit().foregroundStyle(.primary)
@@ -266,7 +266,7 @@ struct MacMoneyView: View {
                 Table(rows, selection: $selection) {
                     TableColumn("Fecha") { Text($0.date, format: .dateTime.day().month(.abbreviated).year().hour().minute()) }.width(min: 140, ideal: 160)
                     TableColumn("Concepto", value: \.title).width(min: 150, ideal: 280)
-                    TableColumn("Tipo") { Text($0.kind.title) }.width(min: 95, ideal: 120)
+                    TableColumn("Tipo") { Text($0.typeTitle) }.width(min: 95, ideal: 120)
                     TableColumn("Unidades") { Text(String($0.quantity)).monospacedDigit() }.width(65)
                     TableColumn("Importe") { Text(euro($0.cents)).monospacedDigit() }.width(100)
                 }
@@ -308,7 +308,7 @@ struct MacInventoryView: View {
                 Table(products, selection: $selection) {
                     TableColumn("Producto", value: \.displayName).width(min: 160, ideal: 280)
                     TableColumn("Categoría") { Text($0.kind.title) }.width(min: 105, ideal: 145)
-                    TableColumn("Compradas") { Text(String(store.money.purchased($0.id))).monospacedDigit() }.width(80)
+                    TableColumn("Adquiridas") { Text(String(store.money.purchased($0.id))).monospacedDigit() }.width(80)
                     TableColumn("Vendidas") { Text(String(store.money.sold($0.id))).monospacedDigit() }.width(75)
                     TableColumn("Disponibles") { product in
                         HStack { Text(String(store.money.stock(product.id))).monospacedDigit(); if product.kind == .nfcCard && store.money.stock(product.id) <= 5 { Image(systemName: "exclamationmark.triangle").help("Existencias bajas") } }

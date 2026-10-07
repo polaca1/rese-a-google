@@ -98,7 +98,7 @@ enum MacSheet: Identifiable {
                 request.setValue(key, forHTTPHeaderField: "X-Goog-Api-Key")
                 request.setValue("places.id,places.displayName,places.formattedAddress,places.location", forHTTPHeaderField: "X-Goog-FieldMask")
                 request.httpBody = try JSONSerialization.data(withJSONObject: ["textQuery": query, "languageCode": "es", "maxResultCount": 8])
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await PlacesTransport.execute(request)
                 guard let response = response as? HTTPURLResponse, (200...299).contains(response.statusCode), data.count <= 2_000_000 else {
                     throw NSError(domain: "Places", code: 1, userInfo: [NSLocalizedDescriptionKey: "No se ha podido buscar el negocio. Puedes añadirlo manualmente o intentarlo otra vez."])
                 }

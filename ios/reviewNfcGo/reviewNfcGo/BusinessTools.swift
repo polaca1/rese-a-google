@@ -39,6 +39,10 @@ struct BusinessBackup: Codable {
                   (-100_000...100_000).contains(transaction.quantity),
                   transaction.productID.map({ products.contains($0) }) ?? true,
                   transaction.title.count <= 1000, transaction.notes.count <= 100_000 else { throw BackupError.invalid }
+            if let origin = transaction.stockOrigin {
+                guard origin != .purchase, transaction.kind == .stockAdjustment, transaction.cents == 0,
+                      transaction.productID != nil, transaction.quantity > 0 || transaction.originalID != nil else { throw BackupError.invalid }
+            }
         }
         for (key, sale) in money.sales {
             guard UUID(uuidString: key) != nil, (0...100_000).contains(sale.cards),
@@ -123,7 +127,7 @@ extension MoneyLedger {
             let reversedKind: MoneyKind = item.kind == .stockAdjustment ? .stockAdjustment : item.kind == .refund ? .expense : .refund
             transactions.append(MoneyTransaction(date: now, kind: reversedKind, title: item.title, cents: -item.cents,
                 productID: item.productID, quantity: -item.quantity, merchant: item.merchant, paymentMethod: item.paymentMethod,
-                purchaseURL: item.purchaseURL, notes: "Cambio deshecho. El movimiento original se conserva.", originalID: item.id))
+                purchaseURL: item.purchaseURL, notes: "Cambio deshecho. El movimiento original se conserva.", originalID: item.id, stockOrigin: item.stockOrigin))
         }
         // Retain new product definitions because the original movements still reference them.
         for product in previous.products {

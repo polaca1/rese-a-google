@@ -61,6 +61,13 @@ import AppKit
             try check(csv.contains("Concepto") && csv.contains("Café de la Plaza") && csv.contains("30.00"), "Exportación CSV con operaciones")
             try check(DesktopAnalytics.days(store.money).count == 14, "Gráfico de catorce días")
 
+            let made = InventoryProduct(name: "Stand fabricado", kind: .stand)
+            let beforeFree = store.money.balanceCents
+            try store.receiveStock(title: made.name, quantity: 2, productID: made.id, newProduct: made, origin: .manufactured, date: Date(), notes: "Lote propio")
+            try check(store.money.balanceCents == beforeFree && store.money.stock(made.id) == 2 && store.money.averageCostCents(made.id) == 0, "Fabricado a cero euros sin alterar saldo")
+            _ = try MacStore.readBackup(store.exportData())
+            try store.undo()
+            try check(store.money.stock(made.id) == 0 && store.money.purchased(made.id) == 0, "Deshacer entrada sin coste conserva historial")
             // Screenshots always use an isolated workspace. Normal launches never seed sample data.
             var sample = try MacStore.readBackup(store.exportData())
             sample.records.append(VisitRecord(place: PlaceResult(id: "local-papeleria", name: "Papelería Central", address: "Av. de Europa, Badajoz", latitude: 38.882, longitude: -6.966),
@@ -84,7 +91,7 @@ import AppKit
         NSApp.terminate(nil)
     }
     private static func capture(name: String, output: URL) throws {
-        guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }), let view = window.contentView,
+        guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }), let view = (window.attachedSheet ?? window).contentView,
               let representation = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw DesktopError.invalidBusiness }
         view.cacheDisplay(in: view.bounds, to: representation)
         guard let png = representation.representation(using: .png, properties: [:]) else { throw DesktopError.invalidBusiness }

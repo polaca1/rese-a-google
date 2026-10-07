@@ -114,7 +114,7 @@ struct MoneyRow: View {
                 .foregroundStyle(transaction.kind.isIncome ? Color.green : Color.orange).font(.title3).frame(width: 24)
             VStack(alignment: .leading, spacing: 4) {
                 Text(transaction.title).font(.body.weight(.semibold))
-                Text(transaction.kind.title + (transaction.quantity != 0 ? " · \(transaction.quantity) uds." : "")).font(.caption).foregroundStyle(.secondary)
+                Text(transaction.typeTitle + (transaction.quantity != 0 ? " · \(transaction.quantity) uds." : "")).font(.caption).foregroundStyle(.secondary)
                 if !transaction.merchant.isEmpty { Text(transaction.merchant).font(.caption).foregroundStyle(.secondary) }
                 Text(transaction.date, format: .dateTime.day().month(.abbreviated).year().hour().minute()).font(.caption2).foregroundStyle(.secondary)
             }
@@ -183,7 +183,7 @@ struct ProductDetailView: View {
                 Section {
                     HStack(spacing: 14) { ProductThumbnail(product: product); Text(product.displayName).font(.title3.bold()) }
                     LabeledContent("Disponibles", value: "\(store.money.stock(productID))")
-                    LabeledContent("Comprados", value: "\(store.money.purchased(productID))")
+                    LabeledContent("Adquiridos", value: "\(store.money.purchased(productID))")
                     if product.kind == .nfcCard { LabeledContent("Vendidos a negocios", value: "\(store.money.sold(productID))") }
                     LabeledContent("Dinero gastado", value: store.money.spent(productID).formatted(.currency(code: "EUR")))
                 }
@@ -215,7 +215,7 @@ struct MoneyTransactionView: View {
                 Section {
                     Text(item.title).font(.title2.bold())
                     Text(item.amount, format: .currency(code: "EUR")).font(.largeTitle.bold())
-                    LabeledContent("Tipo", value: item.kind.title)
+                    LabeledContent("Tipo", value: item.typeTitle)
                     LabeledContent("Fecha", value: item.date.formatted(date: .abbreviated, time: .shortened))
                     if item.quantity != 0 { LabeledContent("Unidades", value: "\(item.quantity)") }
                     if let id = item.productID, let product = store.money.products.first(where: { $0.id == id }) {
@@ -241,7 +241,7 @@ struct MoneyTransactionView: View {
                             Button("Corregir gasto") { showCorrection = true }
                             Button("Anular gasto / devolver compra", role: .destructive) { showReverse = true }
                         }
-                    } footer: { Text("Las correcciones y devoluciones se registran sin borrar el historial. Una devolución también retira las unidades compradas del inventario.") }
+                    } footer: { Text("Las correcciones y devoluciones se registran sin borrar el historial. Una devolución también retira las unidades adquiridas del inventario.") }
                 }
             }.navigationTitle("Movimiento").navigationBarTitleDisplayMode(.inline)
                 .confirmationDialog("¿Anular este gasto?", isPresented: $showReverse, titleVisibility: .visible) {
@@ -275,6 +275,7 @@ struct ExpenseForm: View {
     @State private var error: String?
     @State private var initialized = false
     @State private var importTask: Task<Void, Never>?
+    @State private var origin: InventoryAcquisition = .purchase
     init(initialProductID: UUID? = nil, initialCategory: String = "expense", correction: MoneyTransaction? = nil) {
         self.initialProductID = initialProductID; self.initialCategory = initialCategory; self.correction = correction
         _category = State(initialValue: initialCategory)
@@ -282,7 +283,8 @@ struct ExpenseForm: View {
     }
     private var kind: ProductKind? { ProductKind(rawValue: category) }
     private var selectedProduct: InventoryProduct? { store.money.products.first { $0.id == selectedProductID } }
-    private var canSave: Bool { (SaleAmountFormatting.parse(amount) ?? 0) > 0 && (selectedProduct != nil || !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) && (kind != .nfcCard || selectedProduct != nil || !color.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) && (kind == nil || (1...100_000).contains(quantity)) && !importing }
+    private var withoutCost: Bool { kind != nil && origin != .purchase && correction == nil }
+    private var canSave: Bool { (withoutCost || (SaleAmountFormatting.parse(amount) ?? 0) > 0) && (selectedProduct != nil || !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) && (kind != .nfcCard || selectedProduct != nil || !color.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) && (kind == nil || (1...100_000).contains(quantity)) && !importing }
     var body: some View {
         NavigationStack {
             Form {
@@ -292,6 +294,11 @@ struct ExpenseForm: View {
                         ForEach(ProductKind.allCases) { Text($0.title).tag($0.rawValue) }
                     }.onChange(of: category) { _ in selectedProductID = nil }
                     if let kind {
+                        if correction == nil {
+                            Picker("Origen", selection: $origin) {
+                                ForEach(InventoryAcquisition.allCases) { Text($0.title).tag($0) }
+                            }
+                        }
                         Picker("Producto", selection: $selectedProductID) {
                             Text("Crear producto nuevo").tag(UUID?.none)
                             ForEach(store.money.products.filter { $0.kind == kind }) { Text($0.displayName).tag(Optional($0.id)) }
@@ -308,14 +315,15 @@ struct ExpenseForm: View {
                             Text("Cantidad")
                             Spacer()
                             TextField("1", value: $quantity, format: .number.grouping(.never)).keyboardType(.numberPad)
-                                .multilineTextAlignment(.trailing).frame(width: 70).accessibilityLabel("Unidades compradas")
+                                .multilineTextAlignment(.trailing).frame(width: 70).accessibilityLabel("Unidades adquiridas")
                             Stepper("Cantidad", value: $quantity, in: 1...100_000).labelsHidden().fixedSize()
                         }
                     }
                     HStack {
                         Text("Coste total")
-                        TextField("0,00", text: $amount).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                        Text("€").foregroundStyle(.secondary)
+                        if withoutCost { Spacer(); Text("0,00 €").foregroundStyle(.secondary) }
+                        else { TextField("0,00", text: $amount).keyboardType(.decimalPad).multilineTextAlignment(.trailing) }
+                        if !withoutCost { Text("€").foregroundStyle(.secondary) }
                     }
                     if kind != nil, quantity > 0, let value = SaleAmountFormatting.parse(amount), value > 0 {
                         LabeledContent("Coste por unidad", value: (value / Double(quantity)).formatted(.currency(code: "EUR")))
@@ -334,8 +342,8 @@ struct ExpenseForm: View {
                     TextField("Cómo pagaste (tarjeta, efectivo…)", text: $method)
                     TextField("Notas", text: $notes, axis: .vertical).lineLimit(3...6)
                 }
-                Section { Text("Este gasto se descontará de tu saldo aunque quede negativo.").font(.footnote).foregroundStyle(.secondary) }
-            }.navigationTitle(correction == nil ? "Registrar gasto" : "Corregir gasto").navigationBarTitleDisplayMode(.inline)
+                Section { Text(withoutCost ? "La entrada aumenta el inventario, conserva su origen en el historial y no cambia el saldo." : "Este gasto se descontará de tu saldo aunque quede negativo.").font(.footnote).foregroundStyle(.secondary) }
+            }.navigationTitle(correction == nil ? "Registrar entrada" : "Corregir gasto").navigationBarTitleDisplayMode(.inline)
                 .scrollDismissesKeyboard(.interactively)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
@@ -373,14 +381,18 @@ struct ExpenseForm: View {
         }
     }
     private func save() {
-        guard let value = SaleAmountFormatting.parse(amount) else { return }
+        guard let value = withoutCost ? 0 : SaleAmountFormatting.parse(amount) else { return }
         if !link.isEmpty && ProductMetadataService.purchaseURL(link) == nil { error = "Introduce un enlace completo que empiece por https:// o deja el campo vacío."; return }
         let title = selectedProduct?.displayName ?? name.trimmingCharacters(in: .whitespacesAndNewlines)
         let product: InventoryProduct? = selectedProduct == nil ? kind.map { InventoryProduct(name: title, kind: $0, color: $0 == .nfcCard ? color.trimmingCharacters(in: .whitespacesAndNewlines) : "", purchaseURL: link, imageURL: imageURL) } : nil
         do {
-            try store.addExpense(title: product?.displayName ?? title, amount: value, quantity: quantity,
-                productID: selectedProductID ?? product?.id, newProduct: product, date: date,
-                merchant: merchant, method: method, url: link, notes: notes, replacing: correction?.id)
+            if withoutCost, let id = selectedProductID ?? product?.id {
+                try store.receiveStock(title: product?.displayName ?? title, quantity: quantity, productID: id, newProduct: product, origin: origin, date: date, notes: notes)
+            } else {
+                try store.addExpense(title: product?.displayName ?? title, amount: value, quantity: quantity,
+                    productID: selectedProductID ?? product?.id, newProduct: product, date: date,
+                    merchant: merchant, method: method, url: link, notes: notes, replacing: correction?.id)
+            }
             dismiss()
         } catch { self.error = error.localizedDescription }
     }

@@ -51,6 +51,19 @@ import Foundation
         ledger.synchronize([reduced]); check(ledger.incomeCents == 2000 && ledger.stock(white.id) == 4, "Reduced sales reconcile amount and cards")
         let plain = try JSONSerialization.jsonObject(with: JSONEncoder().encode(VisitRecord(place: place))) as! [String: Any]
         check(plain["inventoryProductID"] == nil, "Legacy unassigned sales remain supported")
+        var freeLedger = MoneyLedger()
+        let manufactured = InventoryProduct(name: "Stand", kind: .stand)
+        try freeLedger.receiveStock(title: "Stand fabricado", quantity: 3, productID: manufactured.id, newProduct: manufactured, origin: .manufactured, date: Date(), notes: "Lote propio")
+        check(freeLedger.stock(manufactured.id) == 3 && freeLedger.balanceCents == 0 && freeLedger.purchased(manufactured.id) == 3, "Manufactured stock has no charge")
+        check(freeLedger.averageCostCents(manufactured.id) == 0 && freeLedger.history.first?.typeTitle == "Fabricado", "Zero cost is known and origin audited")
+        try freeLedger.receiveStock(title: "Otra entrada", quantity: 2, productID: manufactured.id, origin: .free, date: Date(), notes: "")
+        check(freeLedger.stock(manufactured.id) == 5 && freeLedger.balanceCents == 0, "Free acquisition increases stock only")
+        let freeSaved = freeLedger
+        do { try freeLedger.receiveStock(title: "Bad", quantity: 0, productID: manufactured.id, origin: .free, date: Date(), notes: ""); preconditionFailure() }
+        catch { check(freeLedger == freeSaved, "Invalid free receipt is atomic") }
+        let freeData = try JSONEncoder().encode(freeLedger)
+        let freeRoundTrip = try JSONDecoder().decode(MoneyLedger.self, from: freeData)
+        check(freeRoundTrip == freeLedger, "Free origin persists")
         print("Money ledger: \(checks) checks passed")
     }
 }

@@ -5,6 +5,8 @@ task_out=${1:-"$task_root/macos/build"}
 mkdir -p "$task_out"
 task_out=$(cd "$task_out" && pwd)
 task_resources="$task_root/macos/reviewNfcGo/Resources"
+task_project_root="$task_root"
+source "$task_root/ios/reviewNfcGo/Scripts/load-places-key.sh"
 task_icons="$task_out/AppIcon.iconset"
 mkdir -p "$task_icons"
 for task_size in 16 32 64 128 256 512; do
@@ -27,7 +29,7 @@ for field,variable in [('GooglePlacesAPIKey','GOOGLE_PLACES_API_KEY'),('GooglePl
 assert v['LSMinimumSystemVersion']=='14.0', 'El paquete debe admitir Sonoma'
 p.write_bytes(plistlib.dumps(v))
 PY
-lipo -verify_arch arm64 x86_64 "$task_app/Contents/MacOS/reviewNfcGoMac"
+lipo "$task_app/Contents/MacOS/reviewNfcGoMac" -verify_arch arm64 x86_64
 codesign --force --sign - --timestamp=none "$task_app"
 codesign --verify --deep --strict "$task_app"
 ditto -c -k --sequesterRsrc --keepParent "$task_app" "$task_out/reviewNfcGo-Mac-1.0.zip"
@@ -57,5 +59,5 @@ import json,pathlib,sys
 p=pathlib.Path(sys.argv[1]);assert p.exists(),'La app no terminó la verificación nativa'
 v=json.loads(p.read_text());print(json.dumps(v,ensure_ascii=False));assert v['passed'],v.get('error')
 PY
-git -C "$task_root" archive --format=zip HEAD macos ios/reviewNfcGo --output="$task_out/reviewNfcGo-Mac-1.0-Xcode.zip"
+git -C "$task_root" archive --format=zip --output="$task_out/reviewNfcGo-Mac-1.0-Xcode.zip" HEAD macos ios/reviewNfcGo server
 echo 'App universal para macOS 14 preparada y verificada.'

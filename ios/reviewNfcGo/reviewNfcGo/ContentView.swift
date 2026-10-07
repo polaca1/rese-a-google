@@ -26,9 +26,12 @@ struct UserProfile: Codable, Equatable {
 
 // MARK: - Authentication (local account on this iPhone)
 
-final class AuthStore: ObservableObject {
+@MainActor final class AuthStore: ObservableObject {
     @Published private(set) var currentUser: UserProfile?
     @Published var errorMessage: String?
+    @Published private(set) var isAuthenticating = false
+    @Published private(set) var serverAddress = ""
+    private let remote: RemoteAuthClient
 
     private let userKey = "resenago.currentUser"
     private let accountsKey = "resenago.accounts"
@@ -46,10 +49,12 @@ final class AuthStore: ObservableObject {
          credentialService: String = (Bundle.main.bundleIdentifier ?? "reviewNfcGo") + ".accounts") {
         self.defaults = defaults
         self.credentialService = credentialService
+        remote = RemoteAuthClient(defaults: defaults)
+        serverAddress = remote.server
         _ = loadAccounts() // Safely migrate legacy credentials before removing their old copy.
         if let data = defaults.data(forKey: userKey),
            let profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
-            currentUser = profile
+            if !remote.configured || (remote.signedIn && remote.session?.user.email == profile.email) { currentUser = profile }
         }
     }
 
@@ -107,6 +112,35 @@ final class AuthStore: ObservableObject {
         currentUser = nil
         defaults.removeObject(forKey: userKey)
         errorMessage = nil
+        remote.logout()
+    }
+    func configureServer(_ address: String) -> Bool {
+        do {
+            try remote.configure(address); serverAddress = remote.server
+            currentUser = nil; defaults.removeObject(forKey: userKey); errorMessage = nil
+            return true
+        } catch { errorMessage = error.localizedDescription; return false }
+    }
+    func authenticate(name: String?, email: String, password: String) async {
+        guard !isAuthenticating else { return }
+        isAuthenticating = true; defer { isAuthenticating = false }
+        if !remote.configured {
+            if let name { _ = createAccount(name: name, email: email, password: password) }
+            else { _ = login(email: email, password: password) }
+            return
+        }
+        do {
+            let user = try await remote.authenticate(email: email, password: password, name: name)
+            setCurrent(UserProfile(name: user.name, email: user.email)); errorMessage = nil
+        } catch { errorMessage = error.localizedDescription }
+    }
+    func validateServerSession() async {
+        guard remote.configured, currentUser != nil else { return }
+        do { _ = try await remote.validate() }
+        catch {
+            if !remote.signedIn { currentUser = nil; defaults.removeObject(forKey: userKey) }
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func setCurrent(_ profile: UserProfile) {
@@ -316,6 +350,12 @@ final class AppStore: ObservableObject {
     func reverseExpense(_ id: UUID) throws {
         var updated = money; try updated.reverseExpense(id)
         remember("Cambiar dinero o inventario")
+        money = updated; persistMoney(); publishWidgets()
+    }
+    func receiveStock(title: String, quantity: Int, productID: UUID, newProduct: InventoryProduct?, origin: InventoryAcquisition, date: Date, notes: String) throws {
+        var updated = money
+        try updated.receiveStock(title: title, quantity: quantity, productID: productID, newProduct: newProduct, origin: origin, date: date, notes: notes)
+        remember("Añadir existencias sin coste")
         money = updated; persistMoney(); publishWidgets()
     }
     func adjustStock(_ id: UUID, quantity: Int, reason: String) throws {
@@ -582,7 +622,7 @@ struct GooglePlacesService {
     private func execute(_ request: URLRequest) async throws -> [PlaceResult] {
         var boundedRequest = request
         boundedRequest.timeoutInterval = 20
-        let (data, response) = try await URLSession.shared.data(for: boundedRequest)
+        let (data, response) = try await PlacesTransport.execute(boundedRequest)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode), data.count <= 2_000_000 else {
             throw NSError(domain: "PlaceSearch", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "La búsqueda no está disponible. Vuelve a intentarlo más tarde."])
@@ -715,6 +755,7 @@ struct AuthView: View {
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
+    @State private var serverAddress = ""
 
     var body: some View {
         NavigationStack {
@@ -723,7 +764,7 @@ struct AuthView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(createMode ? "Crear cuenta" : "Iniciar sesión")
                             .font(.title2.bold())
-                        Text("Tus negocios, ganancias y recordatorios quedan organizados en tu cuenta de este iPhone.")
+                        Text(auth.serverAddress.isEmpty ? "Tus negocios, ganancias y recordatorios quedan organizados en tu cuenta de este iPhone." : "Inicia sesión en tu servidor de cuentas. Los negocios siguen guardados en este dispositivo.")
                             .foregroundStyle(.secondary)
                     }
 
@@ -742,16 +783,19 @@ struct AuthView: View {
                     }
 
                     Button {
-                        if createMode {
-                            _ = auth.createAccount(name: name, email: email, password: password)
-                        } else {
-                            _ = auth.login(email: email, password: password)
-                        }
+                        Task { await auth.authenticate(name: createMode ? name : nil, email: email, password: password) }
                     } label: {
-                        Text(createMode ? "Crear cuenta" : "Entrar")
+                        HStack { if auth.isAuthenticating { ProgressView().tint(.white) }; Text(createMode ? "Crear cuenta" : "Entrar") }
                             .frame(maxWidth: .infinity)
                     }
                     .appPrimaryButton()
+                    .disabled(auth.isAuthenticating)
+
+                    DisclosureGroup("Servidor de cuentas") {
+                        NativeField(title: "https://tu-servidor…", icon: "server.rack", text: $serverAddress).keyboardType(.URL)
+                        Button("Guardar servidor") { _ = auth.configureServer(serverAddress) }.appSecondaryButton().disabled(auth.isAuthenticating)
+                        Text("Conecta Tailscale y añade la dirección HTTPS de tu PC. Deja el campo vacío para conservar las cuentas locales anteriores.").font(.footnote).foregroundStyle(.secondary)
+                    }
 
                     Button(createMode ? "Ya tengo cuenta" : "Crear una cuenta") {
                         createMode.toggle()
@@ -778,6 +822,7 @@ struct AuthView: View {
             }
             .background(Color(uiColor: .systemBackground))
             .navigationBarHidden(true)
+            .onAppear { serverAddress = auth.serverAddress }
         }
     }
 }
@@ -1092,6 +1137,15 @@ struct HomeView: View {
             Divider()
 
             Button {
+                store.addOrUpdatePlace(place)
+                ExternalNFCWriter.write(reviewURL: place.reviewURL)
+            } label: {
+                Label("Escribir NFC", systemImage: "wave.3.right")
+                    .frame(maxWidth: .infinity)
+            }
+            .appPrimaryButton()
+
+            Button {
                 UIPasteboard.general.string = place.reviewURL
                 store.addOrUpdatePlace(place)
                 withAnimation { showSavedToast = true }
@@ -1100,15 +1154,6 @@ struct HomeView: View {
                 }
             } label: {
                 Label("Copiar enlace de reseña", systemImage: "doc.on.doc.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .appPrimaryButton()
-
-            Button {
-                store.addOrUpdatePlace(place)
-                ExternalNFCWriter.write(reviewURL: place.reviewURL)
-            } label: {
-                Label("Escribir NFC", systemImage: "wave.3.right")
                     .frame(maxWidth: .infinity)
             }
             .appSecondaryButton()

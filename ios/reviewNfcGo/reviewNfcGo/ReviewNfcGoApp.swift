@@ -75,6 +75,7 @@ struct ReviewNfcGoApp: App {
                     store.switchUser(auth.currentUser?.email)
                     photos.switchUser(auth.currentUser?.email)
                     store.restorePhoto = { [weak photos] data in try? photos?.restoreBackupData(data) }
+                    Task { await auth.validateServerSession() }
                     #if DEBUG
                     // Simulator verification enters the same validated route without
                     // SpringBoard's external-URL consent dialog. Absent from the IPA.

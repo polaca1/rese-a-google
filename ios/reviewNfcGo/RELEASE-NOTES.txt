@@ -1,7 +1,9 @@
-reviewNfcGo 5.0: visitas, dinero y Apple Watch.
+reviewNfcGo 5.1: Mac, inventario sin coste y servidor de cuentas.
 
-Copia y restauración de negocios, visitas, inventario, movimientos y foto desde Perfil, con revisión y copia de recuperación.
-Ruta del día con citas ordenadas por horario y visitas sin hora ordenadas por cercanía.
-Beneficio por negocio descontando el coste de las tarjetas, avisos de stock bajo por color y deshacer cambios con historial de correcciones.
-App nativa de Apple Watch: próxima visita, llegada, volver mañana, ventas con cantidad y precio, indicaciones y resumen del día. Complicación y widget de próximas visitas; Live Activity adaptada a la Smart Stack.
-La fuente de SideStore actualiza la app de iPhone y conserva tus datos. La app del Watch se distribuye aparte para firmarla e instalarla desde Xcode; las instrucciones están en WATCH-INSTALL.md.
+Escribir NFC es ahora la acción principal azul; copiar el enlace queda como acción secundaria.
+Puedes registrar productos Fabricados o Sin coste por 0 euros: aumentan las existencias y conservan su historial sin descontar saldo.
+El selector del historial de avisos pierde el fondo opaco exterior.
+Nueva app nativa para macOS 14, compatible con Intel y Apple Silicon: dashboard, negocios, visitas, dinero, inventario, mapa, CSV y copias compatibles con iPhone.
+Retirada la integración del Apple Watch.
+Login preparado para tu servidor de cuentas con HTTPS, sesiones en el llavero y contraseñas verificadas en el servidor. La guía explica cómo instalarlo en tu PC; los datos de negocios se transfieren mediante copias, sin sincronización automática.
+Clave de respaldo de Google Places preparada para configurarla cuando esté disponible.
