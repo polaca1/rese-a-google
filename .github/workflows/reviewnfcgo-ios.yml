@@ -7,12 +7,17 @@ on:
         description: Rama o commit de la app nativa
         required: true
         default: ios/minimal-icon-4.2
+      release_downloads_only:
+        description: Publicar los IPA ya verificados como assets sin recompilar
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: ${{ !inputs.release_downloads_only }}
     runs-on: macos-15
     timeout-minutes: 25
     env:
@@ -90,3 +95,21 @@ jobs:
           python3 ios/reviewNfcGo/Scripts/publish-sidestore.py \
             --ipa "$task_ipa" --source-commit "$task_source_commit" \
             --notes ios/reviewNfcGo/RELEASE-NOTES.txt --previews verification
+
+  repair-downloads:
+    if: ${{ inputs.release_downloads_only }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: reviewnfcgo-sidestore-publication
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: Publicar descargas permanentes sin modificar los IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ios/reviewNfcGo/Scripts/publish-release-assets.py
