@@ -20,7 +20,8 @@ xcrun simctl bootstatus "$task_watch" -b
 xcrun simctl install "$task_watch" "$task_app"
 task_bundle=com.pablo.resenagoogle.20261004.watch
 task_container=$(xcrun simctl get_app_container "$task_watch" "$task_bundle" data)
-for task_screen in next business summary; do
+xcrun swiftc -parse-as-library -swift-version 5 "$task_project_dir/Tests/WatchScreenshots.swift" -o "$task_output_dir/watch-ui-check"
+for task_screen in next business summary sale; do
     xcrun simctl terminate "$task_watch" "$task_bundle" >/dev/null 2>&1 || true
     if [ "$task_screen" = next ]; then
         xcrun simctl launch "$task_watch" "$task_bundle" --verification-watch
@@ -38,6 +39,7 @@ import json,sys
 value=json.load(open(sys.argv[1]));print(value);assert value['passed'] and len(value['checks'])>=9,value
 PY
     xcrun simctl io "$task_watch" screenshot "$task_output_dir/watch-$task_screen.png"
+    "$task_output_dir/watch-ui-check" "$task_output_dir/watch-$task_screen.png" "$task_screen" | tee "$task_output_dir/watch-ui-$task_screen.log"
     rm "$task_container/Documents/watch-verification.json"
 done
 xcrun simctl spawn "$task_watch" log show --last 3m --style compact --predicate 'process == "reviewNfcGoWatch"' > "$task_output_dir/watch-runtime.log"

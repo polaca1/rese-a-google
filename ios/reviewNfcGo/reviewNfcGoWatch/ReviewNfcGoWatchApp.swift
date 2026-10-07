@@ -3,40 +3,51 @@ import MapKit
 
 @main struct ReviewNfcGoWatchApp: App {
     @StateObject private var store = WatchStore()
+    var body: some Scene { WindowGroup { WatchRootView().environmentObject(store) } }
+}
+private enum WatchDestination: Hashable { case business(UUID), sale(UUID) }
+struct WatchRootView: View {
+    @EnvironmentObject private var store: WatchStore
     @Environment(\.scenePhase) private var phase
-    @State private var route: UUID?
+    @State private var path: [WatchDestination] = []
     @State private var selectedTab = 0
-    var body: some Scene {
-        WindowGroup {
-            TabView(selection: $selectedTab) {
-                NavigationStack {
-                    WatchNextVisitView()
-                        .navigationDestination(isPresented: Binding(get: { route != nil }, set: { if !$0 { route = nil } })) {
-                            if let id = route, let business = store.snapshot.businesses.first(where: { $0.id == id }) { WatchBusinessView(businessID: business.id) }
+    @State private var didVerify = false
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            NavigationStack(path: $path) {
+                WatchNextVisitView()
+                    .navigationDestination(for: WatchDestination.self) { destination in
+                        switch destination {
+                        case .business(let id): WatchBusinessView(businessID: id)
+                        case .sale(let id): WatchSaleView(businessID: id)
                         }
-                }
-                .tag(0)
-                NavigationStack { WatchBusinessesView() }.tag(1)
-                NavigationStack { WatchDayView() }.tag(2)
-            }.tabViewStyle(.verticalPage)
-                .environmentObject(store).tint(.blue)
-                .onOpenURL { url in
-                    if url.scheme == "reviewnfcgo-watch", url.host == "business", let id = UUID(uuidString: url.lastPathComponent) { route = id }
-                }
-                .onChange(of: phase) { _, value in if value == .active { store.refresh() } }
-                #if DEBUG
-                 .onAppear {
-                    let args = ProcessInfo.processInfo.arguments
-                    if args.contains("--verification-watch") {
-                        WatchVerification.run(store: store)
-                        if args.contains("--verification-watch-business") { route = WatchVerification.businessID }
-                        if args.contains("--verification-watch-summary") { selectedTab = 2 }
                     }
+            }.tag(0)
+            NavigationStack { WatchBusinessesView() }.tag(1)
+            NavigationStack { WatchDayView() }.tag(2)
+        }.tabViewStyle(.verticalPage).tint(.blue)
+            .onOpenURL { url in
+                if url.scheme == "reviewnfcgo-watch", url.host == "business", let id = UUID(uuidString: url.lastPathComponent) {
+                    selectedTab = 0; path = [.business(id)]
                 }
-                #endif
-        }
+            }
+            .onChange(of: phase) { _, value in if value == .active { store.refresh() } }
+            #if DEBUG
+            .task {
+                let args = ProcessInfo.processInfo.arguments
+                guard args.contains("--verification-watch"), !didVerify else { return }
+                didVerify = true
+                WatchVerification.run(store: store)
+                // Navigate once the NavigationStack has entered the view hierarchy.
+                await Task.yield()
+                if args.contains("--verification-watch-business") { path = [.business(WatchVerification.businessID)] }
+                if args.contains("--verification-watch-sale") { path = [.sale(WatchVerification.businessID)] }
+                if args.contains("--verification-watch-summary") { selectedTab = 2 }
+            }
+            #endif
     }
 }
+
 struct WatchNextVisitView: View {
     @EnvironmentObject private var store: WatchStore
     var body: some View {
@@ -126,7 +137,7 @@ struct WatchSaleView: View {
             List {
                 Section {
                     Text(business.name).font(.headline)
-                    Stepper("\(cards) tarjetas nuevas", value: $cards, in: 1...100_000)
+                    Stepper(cards == 1 ? "1 tarjeta nueva" : "\(cards) tarjetas nuevas", value: $cards, in: 1...100_000)
                     Stepper(value: $unitPrice, in: 0...50, step: 0.5) { VStack(alignment: .leading) { Text("Por tarjeta").font(.caption); Text(unitPrice, format: .currency(code: "EUR")) } }
                     Picker("Color / producto", selection: $productID) {
                         Text("Sin asignar").tag(Optional<UUID>.none)
