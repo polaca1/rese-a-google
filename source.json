@@ -14,6 +14,15 @@
       "tintColor": "1976EC",
       "versions": [
         {
+          "version": "5.1.1",
+          "buildVersion": "23",
+          "date": "2026-10-07T22:13:25Z",
+          "localizedDescription": "reviewNfcGo 5.1.1: búsquedas con respaldo.\n\nLa búsqueda de negocios utiliza una segunda clave de Google Places si la principal tiene un problema de acceso, cuota o conexión. Se conserva la app de iPhone y Mac, con tus negocios, visitas, inventario y operaciones.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.1.1-build23.ipa",
+          "size": 6382599,
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "5.1",
           "buildVersion": "22",
           "date": "2026-10-07T21:22:04Z",
@@ -122,11 +131,11 @@
           "minOSVersion": "16.1"
         }
       ],
-      "version": "5.1",
-      "versionDate": "2026-10-07T21:22:04Z",
-      "versionDescription": "reviewNfcGo 5.1: Mac, inventario sin coste y servidor de cuentas.\n\nEscribir NFC es ahora la acción principal azul; copiar el enlace queda como acción secundaria.\nPuedes registrar productos Fabricados o Sin coste por 0 euros: aumentan las existencias y conservan su historial sin descontar saldo.\nEl selector del historial de avisos pierde el fondo opaco exterior.\nNueva app nativa para macOS 14, compatible con Intel y Apple Silicon: dashboard, negocios, visitas, dinero, inventario, mapa, CSV y copias compatibles con iPhone.\nRetirada la integración del Apple Watch.\nLogin preparado para tu servidor de cuentas con HTTPS, sesiones en el llavero y contraseñas verificadas en el servidor. La guía explica cómo instalarlo en tu PC; los datos de negocios se transfieren mediante copias, sin sincronización automática.\nClave de respaldo de Google Places preparada para configurarla cuando esté disponible.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.1-build22/reviewNfcGo-5.1-build22.ipa",
-      "size": 6382549,
+      "version": "5.1.1",
+      "versionDate": "2026-10-07T22:13:25Z",
+      "versionDescription": "reviewNfcGo 5.1.1: búsquedas con respaldo.\n\nLa búsqueda de negocios utiliza una segunda clave de Google Places si la principal tiene un problema de acceso, cuota o conexión. Se conserva la app de iPhone y Mac, con tus negocios, visitas, inventario y operaciones.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.1.1-build23.ipa",
+      "size": 6382599,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
@@ -154,6 +163,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 5.1.1 (23)",
+      "identifier": "reviewnfcgo-5.1.1-build23",
+      "caption": "reviewNfcGo 5.1.1: búsquedas con respaldo.",
+      "date": "2026-10-07T22:13:25Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-5.1.1-build23",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 5.1 (22)",
       "identifier": "reviewnfcgo-5.1-build22",
