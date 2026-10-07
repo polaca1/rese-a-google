@@ -8,8 +8,13 @@ struct ReviewNfcGoLiveActivityBundle: WidgetBundle {
         if #available(iOS 17.0, *) { PendingMapWidget() }
         UpcomingVisitsWidget()
         EarningsSummaryWidget()
-        if #available(iOS 18.0, *) { ReviewNfcGoMirroredLiveActivity() }
-        if #unavailable(iOS 18.0) { ReviewNfcGoLiveActivity() }
+        activityWidget()
+    }
+    private func activityWidget() -> some Widget {
+        if #available(iOS 18.0, *) {
+            return WidgetBundleBuilder.buildOptional(WidgetBundleBuilder.buildLimitedAvailability(ReviewNfcGoMirroredLiveActivity()))
+        }
+        return WidgetBundleBuilder.buildOptional(WidgetBundleBuilder.buildLimitedAvailability(ReviewNfcGoLiveActivity()))
     }
 }
 
