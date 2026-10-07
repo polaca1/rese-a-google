@@ -24,13 +24,12 @@ struct UserProfile: Codable, Equatable {
     let email: String
 }
 
-// MARK: - Authentication (local account on this iPhone)
+// MARK: - Authentication (central account service)
 
 @MainActor final class AuthStore: ObservableObject {
     @Published private(set) var currentUser: UserProfile?
     @Published var errorMessage: String?
     @Published private(set) var isAuthenticating = false
-    @Published private(set) var serverAddress = ""
     private let remote: RemoteAuthClient
 
     private let userKey = "resenago.currentUser"
@@ -49,15 +48,19 @@ struct UserProfile: Codable, Equatable {
          credentialService: String = (Bundle.main.bundleIdentifier ?? "reviewNfcGo") + ".accounts") {
         self.defaults = defaults
         self.credentialService = credentialService
-        remote = RemoteAuthClient(defaults: defaults)
-        serverAddress = remote.server
+        remote = RemoteAuthClient(defaults: defaults, credentialService: credentialService + ".remote-session")
         _ = loadAccounts() // Safely migrate legacy credentials before removing their old copy.
         if let data = defaults.data(forKey: userKey),
            let profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
-            if !remote.configured || (remote.signedIn && remote.session?.user.email == profile.email) { currentUser = profile }
+            if remote.signedIn && remote.session?.user.email == profile.email { currentUser = profile }
+            #if DEBUG
+            let fixture = ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("--verification-") }
+            if fixture { currentUser = profile }
+            #endif
         }
     }
 
+    #if DEBUG
     func createAccount(name: String, email: String, password: String) -> Bool {
         let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -108,34 +111,27 @@ struct UserProfile: Codable, Equatable {
         return true
     }
 
+    #endif
+
     func logout() {
         currentUser = nil
         defaults.removeObject(forKey: userKey)
         errorMessage = nil
         remote.logout()
     }
-    func configureServer(_ address: String) -> Bool {
-        do {
-            try remote.configure(address); serverAddress = remote.server
-            currentUser = nil; defaults.removeObject(forKey: userKey); errorMessage = nil
-            return true
-        } catch { errorMessage = error.localizedDescription; return false }
-    }
     func authenticate(name: String?, email: String, password: String) async {
         guard !isAuthenticating else { return }
         isAuthenticating = true; defer { isAuthenticating = false }
-        if !remote.configured {
-            if let name { _ = createAccount(name: name, email: email, password: password) }
-            else { _ = login(email: email, password: password) }
-            return
-        }
         do {
             let user = try await remote.authenticate(email: email, password: password, name: name)
             setCurrent(UserProfile(name: user.name, email: user.email)); errorMessage = nil
         } catch { errorMessage = error.localizedDescription }
     }
     func validateServerSession() async {
-        guard remote.configured, currentUser != nil else { return }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--verification-") }) { return }
+        #endif
+        guard currentUser != nil else { return }
         do { _ = try await remote.validate() }
         catch {
             if !remote.signedIn { currentUser = nil; defaults.removeObject(forKey: userKey) }
@@ -755,7 +751,6 @@ struct AuthView: View {
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
-    @State private var serverAddress = ""
 
     var body: some View {
         NavigationStack {
@@ -764,7 +759,7 @@ struct AuthView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(createMode ? "Crear cuenta" : "Iniciar sesión")
                             .font(.title2.bold())
-                        Text(auth.serverAddress.isEmpty ? "Tus negocios, ganancias y recordatorios quedan organizados en tu cuenta de este iPhone." : "Inicia sesión en tu servidor de cuentas. Los negocios siguen guardados en este dispositivo.")
+                        Text("Crea tu cuenta o entra desde cualquier dispositivo. Tus credenciales se guardan en el servicio de cuentas de reviewNfcGo.")
                             .foregroundStyle(.secondary)
                     }
 
@@ -791,12 +786,6 @@ struct AuthView: View {
                     .appPrimaryButton()
                     .disabled(auth.isAuthenticating)
 
-                    DisclosureGroup("Servidor de cuentas") {
-                        NativeField(title: "https://tu-servidor…", icon: "server.rack", text: $serverAddress).keyboardType(.URL)
-                        Button("Guardar servidor") { _ = auth.configureServer(serverAddress) }.appSecondaryButton().disabled(auth.isAuthenticating)
-                        Text("Conecta Tailscale y añade la dirección HTTPS de tu PC. Deja el campo vacío para conservar las cuentas locales anteriores.").font(.footnote).foregroundStyle(.secondary)
-                    }
-
                     Button(createMode ? "Ya tengo cuenta" : "Crear una cuenta") {
                         createMode.toggle()
                         auth.errorMessage = nil
@@ -822,7 +811,6 @@ struct AuthView: View {
             }
             .background(Color(uiColor: .systemBackground))
             .navigationBarHidden(true)
-            .onAppear { serverAddress = auth.serverAddress }
         }
     }
 }

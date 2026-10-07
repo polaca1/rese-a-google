@@ -125,24 +125,18 @@ struct MacRootView: View {
 struct MacWelcomeView: View {
     @EnvironmentObject private var store: MacStore
     @EnvironmentObject private var navigation: MacNavigation
-    @State private var email = ""
     var body: some View {
         VStack(spacing: 20) {
             Image("BrandMark").resizable().scaledToFit().frame(width: 92, height: 92).accessibilityHidden(true)
             Text("Tu negocio, también en el Mac").font(.largeTitle.bold())
             Text("Organiza tus visitas, tarjetas NFC e ingresos desde una sola ventana.")
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
-            SettingsLink { Label("Conectar con mi servidor de cuentas", systemImage: "person.crop.circle") }
+            Form { MacAccountSection() }.formStyle(.grouped).frame(width: 440, height: 280)
             Button("Importar copia del iPhone…") { MacFiles.chooseImport(store: store, navigation: navigation) }
                 .buttonStyle(.borderedProminent).controlSize(.large)
             Text("En el iPhone: Perfil → Copias de seguridad → Exportar. Pasa el archivo al Mac con AirDrop.")
                 .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 440)
-            if !store.damaged {
-                Divider().frame(width: 360)
-                Text("O empieza con un espacio vacío").font(.headline)
-                TextField("Correo de tu cuenta del iPhone", text: $email).textFieldStyle(.roundedBorder).frame(width: 340)
-                Button("Crear espacio") { store.run { try store.createWorkspace(email: email) } }.disabled(!email.contains("@"))
-            }
+
         }.padding(36).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -179,7 +173,6 @@ struct MacSettingsView: View {
 struct MacAccountSection: View {
     @EnvironmentObject private var store: MacStore
     @ObservedObject private var auth = RemoteAuthClient.shared
-    @State private var address = ""
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -187,16 +180,11 @@ struct MacAccountSection: View {
     @State private var busy = false
     @State private var message: String?
     var body: some View {
-        Section("Servidor de cuentas") {
-            TextField("Dirección HTTPS", text: $address)
-            Button("Guardar servidor") {
-                do { try auth.configure(address); message = nil }
-                catch { message = error.localizedDescription }
-            }.disabled(busy)
+        Section("Cuenta") {
             if let session = auth.session, auth.signedIn {
                 LabeledContent("Sesión", value: session.user.email)
                 Button("Cerrar sesión") { auth.logout() }
-            } else if auth.configured {
+            } else {
                 Toggle("Crear cuenta", isOn: $registering).disabled(busy)
                 if registering { TextField("Nombre", text: $name) }
                 TextField("Correo", text: $email)
@@ -217,7 +205,7 @@ struct MacAccountSection: View {
             if let message { Text(message).foregroundStyle(.secondary) }
             Text("El servidor verifica tu cuenta. Los negocios se guardan en el Mac y se transfieren mediante copias de seguridad.")
                 .font(.callout).foregroundStyle(.secondary)
-        }.onAppear { address = auth.server; email = store.owner ?? "" }
+        }.onAppear { email = store.owner ?? "" }
     }
 }
 

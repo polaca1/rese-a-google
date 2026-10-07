@@ -1,0 +1,37 @@
+reviewNfcGo — todas las cuentas en tu PC
+Windows 10/11 de 64 bits. No hace falta Docker, Python ni cambiar de sistema.
+
+1. Extrae TODO el ZIP. Abre Instalar.cmd y acepta el permiso de Windows.
+2. Pulsa «Instalar y preparar». Luego «Activar conexión»: inicia sesión en
+   Tailscale y acepta habilitar HTTPS/Funnel en el navegador.
+3. En «Mantener la conexión», busca este PC → ⋯ → Disable key expiry.
+4. Copia la dirección HTTPS y envíasela al desarrollador una sola vez.
+   El desarrollador comprobará la conexión y activará esa dirección para todas
+   las apps. Hasta entonces no se publica una actualización que bloquee tus cuentas.
+
+Después: en la app, Crear cuenta → el registro se guarda en ESTE PC.
+Los usuarios no instalan Tailscale ni configuran servidores.
+El servidor y la conexión se reanudan al reiniciar Windows sin iniciar sesión.
+La instalación evita que el PC entre en suspensión cuando está enchufado.
+No abras puertos del router. Puedes cerrar el configurador al terminar.
+
+Todas las cuentas: C:\ProgramData\reviewNfcGo\Cuentas\accounts.sqlite3
+Copias automáticas diarias: misma carpeta, subcarpeta «copias» (30 días).
+Usa «Ver cuentas» para comprobar los registros, sin mostrar las contraseñas.
+Copia periódicamente la carpeta «copias» a otro disco: una copia en el mismo
+PC no protege contra un fallo de ese disco.
+Para volver a abrirlo: C:\Program Files\reviewNfcGo Accounts\Instalar.cmd.
+Si reinstalas, las cuentas existentes se conservan.
+
+Necesita PC encendido, Internet y actualizaciones de Windows. Si falla la
+conexión, no se crean cuentas locales ni se simula un registro correcto.
+Las contraseñas se guardan como hashes Argon2id; nunca en texto legible.
+Los negocios, inventario y operaciones siguen siendo datos locales de cada
+app. El servidor de esta versión almacena cuentas y sesiones; no sincroniza
+los negocios entre dispositivos.
+Las cuentas locales de versiones anteriores no estaban en el servidor:
+registra el mismo correo en el nuevo servicio para conservar los datos del
+negocio que ya están en tu dispositivo.
+
+Conexión oficial: https://tailscale.com/docs/features/tailscale-funnel
+Arranque persistente: https://tailscale.com/docs/how-to/run-unattended

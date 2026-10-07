@@ -11,6 +11,7 @@ import AppKit
                 guard value else { throw NSError(domain: "DesktopVerification", code: 1, userInfo: [NSLocalizedDescriptionKey: label]) }
                 checks.append(label)
             }
+            checks += try await verifyCentralAccounts()
             let owner = "pablo@example.invalid"
             try store.createWorkspace(email: owner)
             let card = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Azul")
@@ -90,6 +91,69 @@ import AppKit
         } catch { try? report(passed: false, checks: checks, error: error.localizedDescription, output: output) }
         NSApp.terminate(nil)
     }
+    private static func verifyCentralAccounts() async throws -> [String] {
+        var checks: [String] = []
+        func check(_ value: Bool, _ label: String) throws {
+            guard value else { throw NSError(domain: "CentralAccounts", code: 1, userInfo: [NSLocalizedDescriptionKey: label]) }
+            checks.append(label)
+        }
+        let suite = "reviewNfcGo.auth-verification." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite); AuthVerificationProtocol.handler = nil }
+        defaults.set("https://untrusted.example.com", forKey: "reviewNfcGo.accountsServer")
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [AuthVerificationProtocol.self]
+        let network = URLSession(configuration: configuration)
+        let auth = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        defer { auth.clearSession(); network.invalidateAndCancel() }
+        var calls: [String] = []
+        AuthVerificationProtocol.handler = { request in
+            calls.append(request.url!.path)
+            return (200, ["schema": 1, "serverURL": NSNull()])
+        }
+        do {
+            _ = try await auth.authenticate(email: "pablo@example.com", password: "Verification-password", name: "Pablo")
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.notReady {}
+        try check(!auth.signedIn && calls.count == 1 && !auth.configured, "Sin servidor no crea cuentas locales ni utiliza direcciones antiguas")
+        var registrationChecked = false
+        AuthVerificationProtocol.handler = { request in
+            calls.append(request.url!.path)
+            if request.url!.host == "raw.githubusercontent.com" { return (200, ["schema": 1, "serverURL": "https://accounts.example.com"]) }
+            guard request.url!.host == "accounts.example.com", request.url!.path == "/v1/auth/register", request.httpMethod == "POST" else { throw URLError(.badServerResponse) }
+            let body = try JSONSerialization.jsonObject(with: AuthVerificationProtocol.bodyData(request)) as? [String: String]
+            registrationChecked = body?["email"] == "pablo@example.com" && body?["name"] == "Pablo" && body?["password"] == "Verification-password"
+            return (201, ["token": "verification-token-opaque", "expiresAt": Date().timeIntervalSince1970 + 86400,
+                          "user": ["name": "Pablo", "email": "pablo@example.com"]])
+        }
+        let user = try await auth.authenticate(email: " PABLO@example.com ", password: "Verification-password", name: "Pablo")
+        try check(registrationChecked && user.email == "pablo@example.com" && auth.signedIn && calls.last == "/v1/auth/register", "Crear cuenta envía el registro al servidor común y conserva su sesión")
+        let reloaded = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        try check(reloaded.signedIn && reloaded.session?.user.email == user.email, "Sesión remota persiste en Keychain vinculada al servidor")
+        AuthVerificationProtocol.handler = { _ in throw URLError(.notConnectedToInternet) }
+        do { _ = try await auth.validate(); throw DesktopError.invalidBusiness } catch RemoteAuthError.unavailable {}
+        try check(auth.signedIn, "Fallo temporal de conexión conserva una sesión existente sin simular una nueva")
+        auth.clearSession()
+        AuthVerificationProtocol.handler = { request in
+            calls.append(request.url!.path)
+            return (503, ["detail": "Servidor temporalmente desconectado"])
+        }
+        do {
+            _ = try await auth.authenticate(email: "new@example.com", password: "Verification-password", name: "Nueva")
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.rejected {}
+        try check(!auth.signedIn && calls.last == "/v1/auth/register", "Servidor apagado rechaza el registro: no hay sustituto local")
+        let emptyDefaults = UserDefaults(suiteName: suite + ".empty")!
+        defer { emptyDefaults.removePersistentDomain(forName: suite + ".empty") }
+        let invalid = RemoteAuthClient(defaults: emptyDefaults, credentialService: suite + ".empty", networkSession: network)
+        AuthVerificationProtocol.handler = { _ in (200, ["schema": 1, "serverURL": "http://unsafe.example.com"]) }
+        do {
+            _ = try await invalid.authenticate(email: "new@example.com", password: "Verification-password", name: "Nueva")
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.invalidURL {}
+        try check(!invalid.signedIn && !invalid.configured, "La configuración automática rechaza servidores HTTP")
+        return checks
+    }
     private static func capture(name: String, output: URL) throws {
         guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }), let view = (window.attachedSheet ?? window).contentView,
               let representation = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw DesktopError.invalidBusiness }
@@ -101,6 +165,34 @@ import AppKit
         var json: [String: Any] = ["passed": passed, "checks": checks]
         if let error { json["error"] = error }
         try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]).write(to: output.appendingPathComponent("verification.json"))
+    }
+}
+private final class AuthVerificationProtocol: URLProtocol {
+    static var handler: ((URLRequest) throws -> (Int, [String: Any]))?
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        do {
+            guard let handler = Self.handler else { throw URLError(.cancelled) }
+            let (status, json) = try handler(request)
+            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: try JSONSerialization.data(withJSONObject: json))
+            client?.urlProtocolDidFinishLoading(self)
+        } catch { client?.urlProtocol(self, didFailWithError: error) }
+    }
+    override func stopLoading() {}
+    static func bodyData(_ request: URLRequest) -> Data {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { return Data() }
+        stream.open(); defer { stream.close() }
+        var data = Data(); var bytes = [UInt8](repeating: 0, count: 1024)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&bytes, maxLength: bytes.count)
+            if count <= 0 { break }
+            data.append(contentsOf: bytes.prefix(count))
+        }
+        return data
     }
 }
 #endif

@@ -118,7 +118,7 @@ def health():
 
 @app.post("/v1/auth/register", status_code=201)
 def register(body: Register, request: Request):
-    if os.environ.get("ALLOW_REGISTRATION", "false").lower() != "true":
+    if os.environ.get("ALLOW_REGISTRATION", "true").lower() != "true":
         raise HTTPException(403, "El registro está cerrado. Contacta con el propietario del servidor.")
     email = email_key(body.email)
     limit(request, email)

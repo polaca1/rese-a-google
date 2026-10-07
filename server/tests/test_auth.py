@@ -80,3 +80,23 @@ def test_malformed_inputs_cannot_create_account(service):
                  {"name": "Pablo", "email": "pablo@example.com", "password": "short"}]:
         assert client.post("/v1/auth/register", json=data).status_code == 422
     assert client.get("/docs").status_code == 404
+
+
+def test_public_registration_default_and_persistence_after_restart(service, monkeypatch):
+    module, client = service
+    monkeypatch.delenv('ALLOW_REGISTRATION')
+    first = create(client)
+    for index in range(4):
+        assert client.post('/v1/auth/register', json={'name': f'Usuario {index}', 'email': f'user{index}@example.com', 'password': 'password-seguro'}).status_code == 201
+    # Reload the real service against the same persistent database, as on a PC reboot.
+    spec = importlib.util.spec_from_file_location('restarted_server', Path(module.__file__))
+    restarted = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(restarted)
+    again = TestClient(restarted.app)
+    assert again.post('/v1/auth/login', json={'email': 'pablo@example.com', 'password': 'contraseña-segura'}).status_code == 200
+    assert again.get('/v1/auth/me', headers={'Authorization': 'Bearer ' + first['token']}).status_code == 200
+    with restarted.database() as db:
+        assert db.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 5
+    # No unauthenticated public account listing or database/backup download.
+    for path in ['/users', '/accounts.sqlite3', '/copias', '/v1/auth/me']:
+        assert again.get(path).status_code in (401, 404)
