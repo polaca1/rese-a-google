@@ -5,7 +5,7 @@ on:
       source_ref:
         description: Rama o commit de las apps
         required: true
-        default: desktop/macos14-5.1
+        default: ios/places-fallback-5.1.1
       mac_only_verification:
         description: Compilar y verificar solo Mac sin publicar
         type: boolean
@@ -128,9 +128,11 @@ jobs:
         run: |
           task_ipa=$(python3 -c 'import pathlib; files=list(pathlib.Path("release").glob("*.ipa")); assert len(files)==1; print(files[0])')
           python3 ios/reviewNfcGo/Scripts/publish-sidestore.py --ipa "$task_ipa" --source-commit "$(git rev-parse HEAD)" --notes ios/reviewNfcGo/RELEASE-NOTES.txt --previews verification
+          task_release_tag=$(python3 -c 'import zipfile,plistlib,sys; z=zipfile.ZipFile(sys.argv[1]); p=next(n for n in z.namelist() if n.startswith("Payload/") and n.endswith(".app/Info.plist") and n.count("/")==2); v=plistlib.loads(z.read(p)); print("reviewnfcgo-"+v["CFBundleShortVersionString"]+"-build"+v["CFBundleVersion"])' "$task_ipa")
+          echo "REVIEWNFCGO_RELEASE_TAG=$task_release_tag" >> "$GITHUB_ENV"
       - name: Publicar Mac y guia del servidor
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload reviewnfcgo-5.1-build22 desktop/*.zip desktop/*.dmg desktop/verification/*.png --repo polaca1/rese-a-google --clobber
-          gh release upload reviewnfcgo-5.1-build22 macos/LEEME.txt server/INSTALAR-SERVIDOR.md --repo polaca1/rese-a-google --clobber
+          gh release upload "$REVIEWNFCGO_RELEASE_TAG" desktop/*.zip desktop/*.dmg desktop/verification/*.png --repo polaca1/rese-a-google --clobber
+          gh release upload "$REVIEWNFCGO_RELEASE_TAG" macos/LEEME.txt server/INSTALAR-SERVIDOR.md --repo polaca1/rese-a-google --clobber
