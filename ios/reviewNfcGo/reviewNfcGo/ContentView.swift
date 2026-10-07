@@ -203,7 +203,7 @@ final class AppStore: ObservableObject {
     var totalEarnings: Double { Double(money.incomeCents) / 100 }
     var totalCardsSold: Int { money.sales.values.reduce(0) { $0 + $1.cards } }
     var pendingReminders: [VisitRecord] {
-        records.filter { $0.reminderDate != nil && $0.status != .completed }
+        records.filter { $0.reminderDate != nil && $0.status != .completed && $0.arrivedAt == nil }
             .sorted { ($0.reminderDate ?? .distantFuture) < ($1.reminderDate ?? .distantFuture) }
     }
 
@@ -239,6 +239,7 @@ final class AppStore: ObservableObject {
         var record: VisitRecord
         if let index = records.firstIndex(where: { $0.place.id == place.id }) {
             records[index].place = place
+            records[index].arrivedAt = nil
             records[index].status = .pending
             records[index].reminderDate = visitDate
             records[index].notificationDate = notificationDate
@@ -257,6 +258,7 @@ final class AppStore: ObservableObject {
         guard let index = records.firstIndex(where: { $0.id == record.id }) else { return false }
         var value = record
         value.normalizeSales()
+        if value.reminderDate != records[index].reminderDate { value.arrivedAt = nil }
         guard money.canAssign(value), MoneyLedger.cents(value.earnings) != nil else { return false }
         if value == records[index] { return true }
         remember("Editar negocio")
@@ -1630,7 +1632,7 @@ struct RecordDetailView: View {
                         .background(Color(uiColor: .systemBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-                        if let visit = record.reminderDate, record.status != .completed {
+                        if let visit = record.reminderDate, record.status != .completed, record.arrivedAt == nil {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("PRÓXIMA VISITA").font(.caption.bold()).foregroundStyle(.secondary)
                                 Label(visit.formatted(date: .long, time: .shortened), systemImage: "calendar")

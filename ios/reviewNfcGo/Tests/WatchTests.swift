@@ -37,6 +37,8 @@ import Foundation
         let rejected = journal.process(changed, snapshot: snapshot, now: now) { applied += 1; return nil }
         check(!rejected.accepted && applied == 1, "Rejected action never mutates phone")
         check(snapshot.nextVisit(at: now)?.id == id && snapshot.nextVisit(at: now.addingTimeInterval(3601)) == nil, "Complication selects upcoming visit only")
+        var arrived = snapshot; arrived.businesses[0].arrivedAt = now
+        check(arrived.nextVisit(at: now) == nil, "Arrival advances the complication to the next visit")
         let decoded = try JSONDecoder().decode(WatchSnapshot.self, from: JSONEncoder().encode(snapshot))
         check(decoded == snapshot, "Phone and Watch use the same wire format")
         check(owner != "owner@example.org" && owner.count == 64, "Account token does not expose email")

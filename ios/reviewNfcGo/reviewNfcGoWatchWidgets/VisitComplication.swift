@@ -8,7 +8,7 @@ struct VisitProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<VisitEntry>) -> Void) {
         let value = WatchSharedStore.load(), now = Date()
         var entries = [VisitEntry(date: now, visit: value.nextVisit(at: now))]
-        for business in value.businesses.filter({ !$0.completed && $0.visitDate.map { $0 > now } == true }).sorted(by: { $0.visitDate! < $1.visitDate! }).prefix(20) {
+        for business in value.businesses.filter({ !$0.completed && $0.arrivedAt == nil && $0.visitDate.map { $0 > now } == true }).sorted(by: { $0.visitDate! < $1.visitDate! }).prefix(20) {
             let date = business.visitDate!.addingTimeInterval(1)
             entries.append(VisitEntry(date: date, visit: value.nextVisit(at: date)))
         }

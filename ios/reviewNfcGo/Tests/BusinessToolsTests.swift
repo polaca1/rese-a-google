@@ -3,7 +3,7 @@ import Foundation
     static func main() throws {
         var checks = 0
         func check(_ condition: @autoclosure () -> Bool, _ label: String) { precondition(condition(), label); checks += 1 }
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let now = Date(timeIntervalSince1970: 1_800_000_000.125)
         let place = PlaceResult(id: "a", name: "A", address: "Madrid", latitude: 40, longitude: -3)
         let card = InventoryProduct(name: "Tarjeta", kind: .nfcCard, color: "Negro")
         var money = MoneyLedger()

@@ -42,7 +42,7 @@ struct WatchSnapshot: Codable, Equatable {
     var receipts: [WatchReceipt] = []
     static let empty = WatchSnapshot(generatedAt: .distantPast)
     func nextVisit(at date: Date) -> WatchBusiness? {
-        businesses.filter { !$0.completed && $0.visitDate.map { $0 > date } == true }
+        businesses.filter { !$0.completed && $0.arrivedAt == nil && $0.visitDate.map { $0 > date } == true }
             .min { $0.visitDate! < $1.visitDate! }
     }
 }

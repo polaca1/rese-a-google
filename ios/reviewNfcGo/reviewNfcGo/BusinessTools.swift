@@ -64,13 +64,14 @@ struct BusinessBackup: Codable {
     }
     static func decode(_ data: Data, for email: String?) throws -> BusinessBackup {
         guard data.count <= 25_000_000 else { throw BackupError.tooLarge }
-        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let decoder = JSONDecoder()
         do { return try decoder.decode(Self.self, from: data).validated(for: email) }
         catch let error as BackupError { throw error }
         catch { throw BackupError.invalid }
     }
     func encoded() throws -> Data {
-        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601; encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        // Keep the complete Date value, including fractions, just like on-device storage.
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return try encoder.encode(self)
     }
 }
@@ -89,9 +90,9 @@ enum DailyRoute {
     }
     /// Appointment times are fixed; proximity only orders the flexible, unscheduled stops.
     static func stops(records: [VisitRecord], day: Date, origin: PlaceResult? = nil, calendar: Calendar = .current) -> [RouteStop] {
-        let appointments = records.filter { $0.status != .completed && $0.reminderDate.map { calendar.isDate($0, inSameDayAs: day) } == true }
+        let appointments = records.filter { $0.status != .completed && $0.arrivedAt == nil && $0.reminderDate.map { calendar.isDate($0, inSameDayAs: day) } == true }
             .sorted { ($0.reminderDate!, $0.place.name) < ($1.reminderDate!, $1.place.name) }
-        var flexible = records.filter { $0.status != .completed && $0.reminderDate == nil }
+        var flexible = records.filter { $0.status != .completed && $0.arrivedAt == nil && $0.reminderDate == nil }
         var ordered = appointments, position = appointments.last?.place ?? origin
         while !flexible.isEmpty {
             let next = flexible.indices.min { a, b in

@@ -46,7 +46,7 @@ struct WidgetSnapshot: Codable, Equatable {
         func place(_ record: VisitRecord) -> WidgetPlace {
             WidgetPlace(id: record.id, name: record.place.name, address: record.place.address,
                 latitude: record.place.latitude, longitude: record.place.longitude,
-                visitDate: record.reminderDate, createdAt: record.createdAt,
+                visitDate: record.arrivedAt == nil ? record.reminderDate : nil, createdAt: record.createdAt,
                 cardsSold: record.cardsSold, earnings: record.earnings)
         }
         pending = records.filter { $0.status != .completed && ($0.status == .pending || $0.reminderDate != nil) }

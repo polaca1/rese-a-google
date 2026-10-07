@@ -46,6 +46,7 @@ import UIKit
             let action = WatchAction(owner: snapshot.owner!, sessionID: snapshot.sessionID!, businessID: business.id, revision: business.revision, kind: .arrive)
             let receipt = PhoneWatchBridge.shared.verificationReceive(action)
             try check(receipt?.accepted == true && store.records[0].arrivedAt != nil, "Acción He llegado aplicada por puente nativo")
+            try check(PhoneWatchBridge.shared.snapshot().nextVisit(at: Date()) == nil && store.pendingReminders.isEmpty, "Llegada finaliza cuenta atrás y avisos de la visita")
             let arrived = store.records[0].arrivedAt
             _ = PhoneWatchBridge.shared.verificationReceive(action)
             try check(store.records[0].arrivedAt == arrived, "Reenvío de Watch no repite cambios")

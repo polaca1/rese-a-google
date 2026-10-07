@@ -8,7 +8,7 @@ extension ScheduledVisit {
         self.init(id: record.id, name: record.place.name, address: record.place.address,
                   placeID: record.place.id, latitude: record.place.latitude, longitude: record.place.longitude,
                   notes: record.notes, visitDate: record.reminderDate,
-                  reminderDate: record.notificationDate, completed: record.status == .completed)
+                  reminderDate: record.notificationDate, completed: record.status == .completed || record.arrivedAt != nil)
     }
 }
 
