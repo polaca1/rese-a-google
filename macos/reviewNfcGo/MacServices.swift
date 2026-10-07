@@ -5,7 +5,7 @@ import MapKit
 import UserNotifications
 
 enum MacSection: String, CaseIterable, Identifiable {
-    case dashboard = "Resumen", businesses = "Negocios", visits = "Visitas", money = "Dinero", inventory = "Inventario", map = "Mapa"
+    case dashboard = "Resumen", businesses = "Negocios", visits = "Visitas", money = "Dinero", analytics = "Análisis", inventory = "Inventario", map = "Mapa"
     var id: String { rawValue }
     var symbol: String {
         switch self {
@@ -13,6 +13,7 @@ enum MacSection: String, CaseIterable, Identifiable {
         case .businesses: return "building.2"
         case .visits: return "calendar"
         case .money: return "eurosign.circle"
+        case .analytics: return "chart.xyaxis.line"
         case .inventory: return "shippingbox"
         case .map: return "map"
         }
@@ -178,5 +179,90 @@ enum MacSheet: Identifiable {
             if let rawID, let id = UUID(uuidString: rawID) { self.didOpen?(id); NSApp.activate(ignoringOtherApps: true) }
             completionHandler()
         }
+    }
+}
+
+@MainActor enum MacFinanceExport {
+    static func save(_ report: FinanceReport, owner: String, pdf: Bool, store: MacStore) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = pdf ? [.pdf] : [.commaSeparatedText]
+        panel.nameFieldStringValue = pdf ? "reviewNfcGo-informe.pdf" : "reviewNfcGo-operaciones-periodo.csv"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                store.run { try (pdf ? self.pdf(report, owner: owner) : report.csv).write(to: url, options: .atomic) }
+            }
+        }
+    }
+    static func pdf(_ report: FinanceReport, owner: String) -> Data {
+        let view = FinancePrintView(report: report, owner: owner)
+        return view.dataWithPDF(inside: view.bounds)
+    }
+}
+
+@MainActor private final class FinancePrintView: NSView {
+    let report: FinanceReport
+    let owner: String
+    override var isFlipped: Bool { true }
+    init(report: FinanceReport, owner: String) {
+        self.report = report; self.owner = owner
+        super.init(frame: NSRect(x: 0, y: 0, width: 595, height: 842))
+        appearance = NSAppearance(named: .aqua)
+    }
+    required init?(coder: NSCoder) { nil }
+    private func text(_ text: String, x: CGFloat = 40, y: CGFloat, width: CGFloat = 515, size: CGFloat = 11, bold: Bool = false, color: NSColor = .black) {
+        let font = bold ? NSFont.boldSystemFont(ofSize: size) : NSFont.systemFont(ofSize: size)
+        (text as NSString).draw(in: NSRect(x: x, y: y, width: width, height: 34), withAttributes: [.font: font, .foregroundColor: color])
+    }
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill(); bounds.fill()
+        text("reviewNfcGo · Informe de caja", y: 35, size: 21, bold: true)
+        text(report.label, y: 68, size: 12)
+        text(owner, y: 89, size: 10, color: .darkGray)
+        let metrics = [("Ingresos netos", report.totals.income), ("Gastos netos", report.totals.expenses), ("Resultado de caja", report.totals.result)]
+        for (index, metric) in metrics.enumerated() {
+            let x = CGFloat(40 + index * 175)
+            text(metric.0, x: x, y: 126, width: 170, size: 10, color: .darkGray)
+            text(euro(metric.1), x: x, y: 146, width: 170, size: 19, bold: true)
+        }
+        text("Saldo inicial " + euro(report.openingBalance) + " · Saldo final " + euro(report.closingBalance), y: 185)
+        let points = Array(report.points.suffix(12))
+        text("Ingresos y gastos · últimos \(points.count) intervalos del periodo", y: 220, size: 12, bold: true)
+        if !points.isEmpty {
+            let values = points.flatMap { [Double($0.income) / 100, Double($0.expenses) / 100] }
+            let low = min(0, values.min() ?? 0)
+            let high = max(0, values.max() ?? 0)
+            let span = max(1, high - low)
+            let height: CGFloat = 145
+            let top: CGFloat = 252
+            let baseline = top + CGFloat(high / span) * height
+            NSColor.lightGray.setStroke()
+            let axis = NSBezierPath(); axis.move(to: NSPoint(x: 40, y: baseline)); axis.line(to: NSPoint(x: 555, y: baseline)); axis.stroke()
+            let step = CGFloat(515) / CGFloat(points.count)
+            for (index, point) in points.enumerated() {
+                let x = CGFloat(40) + CGFloat(index) * step
+                for (position, amount) in [point.income, point.expenses].enumerated() {
+                    let value = Double(amount) / 100
+                    let y = top + CGFloat((high - value) / span) * height
+                    (position == 0 ? NSColor.systemBlue : NSColor.systemOrange).setFill()
+                    NSRect(x: x + CGFloat(position) * step * 0.4, y: min(y, baseline), width: max(1, step * 0.34), height: abs(y - baseline)).fill()
+                }
+                text(point.date.formatted(.dateTime.day().month(.twoDigits)), x: x, y: top + height + 8, width: step, size: 7)
+            }
+        }
+        text("Azul: ingresos · Naranja: gastos · Euros", y: 430, size: 9, color: .darkGray)
+        text("Distribución de gastos netos", y: 464, size: 12, bold: true)
+        for (index, category) in report.categories.prefix(5).enumerated() {
+            text(category.title, y: CGFloat(490 + index * 21), width: 370)
+            text(euro(category.cents), x: 430, y: CGFloat(490 + index * 21), width: 125)
+        }
+        if report.categories.isEmpty { text("Sin gastos en este periodo.", y: 490, color: .darkGray) }
+        text("Negocios que más aportan", y: 614, size: 12, bold: true)
+        for (index, business) in report.businesses.prefix(5).enumerated() {
+            text(business.title, y: CGFloat(640 + index * 23), width: 375)
+            text(euro(business.cents), x: 430, y: CGFloat(640 + index * 23), width: 125)
+        }
+        if report.businesses.isEmpty { text("Sin ingresos de negocios en este periodo.", y: 640, color: .darkGray) }
+        text("Incluye ajustes y devoluciones. El resultado de caja no equivale al beneficio contable.\nDetalle completo de operaciones disponible en la exportación CSV del periodo.", y: 784, size: 8, color: .darkGray)
     }
 }

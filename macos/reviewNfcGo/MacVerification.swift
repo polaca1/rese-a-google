@@ -68,6 +68,35 @@ import AppKit
             _ = try MacStore.readBackup(store.exportData())
             try store.undo()
             try check(store.money.stock(made.id) == 0 && store.money.purchased(made.id) == 0, "Deshacer entrada sin coste conserva historial")
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
+            let day = calendar.date(from: DateComponents(year: 2026, month: 3, day: 28))!
+            let next = calendar.date(byAdding: .day, value: 1, to: day)!
+            let cutoff = calendar.date(byAdding: .day, value: 2, to: day)!
+            let ledgerBusiness = UUID()
+            var analytical = MoneyLedger()
+            analytical.products = [card]
+            analytical.transactions = [
+                MoneyTransaction(date: day.addingTimeInterval(-3600), kind: .income, title: "Anterior", cents: 800),
+                MoneyTransaction(date: day, kind: .income, title: "Negocio histórico", cents: 10000, businessID: ledgerBusiness, quantity: 5),
+                MoneyTransaction(date: next, kind: .incomeAdjustment, title: "Negocio histórico", cents: -2000, businessID: ledgerBusiness, quantity: -1),
+                MoneyTransaction(date: day, kind: .expense, title: "Tarjetas", cents: -4000, productID: card.id),
+                MoneyTransaction(date: next, kind: .refund, title: "Tarjetas", cents: 1000, productID: card.id),
+                MoneyTransaction(date: cutoff, kind: .income, title: "Fuera", cents: 90000)]
+            let financial = FinanceReport(money: analytical, records: [], start: day, end: next, calendar: calendar)
+            try check(financial.totals.income == 8000 && financial.totals.expenses == 3000 && financial.totals.result == 5000, "Análisis incorpora devoluciones y correcciones sin duplicar ingresos")
+            try check(financial.transactions.count == 4 && financial.previousTotals.income == 800, "Periodos incluyen el inicio y excluyen el final exacto")
+            try check(financial.points.count == 2 && financial.openingBalance == 800 && financial.closingBalance == 5800 && financial.points.last?.balance == 5800, "Saldo acumulado parte del saldo anterior y resiste cambio de hora")
+            try check(financial.categories.first?.cents == 3000 && financial.businesses.first?.cents == 8000 && financial.businesses.first?.cards == 4, "Categorías y negocios conservan ajustes y fichas eliminadas")
+            let exported = String(data: financial.csv, encoding: .utf8)!
+            try check(!exported.contains("Fuera") && exported.contains("Negocio histórico"), "CSV contiene solo las operaciones del periodo")
+            let pdf = MacFinanceExport.pdf(financial, owner: owner)
+            try check(pdf.starts(with: Data("%PDF".utf8)) && pdf.count > 1000, "Informe PDF nativo con datos reales y gráfica vectorial")
+            try pdf.write(to: output.appendingPathComponent("informe-verificado.pdf"))
+            let emptyReport = FinanceReport(money: MoneyLedger(), records: [], start: day, end: next, calendar: calendar)
+            try check(emptyReport.totals.result == 0 && emptyReport.categories.isEmpty && emptyReport.businesses.isEmpty && emptyReport.points.count == 2, "Análisis vacío sin datos simulados ni divisiones por cero")
+            let yearReport = FinanceReport(money: analytical, records: [], start: calendar.date(byAdding: .year, value: -1, to: day)!, end: next, calendar: calendar)
+            try check(yearReport.granularity == .month && yearReport.points.count <= 14 && yearReport.points.last?.balance == 5800, "Periodos largos agrupan meses sin perder el saldo")
             // Screenshots always use an isolated workspace. Normal launches never seed sample data.
             var sample = try MacStore.readBackup(store.exportData())
             sample.records.append(VisitRecord(place: PlaceResult(id: "local-papeleria", name: "Papelería Central", address: "Av. de Europa, Badajoz", latitude: 38.882, longitude: -6.966),
