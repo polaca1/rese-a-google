@@ -186,3 +186,94 @@ enum DesktopAnalytics {
         return Data(("\u{FEFF}" + ([header] + lines).joined(separator: "\r\n")).utf8)
     }
 }
+
+// Financial reports use integer cents and half-open date ranges, as the ledger does.
+struct FinanceTotals {
+    let income: Int64
+    let expenses: Int64
+    var result: Int64 { income - expenses }
+    init(_ transactions: [MoneyTransaction]) {
+        income = transactions.filter { $0.kind.isIncome }.reduce(0) { $0 + $1.cents }
+        expenses = -transactions.filter { [.expense, .refund].contains($0.kind) }.reduce(0) { $0 + $1.cents }
+    }
+}
+struct FinancePoint: Identifiable {
+    let date: Date
+    let income: Int64
+    let expenses: Int64
+    let balance: Int64
+    var id: Date { date }
+}
+struct FinanceCategory: Identifiable {
+    let title: String
+    let cents: Int64
+    var id: String { title }
+}
+struct FinanceBusiness: Identifiable {
+    let id: UUID
+    let title: String
+    let cents: Int64
+    let cards: Int
+    let lastTransactionID: UUID
+}
+struct FinanceReport {
+    let interval: DateInterval
+    let previousInterval: DateInterval
+    let totals: FinanceTotals
+    let previousTotals: FinanceTotals
+    let transactions: [MoneyTransaction]
+    let points: [FinancePoint]
+    let categories: [FinanceCategory]
+    let businesses: [FinanceBusiness]
+    let granularity: Calendar.Component
+    let cards: Int
+    let openingBalance: Int64
+    var closingBalance: Int64 { openingBalance + totals.result }
+    var label: String {
+        let last = interval.end.addingTimeInterval(-1)
+        return interval.start.formatted(date: .abbreviated, time: .omitted) + " – " + last.formatted(date: .abbreviated, time: .omitted)
+    }
+    var positiveCategories: [FinanceCategory] { categories.filter { $0.cents > 0 } }
+    var csv: Data { var ledger = MoneyLedger(); ledger.transactions = transactions; return DesktopAnalytics.csv(ledger) }
+    init(money: MoneyLedger, records: [VisitRecord], start: Date, end: Date, calendar: Calendar = .current) {
+        let first = calendar.startOfDay(for: start)
+        let last = max(first, calendar.startOfDay(for: end))
+        let exclusive = calendar.date(byAdding: .day, value: 1, to: last)!
+        let window = DateInterval(start: first, end: exclusive)
+        interval = window
+        let days = max(1, calendar.dateComponents([.day], from: first, to: exclusive).day ?? 1)
+        let previousWindow = DateInterval(start: calendar.date(byAdding: .day, value: -days, to: first)!, end: first)
+        previousInterval = previousWindow
+        func includes(_ item: MoneyTransaction, _ range: DateInterval) -> Bool { item.date >= range.start && item.date < range.end }
+        transactions = money.history.filter { includes($0, window) }
+        totals = FinanceTotals(transactions)
+        previousTotals = FinanceTotals(money.transactions.filter { includes($0, previousWindow) })
+        openingBalance = money.transactions.filter { $0.date < first }.reduce(0) { $0 + $1.cents }
+        cards = transactions.filter { $0.kind.isIncome }.reduce(0) { $0 + $1.quantity }
+        let bucketSize: Calendar.Component = days > 1095 ? .year : days > 90 ? .month : .day
+        granularity = bucketSize
+        let grouped = Dictionary(grouping: transactions) { calendar.dateInterval(of: bucketSize, for: $0.date)!.start }
+        var date = calendar.dateInterval(of: bucketSize, for: first)!.start
+        var running = openingBalance
+        var result: [FinancePoint] = []
+        while date < exclusive {
+            let bucket = FinanceTotals(grouped[date] ?? [])
+            running += bucket.result
+            result.append(FinancePoint(date: date, income: bucket.income, expenses: bucket.expenses, balance: running))
+            date = calendar.date(byAdding: granularity, value: 1, to: date)!
+        }
+        points = result
+        let products = Dictionary(uniqueKeysWithValues: money.products.map { ($0.id, $0.kind.title) })
+        let expenses = Dictionary(grouping: transactions.filter { [.expense, .refund].contains($0.kind) }) { item in
+            item.productID.flatMap { products[$0] } ?? "Otros gastos"
+        }
+        categories = expenses.map { FinanceCategory(title: $0.key, cents: -$0.value.reduce(0) { $0 + $1.cents }) }
+            .sorted { $0.cents == $1.cents ? $0.title < $1.title : $0.cents > $1.cents }
+        let names = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0.place.name) })
+        let sales = Dictionary(grouping: transactions.filter { $0.kind.isIncome && $0.businessID != nil }) { $0.businessID! }
+        businesses = sales.map { id, items in
+            FinanceBusiness(id: id, title: names[id] ?? items[0].title,
+                            cents: items.reduce(0) { $0 + $1.cents }, cards: items.reduce(0) { $0 + $1.quantity }, lastTransactionID: items[0].id)
+        }.sorted { $0.cents == $1.cents ? $0.title < $1.title : $0.cents > $1.cents }
+    }
+}

@@ -366,3 +366,178 @@ struct MacMapView: View {
         .onChange(of: onlyPending) { camera = .automatic; selection = nil }
     }
 }
+
+struct MacAnalyticsView: View {
+    @EnvironmentObject private var store: MacStore
+    @EnvironmentObject private var navigation: MacNavigation
+    @State private var period = "30 días"
+    @State private var start = Calendar.current.date(byAdding: .day, value: -29, to: Date())!
+    @State private var end = Date()
+    @State private var selectedDate: Date?
+    @State private var monthlyTarget = 500.0
+    @AppStorage("reviewNfcGo.analytics.monthlyTarget") private var savedTarget = 500.0
+    private var report: FinanceReport { FinanceReport(money: store.money, records: store.records, start: start, end: end) }
+    var body: some View {
+        let data = report
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Análisis de tu negocio").font(.largeTitle.bold())
+                        Text(data.label).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Menu {
+                        Button("Informe PDF…") { MacFinanceExport.save(data, owner: store.owner ?? "", pdf: true, store: store) }
+                        Button("Operaciones del periodo en CSV…") { MacFinanceExport.save(data, owner: store.owner ?? "", pdf: false, store: store) }
+                    } label: { Label("Exportar informe", systemImage: "square.and.arrow.up") }
+                }
+                HStack(spacing: 18) {
+                    Picker("Periodo", selection: $period) {
+                        ForEach(["7 días", "30 días", "90 días", "Este año", "Personalizado"], id: \.self) { Text($0) }
+                    }.pickerStyle(.segmented).frame(maxWidth: 620)
+                    Spacer(minLength: 0)
+                }
+                if period == "Personalizado" {
+                    HStack {
+                        DatePicker("Desde", selection: $start, in: ...end, displayedComponents: .date)
+                        DatePicker("Hasta", selection: $end, in: start...Date(), displayedComponents: .date)
+                        Spacer()
+                    }
+                }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 14)], spacing: 14) {
+                    comparison("Ingresos netos", data.totals.income, data.previousTotals.income, color: .blue)
+                    comparison("Gastos netos", data.totals.expenses, data.previousTotals.expenses, color: .orange)
+                    comparison("Resultado de caja", data.totals.result, data.previousTotals.result, color: data.totals.result < 0 ? .red : .primary)
+                    MacCard(title: "Tarjetas vendidas") {
+                        Text(String(data.cards)).font(.system(size: 28, weight: .semibold, design: .rounded)).monospacedDigit()
+                        Text("\(data.businesses.count) negocios con movimientos").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Text("Comparación con el periodo anterior de igual duración. Los ajustes de venta y las devoluciones se descuentan; el resultado de caja no equivale al beneficio contable.")
+                    .font(.caption).foregroundStyle(.secondary)
+                MacCard(title: "Ingresos frente a gastos") {
+                    if data.transactions.isEmpty { noData }
+                    else {
+                        Chart {
+                            ForEach(data.points) { point in
+                                BarMark(x: .value("Fecha", point.date, unit: data.granularity), y: .value("Euros", Double(point.income) / 100))
+                                    .foregroundStyle(by: .value("Tipo", "Ingresos")).position(by: .value("Tipo", "Ingresos"))
+                                BarMark(x: .value("Fecha", point.date, unit: data.granularity), y: .value("Euros", Double(point.expenses) / 100))
+                                    .foregroundStyle(by: .value("Tipo", "Gastos")).position(by: .value("Tipo", "Gastos"))
+                            }
+                            if let point = selectedPoint(data) { RuleMark(x: .value("Fecha seleccionada", point.date)).foregroundStyle(.secondary.opacity(0.4)) }
+                        }
+                        .chartForegroundStyleScale(["Ingresos": Color.blue, "Gastos": Color.orange])
+                        .chartXSelection(value: $selectedDate)
+                        .frame(height: 260)
+                        if let point = selectedPoint(data) {
+                            Text(point.date.formatted(date: .abbreviated, time: .omitted) + " · Ingresos " + euro(point.income) + " · Gastos " + euro(point.expenses))
+                                .font(.callout).monospacedDigit()
+                        } else { Text("Selecciona un punto de la gráfica para ver sus importes.").font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
+                MacCard(title: "Evolución del saldo disponible") {
+                    if data.transactions.isEmpty { noData }
+                    else {
+                        Chart(data.points) { point in
+                            LineMark(x: .value("Fecha", point.date), y: .value("Saldo EUR", Double(point.balance) / 100)).foregroundStyle(Color.blue)
+                        }.frame(height: 190)
+                        HStack { Text("Inicial: " + euro(data.openingBalance)); Spacer(); Text("Final: " + euro(data.closingBalance)) }
+                            .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                    }
+                }
+                HStack(alignment: .top, spacing: 18) {
+                    MacCard(title: "Dónde se va el dinero") {
+                        if data.categories.isEmpty { Text("No hay gastos en este periodo.").foregroundStyle(.secondary) }
+                        if !data.positiveCategories.isEmpty {
+                            Chart(data.positiveCategories) { category in
+                                SectorMark(angle: .value("Gasto EUR", Double(category.cents) / 100), innerRadius: .ratio(0.65), angularInset: 2)
+                                    .foregroundStyle(by: .value("Categoría", category.title)).cornerRadius(3)
+                            }.frame(height: 220)
+                        }
+                        ForEach(data.categories) { category in
+                            HStack { Text(category.title); Spacer(); Text(euro(category.cents)).monospacedDigit() }.font(.callout)
+                        }
+                        Text("El gráfico muestra categorías con gasto neto positivo. Las devoluciones también aparecen en sus totales.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    MacCard(title: "Negocios que más aportan") {
+                        if data.businesses.isEmpty { Text("Todavía no hay ingresos de negocios en este periodo.").foregroundStyle(.secondary) }
+                        ForEach(data.businesses.prefix(8)) { business in
+                            Button {
+                                if store.records.contains(where: { $0.id == business.id }) { navigation.openBusiness(business.id, store: store) }
+                                else { navigation.sheet = .transaction(business.lastTransactionID) }
+                            } label: {
+                                HStack(alignment: .top) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(business.title).font(.headline).foregroundStyle(.primary).lineLimit(2)
+                                        Text("\(business.cards) tarjetas").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer(minLength: 10)
+                                    Text(euro(business.cents)).monospacedDigit().foregroundStyle(.primary)
+                                }.padding(.vertical, 4).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                        }
+                        if data.businesses.count > 8 { Text("Y \(data.businesses.count - 8) negocios más.").font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
+                targetCard
+                MacCard(title: "El inventario también es dinero") {
+                    let known = store.money.products.filter { store.money.averageCostCents($0.id) != nil }
+                    let estimate = known.reduce(0.0) { $0 + Double(max(0, store.money.stock($1.id))) * (store.money.averageCostCents($1.id) ?? 0) }
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Valor estimado de existencias").foregroundStyle(.secondary)
+                            Text(estimate / 100, format: .currency(code: "EUR").locale(Locale(identifier: "es_ES"))).font(.title2.bold())
+                            Text("Coste medio de compra de las unidades disponibles. Los productos sin coste conocido no se incluyen.").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Revisar inventario") { navigation.section = .inventory }
+                    }
+                }
+            }.padding(28)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onChange(of: period) { _, value in choosePeriod(value) }
+        .onChange(of: start) { _, _ in selectedDate = nil }
+        .onChange(of: end) { _, _ in selectedDate = nil }
+        .onAppear { monthlyTarget = savedTarget }
+    }
+    private var noData: some View {
+        Text("No hay operaciones en este periodo. Prueba otras fechas o registra una venta o un gasto.").foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 140, alignment: .center)
+    }
+    private func selectedPoint(_ report: FinanceReport) -> FinancePoint? {
+        guard let selectedDate else { return nil }
+        return report.points.min { abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate)) }
+    }
+    private func comparison(_ title: String, _ value: Int64, _ previous: Int64, color: Color) -> some View {
+        MacCard(title: title) {
+            Text(euro(value)).font(.system(size: 27, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
+            Text((value - previous >= 0 ? "+" : "") + euro(value - previous) + " frente al periodo anterior")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+    private func choosePeriod(_ value: String) {
+        guard value != "Personalizado" else { return }
+        end = Date()
+        start = value == "Este año" ? Calendar.current.dateInterval(of: .year, for: end)!.start : Calendar.current.date(byAdding: .day, value: value == "7 días" ? -6 : value == "90 días" ? -89 : -29, to: end)!
+        selectedDate = nil
+    }
+    private var targetCard: some View {
+        let first = Calendar.current.dateInterval(of: .month, for: Date())!.start
+        let month = FinanceReport(money: store.money, records: store.records, start: first, end: Date())
+        let target = max(0, savedTarget)
+        let progress = target > 0 ? min(1, max(0, Double(month.totals.income) / 100 / target)) : 0
+        return MacCard(title: "Tu objetivo de ingresos de este mes") {
+            HStack {
+                Text(euro(month.totals.income) + " de " + euro(MoneyLedger.cents(target) ?? 0)).font(.headline)
+                Spacer()
+                TextField("Objetivo EUR", value: $monthlyTarget, format: .number).textFieldStyle(.roundedBorder).frame(width: 115)
+                Text("€")
+                Button("Guardar objetivo") { savedTarget = monthlyTarget }.disabled(!monthlyTarget.isFinite || monthlyTarget < 0 || monthlyTarget > 10_000_000)
+            }
+            if target > 0 { ProgressView(value: progress).accessibilityLabel("Progreso del objetivo de ingresos") }
+            Text(target == 0 ? "Guarda un importe mayor que cero para activar el objetivo." : "\(Int(progress * 100)) % completado · Se calcula con ingresos netos del mes actual.").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}

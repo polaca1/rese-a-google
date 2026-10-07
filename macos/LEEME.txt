@@ -1,4 +1,4 @@
-reviewNfcGo para Mac 1.0
+reviewNfcGo para Mac 1.2
 Desarrollado por Pablo Cancho Flores
 
 Compatible con macOS Sonoma 14 y posteriores. Incluye Intel y Apple Silicon.
@@ -22,3 +22,8 @@ La escritura NFC sigue realizándose en el iPhone.
 
 ⌘N: nuevo negocio. ⇧⌘N: gasto. ⌘O: importar. ⇧⌘S: exportar. ⇧⌘E: CSV.
 ⌘Z: deshacer un cambio, conservando su historial de dinero.
+
+Análisis nativo: periodos y comparaciones, gráficas de caja e ingresos/gastos,
+reparto de gastos, ranking de negocios, objetivo mensual, valor del stock e
+informes PDF y CSV del periodo seleccionado. Selecciona la gráfica para ver
+sus importes y pulsa un negocio para abrir su ficha.
