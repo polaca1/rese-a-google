@@ -187,11 +187,18 @@ final class AuthStore: ObservableObject {
 
 @MainActor
 final class AppStore: ObservableObject {
+    static let shared = AppStore()
     @Published var records: [VisitRecord] = []
     @Published private(set) var money = MoneyLedger()
     @Published private(set) var hasLoadedRecords = false
     @Published private(set) var loadedUserEmail: String?
     private var userKey: String?
+    @Published private(set) var undoTitle: String?
+    private struct UndoState: Codable { var title: String; var records: [VisitRecord]; var money: MoneyLedger; var photo: Data? = nil; var restoresPhoto = false }
+    private var undoStates: [UndoState] = []
+    private var undoKey: String { "resenago.undo.\(userKey ?? "guest")" }
+    var didChange: (() -> Void)?
+    var restorePhoto: ((Data?) -> Void)?
 
     var totalEarnings: Double { Double(money.incomeCents) / 100 }
     var totalCardsSold: Int { money.sales.values.reduce(0) { $0 + $1.cards } }
@@ -203,6 +210,8 @@ final class AppStore: ObservableObject {
     func switchUser(_ email: String?) {
         hasLoadedRecords = false
         userKey = email
+        undoStates = UserDefaults.standard.data(forKey: undoKey).flatMap { try? JSONDecoder().decode([UndoState].self, from: $0) } ?? []
+        undoTitle = undoStates.last?.title
         load()
         money = UserDefaults.standard.data(forKey: MoneyLedger.storageKey(email)).flatMap { try? JSONDecoder().decode(MoneyLedger.self, from: $0) } ?? MoneyLedger()
         money.synchronize(records)
@@ -215,6 +224,7 @@ final class AppStore: ObservableObject {
     }
 
     func addOrUpdatePlace(_ place: PlaceResult) {
+        remember("Guardar negocio")
         if let index = records.firstIndex(where: { $0.place.id == place.id }) {
             records[index].place = place
             records[index].createdAt = Date()
@@ -225,6 +235,7 @@ final class AppStore: ObservableObject {
     }
 
     func saveReminder(for place: PlaceResult, visitDate: Date, notificationDate: Date, notes: String) -> VisitRecord {
+        remember("Cambiar visita")
         var record: VisitRecord
         if let index = records.firstIndex(where: { $0.place.id == place.id }) {
             records[index].place = place
@@ -247,12 +258,15 @@ final class AppStore: ObservableObject {
         var value = record
         value.normalizeSales()
         guard money.canAssign(value), MoneyLedger.cents(value.earnings) != nil else { return false }
+        if value == records[index] { return true }
+        remember("Editar negocio")
         records[index] = value
         save()
         return true
     }
 
     func delete(at offsets: IndexSet) {
+        remember("Eliminar negocio")
         records.remove(atOffsets: offsets)
         save()
     }
@@ -294,17 +308,60 @@ final class AppStore: ObservableObject {
         if let id = productID, let index = updated.products.firstIndex(where: { $0.id == id }), !url.isEmpty {
             updated.products[index].purchaseURL = url
         }
+        remember("Cambiar dinero o inventario")
         money = updated; persistMoney(); publishWidgets()
     }
     func reverseExpense(_ id: UUID) throws {
         var updated = money; try updated.reverseExpense(id)
+        remember("Cambiar dinero o inventario")
         money = updated; persistMoney(); publishWidgets()
     }
     func adjustStock(_ id: UUID, quantity: Int, reason: String) throws {
         var updated = money; try updated.adjustStock(id, quantity: quantity, reason: reason)
+        remember("Cambiar dinero o inventario")
         money = updated; persistMoney(); publishWidgets()
     }
+    private func remember(_ title: String, photo: Data? = nil, restoresPhoto: Bool = false) {
+        guard hasLoadedRecords, userKey != nil else { return }
+        undoStates.append(UndoState(title: title, records: records, money: money, photo: photo, restoresPhoto: restoresPhoto))
+        undoStates = Array(undoStates.suffix(12))
+        persistUndo()
+    }
+    private func persistUndo() {
+        undoTitle = undoStates.last?.title
+        if let data = try? JSONEncoder().encode(undoStates) { UserDefaults.standard.set(data, forKey: undoKey) }
+    }
+    func undoLastChange() {
+        guard let state = undoStates.popLast(), userKey != nil else { return }
+        records = state.records
+        if state.restoresPhoto { money = state.money }
+        else { money.undo(to: state.money, records: records) }
+        if state.restoresPhoto { restorePhoto?(state.photo) }
+        persistUndo(); save()
+        PhoneWatchBridge.shared.invalidatePendingActions()
+    }
+    func backup(photo: Data? = nil) throws -> BusinessBackup {
+        guard let userKey else { throw BackupError.wrongAccount }
+        return BusinessBackup(owner: userKey, records: records, money: money, photo: photo)
+    }
+    func restore(_ backup: BusinessBackup, previousPhoto: Data? = nil) throws {
+        let value = try backup.validated(for: userKey)
+        // Keep a recovery copy even across app launches before replacing any data.
+        let original = try self.backup(photo: previousPhoto).encoded()
+        UserDefaults.standard.set(original, forKey: "resenago.preRestore.\(userKey ?? "guest")")
+        remember("Restaurar copia", photo: previousPhoto, restoresPhoto: true)
+        records = value.records; money = value.money
+        save()
+        PhoneWatchBridge.shared.invalidatePendingActions()
+    }
+    func recoveryBackup() throws -> BusinessBackup? {
+        guard let data = UserDefaults.standard.data(forKey: "resenago.preRestore.\(userKey ?? "guest")") else { return nil }
+        return try BusinessBackup.decode(data, for: userKey)
+    }
     private func publishWidgets() {
+        didChange?()
+        StockNotifications.refresh(money: money, owner: userKey)
+
         var snapshot = WidgetSnapshot(records: records, isSignedIn: userKey != nil)
         if userKey != nil {
             snapshot.moneyBalance = Double(money.balanceCents) / 100
@@ -625,6 +682,12 @@ struct RootView: View {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--verification-blur-auth") {
                 AuthView()
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-v5-route") {
+                NavigationStack { DailyRouteView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-v5-backup") {
+                NavigationStack { BackupView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-v5-profit") {
+                NavigationStack { ProfitView() }
             } else if ProcessInfo.processInfo.arguments.contains("--verification-widgets") {
                 WidgetVerificationView()
             } else if ProcessInfo.processInfo.arguments.contains("--verification-dates") || ProcessInfo.processInfo.arguments.contains("--verification-reminder-save") {
@@ -1505,6 +1568,7 @@ struct HistoryView: View {
             }
         }
         .navigationTitle("Mis sitios")
+        .toolbar { ToolbarItem(placement: .primaryAction) { NavigationLink { DailyRouteView() } label: { Image(systemName: "point.topleft.down.to.point.bottomright.curvepath") }.accessibilityLabel("Ruta del día") } }
     }
 }
 
@@ -1550,6 +1614,11 @@ struct RecordDetailView: View {
                                     Text(record.earningsPerCard, format: .currency(code: "EUR"))
                                 }
                             }
+                            if let profit = store.money.profitCents(record.id), record.cardsSold > 0 {
+                                LabeledContent("Beneficio de tarjetas") { Text(Double(profit) / 100, format: .currency(code: "EUR")).bold() }
+                                Text("Ingreso menos coste de las tarjetas vendidas. Los demás gastos se descuentan del saldo.").font(.caption).foregroundStyle(.secondary)
+                            }
+                            if let arrived = record.arrivedAt { Label("Llegada: " + arrived.formatted(date: .abbreviated, time: .shortened), systemImage: "checkmark.circle") }
                             if record.earnings > 0 {
                                 Divider()
                                 LabeledContent("Ganancia total") {
@@ -2036,6 +2105,11 @@ struct ProfileView: View {
                 LabeledContent("Saldo", value: (Double(store.money.balanceCents) / 100).formatted(.currency(code: "EUR")))
                 LabeledContent("Tarjetas vendidas", value: "\(store.totalCardsSold)")
                 LabeledContent("Recordatorios", value: "\(store.pendingReminders.count)")
+            }
+            Section("Tus datos") {
+                NavigationLink("Copias de seguridad") { BackupView() }
+                NavigationLink("Apple Watch") { WatchStatusView() }
+                if let title = store.undoTitle { Button("Deshacer: " + title) { store.undoLastChange() } }
             }
             Section("Acerca de reviewNfcGo") {
                 Text("Desarrollado por Pablo Cancho Flores")

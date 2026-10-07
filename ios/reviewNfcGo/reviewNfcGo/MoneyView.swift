@@ -30,11 +30,22 @@ struct MoneyView: View {
             }
             Section {
                 Button { showExpense = true } label: { Label("Registrar compra o gasto", systemImage: "plus.circle.fill") }
+                NavigationLink { ProfitView() } label: { Label("Beneficio por negocio", systemImage: "chart.line.uptrend.xyaxis") }
+                if let title = store.undoTitle { Button { store.undoLastChange() } label: { Label("Deshacer: " + title, systemImage: "arrow.uturn.backward") } }
                 NavigationLink { InventoryView() } label: {
                     HStack {
                         Label("Tarjetas NFC y productos", systemImage: "shippingbox")
                         Spacer()
                         Text("\(store.money.products.count)").foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if !store.money.lowStockProducts.isEmpty {
+                Section("Reponer tarjetas") {
+                    ForEach(store.money.lowStockProducts) { product in
+                        NavigationLink { ProductDetailView(productID: product.id) } label: {
+                            Label("\(product.displayName): \(store.money.stock(product.id)) disponibles", systemImage: "exclamationmark.circle")
+                        }
                     }
                 }
             }

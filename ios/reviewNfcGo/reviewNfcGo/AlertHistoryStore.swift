@@ -26,7 +26,7 @@ final class AlertHistoryStore: ObservableObject {
         let next = email ?? "guest"
         if let previous = scope, previous != next {
             mutate(scope: previous) { ledger in
-                let ids = Set(ledger.entries.filter { $0.kind == .reminder || $0.kind == .activityAlert }.map(\.systemID))
+                let ids = Set(ledger.entries.filter { $0.kind == .reminder || $0.kind == .activityAlert || $0.kind == .stock }.map(\.systemID))
                 ledger.cancelNotifications(systemIDs: ids, at: Date())
             }
         }
@@ -95,7 +95,7 @@ final class AlertHistoryStore: ObservableObject {
         let fingerprint = request.content.userInfo[NotificationManager.fingerprintKey] as? String ?? request.identifier
         let decoded = Data(base64Encoded: fingerprint).flatMap { try? JSONDecoder().decode(VisitNotification.self, from: $0) }
         let isTest = request.identifier.hasPrefix("resenago.test")
-        let kind: AlertHistoryKind = isTest ? .test : (decoded?.kind == .activity ? .activityAlert : .reminder)
+        let kind: AlertHistoryKind = request.identifier.hasPrefix("stock.") ? .stock : isTest ? .test : (decoded?.kind == .activity ? .activityAlert : .reminder)
         let fireDate = decoded?.fireDate ?? deliveredAt ?? nextFireDate(request) ?? Date()
         let existingID = (request.content.userInfo[Self.entryKey] as? String).flatMap(UUID.init(uuidString:))
         let entryExists = existingID.map { id in (self.scope == owner ? ledger : load(owner)).entries.contains { $0.id == id } } ?? false

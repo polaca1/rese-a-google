@@ -7,11 +7,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         NotificationManager.registerCategories()
+        AppStore.shared.switchUser(AuthStore().currentUser?.email)
+        PhoneWatchBridge.shared.attach(AppStore.shared)
         return true
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         Task { @MainActor in
+            if notification.request.identifier.hasPrefix("stock.") {
+                AlertHistoryStore.shared.observe(notification.request, deliveredAt: notification.date)
+                completionHandler([.banner, .sound, .list]); return
+            }
             let current = ReminderCoordinator.received(notification.request)
             if current { AlertHistoryStore.shared.observe(notification.request, deliveredAt: notification.date) }
             completionHandler(current ? [.banner, .sound, .list] : [])
@@ -49,7 +55,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 struct ReviewNfcGoApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var auth = AuthStore()
-    @StateObject private var store = AppStore()
+    @StateObject private var store = AppStore.shared
     @StateObject private var photos = ProfilePhotoStore()
     @StateObject private var portalRouter = PortalRouter.shared
     @Environment(\.scenePhase) private var scenePhase
@@ -69,10 +75,13 @@ struct ReviewNfcGoApp: App {
                 .onAppear {
                     store.switchUser(auth.currentUser?.email)
                     photos.switchUser(auth.currentUser?.email)
+                    store.restorePhoto = { [weak photos] data in try? photos?.restoreBackupData(data) }
+                    PhoneWatchBridge.shared.attach(store)
                     #if DEBUG
                     // Simulator verification enters the same validated route without
                     // SpringBoard's external-URL consent dialog. Absent from the IPA.
                     let arguments = ProcessInfo.processInfo.arguments
+                    if arguments.contains("--verification-v5") { Version5Verification.run(store: store, photos: photos) }
                     if arguments.contains("--verification-production") { ProductionVerification.run() }
                     if arguments.contains("--verification-money") { Task { await MajorUpdateVerification.run(store: store, photos: photos) } }
                     if let index = arguments.firstIndex(of: "--verification-portal"),
@@ -90,6 +99,7 @@ struct ReviewNfcGoApp: App {
                     if phase == .active {
                         ReminderCoordinator.refresh()
                         AlertHistoryStore.shared.refresh()
+                        PhoneWatchBridge.shared.publish()
                     } else {
                         ReminderCoordinator.suspendTimer()
                     }

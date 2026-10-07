@@ -2,11 +2,27 @@ import SwiftUI
 import PhotosUI
 import CryptoKit
 import UIKit
+import ImageIO
 
 @MainActor
 final class ProfilePhotoStore: ObservableObject {
     @Published private(set) var image: UIImage?
     private(set) var email: String?
+    var backupData: Data? { email.flatMap { UserDefaults.standard.data(forKey: key($0)) } }
+    static func validateBackupPhoto(_ data: Data?) throws {
+        guard let data else { return }
+        guard data.count <= 2_000_000, let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              (1...640).contains(width), (1...640).contains(height), UIImage(data: data) != nil else { throw PhotoError.invalid }
+    }
+    func restoreBackupData(_ data: Data?) throws {
+        try Self.validateBackupPhoto(data)
+        guard let email else { throw BackupError.wrongAccount }
+        if let data { UserDefaults.standard.set(data, forKey: key(email)); image = UIImage(data: data) }
+        else { remove() }
+    }
     private func key(_ email: String) -> String {
         let hash = SHA256.hash(data: Data(email.utf8)).map { String(format: "%02x", $0) }.joined()
         return "resenago.profilePhoto.\(hash)"

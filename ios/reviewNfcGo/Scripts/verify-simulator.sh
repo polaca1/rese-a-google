@@ -15,6 +15,7 @@ xcodebuild -project "$task_project_dir/reviewNfcGo.xcodeproj" \
     }
 
 task_sim_app="$task_output_dir/SimulatorData/Build/Products/Debug-iphonesimulator/reviewNfcGo.app"
+rm -rf "$task_sim_app/Watch"
 codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGoLiveActivity/reviewNfcGoLiveActivity.entitlements" "$task_sim_app/PlugIns/reviewNfcGoLiveActivity.appex"
 codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGo/reviewNfcGo.entitlements" "$task_sim_app"
 
@@ -255,3 +256,22 @@ xcrun simctl io "$task_device" screenshot "$task_output_dir/home-top-light.png"
 xcrun simctl ui "$task_device" appearance dark
 sleep 2
 xcrun simctl io "$task_device" screenshot "$task_output_dir/home-top-dark.png"
+
+# Verify backups, undo accounting and the phone-side Watch delegate using real app storage.
+xcrun simctl terminate "$task_device" "$task_bundle_id" >/dev/null 2>&1 || true
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-v5
+for task_attempt in $(seq 1 25); do
+    if [ -f "$task_container/Documents/version5-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/version5-verification.json" "$task_output_dir/version5-verification.log"
+python3 - "$task_output_dir/version5-verification.log" <<'PYV5'
+import json,sys
+result=json.load(open(sys.argv[1]));print(result);assert result['passed'] and len(result['checks'])>=12,result
+PYV5
+for task_screen in route backup profit; do
+    xcrun simctl terminate "$task_device" "$task_bundle_id"
+    xcrun simctl launch "$task_device" "$task_bundle_id" "--verification-v5-$task_screen"
+    sleep 3
+    xcrun simctl io "$task_device" screenshot "$task_output_dir/v5-$task_screen.png"
+done

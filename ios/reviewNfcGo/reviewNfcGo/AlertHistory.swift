@@ -1,9 +1,10 @@
 import Foundation
 
 enum AlertHistoryKind: String, Codable, CaseIterable {
-    case reminder, activityAlert, test, liveActivity
+    case reminder, activityAlert, test, liveActivity, stock
     var title: String {
         switch self {
+        case .stock: return "Stock de tarjetas"
         case .reminder: return "Recordatorio"
         case .activityAlert: return "Aviso de cuenta atrás"
         case .test: return "Notificación de prueba"

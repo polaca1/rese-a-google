@@ -1,3 +1,7 @@
-El saludo de Inicio se queda al principio de la página y desaparece al desplazarte.
-La búsqueda permanece accesible arriba con el desenfoque gradual nativo.
-Se conservan tus negocios, recordatorios, inventario y movimientos de dinero.
+reviewNfcGo 5.0: visitas, dinero y Apple Watch.
+
+Copia y restauración de negocios, visitas, inventario, movimientos y foto desde Perfil, con revisión y copia de recuperación.
+Ruta del día con citas ordenadas por horario y visitas sin hora ordenadas por cercanía.
+Beneficio por negocio descontando el coste de las tarjetas, avisos de stock bajo por color y deshacer cambios con historial de correcciones.
+App nativa de Apple Watch: próxima visita, llegada, volver mañana, ventas con cantidad y precio, indicaciones y resumen del día. Complicación y widget de próximas visitas; Live Activity adaptada a la Smart Stack.
+La fuente de SideStore actualiza la app de iPhone y conserva tus datos. La app del Watch se distribuye aparte para firmarla e instalarla desde Xcode; las instrucciones están en WATCH-INSTALL.md.
