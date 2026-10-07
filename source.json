@@ -14,6 +14,15 @@
       "tintColor": "1976EC",
       "versions": [
         {
+          "version": "4.2.1",
+          "buildVersion": "20",
+          "date": "2026-10-07T06:35:38Z",
+          "localizedDescription": "El saludo de Inicio se queda al principio de la página y desaparece al desplazarte.\nLa búsqueda permanece accesible arriba con el desenfoque gradual nativo.\nSe conservan tus negocios, recordatorios, inventario y movimientos de dinero.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-4.2.1-build20.ipa",
+          "size": 6202408,
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "4.2",
           "buildVersion": "19",
           "date": "2026-10-06T22:12:54Z",
@@ -95,11 +104,11 @@
           "minOSVersion": "16.1"
         }
       ],
-      "version": "4.2",
-      "versionDate": "2026-10-06T22:12:54Z",
-      "versionDescription": "Nuevo icono minimalista con relieve nativo y estrella vacía.\nDesenfoque gradual en las cabeceras sin panel superior fijo.\nInterfaz de producción sin botones de prueba ni identificadores técnicos.\nCredenciales protegidas y migración de las cuentas existentes.\nCorrecciones de recordatorios y del historial de dinero; inventario, widgets y foto de perfil.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-4.2-build19/reviewNfcGo-4.2-build19.ipa",
-      "size": 6201761,
+      "version": "4.2.1",
+      "versionDate": "2026-10-07T06:35:38Z",
+      "versionDescription": "El saludo de Inicio se queda al principio de la página y desaparece al desplazarte.\nLa búsqueda permanece accesible arriba con el desenfoque gradual nativo.\nSe conservan tus negocios, recordatorios, inventario y movimientos de dinero.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-4.2.1-build20.ipa",
+      "size": 6202408,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
@@ -127,6 +136,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 4.2.1 (20)",
+      "identifier": "reviewnfcgo-4.2.1-build20",
+      "caption": "El saludo de Inicio se queda al principio de la página y desaparece al desplazarte.",
+      "date": "2026-10-07T06:35:38Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-4.2.1-build20",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 3.0 (11)",
       "identifier": "reviewnfcgo-3.0-build11",
