@@ -137,8 +137,10 @@ struct WatchSaleView: View {
             List {
                 Section {
                     Text(business.name).font(.headline)
-                    Stepper(cards == 1 ? "1 tarjeta nueva" : "\(cards) tarjetas nuevas", value: $cards, in: 1...100_000)
-                    Stepper(value: $unitPrice, in: 0...50, step: 0.5) { VStack(alignment: .leading) { Text("Por tarjeta").font(.caption); Text(unitPrice, format: .currency(code: "EUR")) } }
+                    WatchValueControl(title: "Tarjetas nuevas", value: cards.formatted(), canDecrease: cards > 1, canIncrease: cards < 100_000,
+                        decrease: { cards -= 1 }, increase: { cards += 1 })
+                    WatchValueControl(title: "Por tarjeta", value: unitPrice.formatted(.currency(code: "EUR")), canDecrease: unitPrice > 0, canIncrease: unitPrice < 50,
+                        decrease: { unitPrice = max(0, unitPrice - 0.5) }, increase: { unitPrice = min(50, unitPrice + 0.5) })
                     Picker("Color / producto", selection: $productID) {
                         Text("Sin asignar").tag(Optional<UUID>.none)
                         ForEach(store.snapshot.products) { product in Text("\(product.name) · \(product.stock)").tag(Optional(product.id)) }
@@ -158,6 +160,26 @@ struct WatchSaleView: View {
                     }
                 }
         }
+    }
+}
+private struct WatchValueControl: View {
+    let title: String
+    let value: String
+    let canDecrease: Bool
+    let canIncrease: Bool
+    let decrease: () -> Void
+    let increase: () -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button(action: decrease) { Image(systemName: "minus") }
+                    .disabled(!canDecrease).accessibilityLabel("Reducir " + title)
+                Text(value).font(.headline.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.5).frame(maxWidth: .infinity)
+                Button(action: increase) { Image(systemName: "plus") }
+                    .disabled(!canIncrease).accessibilityLabel("Aumentar " + title)
+            }.buttonStyle(.bordered).buttonBorderShape(.circle).controlSize(.small)
+        }.padding(.vertical, 4)
     }
 }
 struct WatchDayView: View {
