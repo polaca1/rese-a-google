@@ -1,0 +1,28 @@
+{
+  "name": "reviewNfcGo · Compatible",
+  "identifier": "com.pablo.reviewnfcgo.source.compatible",
+  "sourceURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/source-compatible.json",
+  "apps": [
+    {
+      "name": "reviewNfcGo",
+      "bundleIdentifier": "com.pablo.resenagoogle.20261004",
+      "developerName": "Pablo Cancho Flores",
+      "localizedDescription": "Encuentra negocios y organiza tus visitas, tarjetas NFC e ingresos y gastos. Incluye inventario por color, historial de operaciones, foto de perfil, widgets y recordatorios con cuenta atrás.",
+      "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/icon.png",
+      "version": "4.2.1",
+      "versionDate": "2026-10-07T06:35:38Z",
+      "versionDescription": "El saludo de Inicio se queda al principio de la página y desaparece al desplazarte.\nLa búsqueda permanece accesible arriba con el desenfoque gradual nativo.\nSe conservan tus negocios, recordatorios, inventario y movimientos de dinero.",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-4.2.1-build20/reviewNfcGo-4.2.1-build20.ipa",
+      "size": 6202408,
+      "appPermissions": {
+        "entitlements": [
+          "com.apple.security.application-groups"
+        ],
+        "privacy": {
+          "NSLocationWhenInUseUsageDescription": "La app necesita tu ubicación para encontrar automáticamente el negocio más cercano."
+        }
+      }
+    }
+  ],
+  "news": []
+}
