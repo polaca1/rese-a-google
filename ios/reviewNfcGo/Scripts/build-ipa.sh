@@ -53,7 +53,7 @@ codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGo/reviewNf
 task_package_dir=$(mktemp -d)
 mkdir -p "$task_package_dir/Payload"
 ditto "$task_app" "$task_package_dir/Payload/reviewNfcGo.app"
-task_ipa="$task_output_dir/reviewNfcGo-4.2-AltStore.ipa"
+task_ipa="$task_output_dir/reviewNfcGo-4.2.1-AltStore.ipa"
 rm -f "$task_ipa"
 (cd "$task_package_dir" && /usr/bin/zip -qry "$task_ipa" Payload)
 rm -rf "$task_package_dir"

@@ -833,10 +833,8 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                VStack(spacing: 8) {
-                    searchBar
-                    if showSearchResults && searchText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 { searchSuggestions }
-                }
+                header.background(HomeHeaderScrollMarker())
+                if showSearchResults && searchText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 { searchSuggestions }
                 NativeMapView(selectedPlace: finder.selectedPlace, focusRequest: finder.mapFocus) { coordinate in
                     showSearchResults = false; searchFocused = false
                     Task { await finder.searchNearest(to: coordinate) }
@@ -865,13 +863,13 @@ struct HomeView: View {
             .background(TopScrollBlurVerification(screen: "home"))
         }
         .appTopScrollBlur {
-            header.padding(.horizontal, 16).padding(.bottom, 12)
+            searchBar.padding(.horizontal, 16).padding(.vertical, 8)
         }
         .background(AppTheme.background)
         .navigationBarHidden(true)
         .onAppear {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--verification-blur-home") {
+            if ProcessInfo.processInfo.arguments.contains("--verification-blur-home") || ProcessInfo.processInfo.arguments.contains("--verification-home-top") {
                 finder.prepareMapVerification()
                 finder.chooseSearchResult(MajorUpdateVerification.searchPlaces[0])
                 return
@@ -2042,7 +2040,7 @@ struct ProfileView: View {
             Section("Acerca de reviewNfcGo") {
                 Text("Desarrollado por Pablo Cancho Flores")
                     .font(.subheadline)
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.2")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.2.1")
             }
             Section("Cuenta") {
                 Text("Tus datos se guardan en este iPhone.")
@@ -2083,7 +2081,26 @@ private struct TopScrollBlurVerification: View {
     }
 }
 
+private struct HomeHeaderScrollMarker: View {
+    var body: some View {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--verification-blur-home") {
+            HomeHeaderMarkerProbe()
+        }
+        #else
+        EmptyView()
+        #endif
+    }
+}
+
 #if DEBUG
+private struct HomeHeaderMarkerProbe: UIViewRepresentable {
+    func makeUIView(context: Context) -> HomeHeaderMarkerView { HomeHeaderMarkerView() }
+    func updateUIView(_ view: HomeHeaderMarkerView, context: Context) {}
+}
+
+private final class HomeHeaderMarkerView: UIView {}
+
 private struct ScrollBlurProbe: UIViewRepresentable {
     let screen: String
     func makeUIView(context: Context) -> ProbeView { ProbeView(screen: screen) }
@@ -2105,15 +2122,32 @@ private struct ScrollBlurProbe: UIViewRepresentable {
                 guard let scroll = ancestor as? UIScrollView else {
                     self.report(["passed": false, "error": "No native scroll view"]); return
                 }
+                func findHeader(in view: UIView) -> HomeHeaderMarkerView? {
+                    if let header = view as? HomeHeaderMarkerView { return header }
+                    for child in view.subviews {
+                        if let header = findHeader(in: child) { return header }
+                    }
+                    return nil
+                }
+                let header = findHeader(in: scroll)
+                let originalHeaderFrame = header?.convert(header?.bounds ?? .zero, to: self.window)
+                let originalOffset = scroll.contentOffset.y
                 let maxOffset = max(-scroll.adjustedContentInset.top,
                     scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)
                 let target = min(150, maxOffset)
                 scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                    self.report(["passed": scroll.topEdgeEffect.style == .soft && !scroll.topEdgeEffect.isHidden,
+                    let currentHeaderFrame = header?.convert(header?.bounds ?? .zero, to: self.window)
+                    let actualScroll = scroll.contentOffset.y - originalOffset
+                    let headerMovement = (originalHeaderFrame?.minY ?? 0) - (currentHeaderFrame?.minY ?? 0)
+                    let headerScrolls = header != nil && actualScroll > 50 && abs(headerMovement - actualScroll) < 2
+                    let softEffect = scroll.topEdgeEffect.style == .soft && !scroll.topEdgeEffect.isHidden
+                    self.report(["passed": softEffect && (self.screen != "home" || headerScrolls),
                         "screen": self.screen, "nativeSoftEffect": scroll.topEdgeEffect.style == .soft,
                         "effectHidden": scroll.topEdgeEffect.isHidden,
-                        "scrollOffset": scroll.contentOffset.y, "maximumOffset": maxOffset])
+                        "scrollOffset": scroll.contentOffset.y, "maximumOffset": maxOffset,
+                        "headerInScrollContent": header != nil, "headerScrollsWithContent": headerScrolls,
+                        "headerMovement": headerMovement, "actualScrollDistance": actualScroll])
                 }
             }
         }

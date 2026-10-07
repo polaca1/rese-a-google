@@ -1,5 +1,3 @@
-Nuevo icono minimalista con relieve nativo y estrella vacía.
-Desenfoque gradual en las cabeceras sin panel superior fijo.
-Interfaz de producción sin botones de prueba ni identificadores técnicos.
-Credenciales protegidas y migración de las cuentas existentes.
-Correcciones de recordatorios y del historial de dinero; inventario, widgets y foto de perfil.
+El saludo de Inicio se queda al principio de la página y desaparece al desplazarte.
+La búsqueda permanece accesible arriba con el desenfoque gradual nativo.
+Se conservan tus negocios, recordatorios, inventario y movimientos de dinero.

@@ -222,7 +222,8 @@ for task_blur_screen in home auth; do
 import json,sys
 result=json.load(open(sys.argv[1]));print(result)
 assert result['passed'] and result['nativeSoftEffect'] and not result['effectHidden'],result
-if result['screen']=='home': assert result['scrollOffset']>0,result
+if result['screen']=='home':
+    assert result['scrollOffset']>0 and result['headerInScrollContent'] and result['headerScrollsWithContent'],result
 PYCHECK
     xcrun simctl io "$task_device" screenshot "$task_output_dir/blur-$task_blur_screen-light.png"
     xcrun simctl ui "$task_device" appearance dark
@@ -244,3 +245,13 @@ import json,sys
 result=json.load(open(sys.argv[1]));print(json.dumps(result,ensure_ascii=False,indent=2))
 assert result['passed'] and len(result['checks'])>=12,result
 PYCHECK
+
+# Capture the greeting at the top of the page, before scrolling it away.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-home-top
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/home-top-light.png"
+xcrun simctl ui "$task_device" appearance dark
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/home-top-dark.png"
