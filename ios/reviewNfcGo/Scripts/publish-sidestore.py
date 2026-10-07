@@ -85,7 +85,7 @@ def publish(args):
     app = source['apps'][0]
     assert app['bundleIdentifier'] == BUNDLE
     app['iconURL'] = RAW + '/icon.png'
-    app['localizedDescription'] = 'Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Live Activities compatibles con Apple Watch; la app nativa del reloj se firma e instala aparte desde el proyecto de Xcode de la release.'
+    app['localizedDescription'] = 'Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Versión de escritorio para macOS 14 disponible en la release.'
     entry = {'version': version, 'buildVersion': build, 'date': release['published_at'],
              'localizedDescription': notes, 'downloadURL': download_url,
              'size': ipa.stat().st_size, 'minOSVersion': max(minimums, key=version_key)}
@@ -154,17 +154,9 @@ def publish(args):
         if entry == newest:
             edit.append('--latest')
         subprocess.run(edit, check=True)
-    # Device Watch output and a secret-free Xcode project are additional release assets,
-    # never alternate downloads masquerading as an iPhone IPA in the SideStore feed.
-    for artifact in ipa.parent.glob('reviewNfcGo-*-*.zip'):
+    # Additional source and Mac packages do not replace the canonical iPhone IPA.
+    for artifact in ipa.parent.glob('*.zip'):
         subprocess.run(['gh', 'release', 'upload', tag, '--repo', REPO, str(artifact), '--clobber'], check=True)
-    for guide in ['WATCH-INSTALL.md']:
-        artifact = pathlib.Path(args.notes).parent / guide
-        if artifact.exists():
-            subprocess.run(['gh', 'release', 'upload', tag, '--repo', REPO, str(artifact), '--clobber'], check=True)
-    if args.previews:
-        for artifact in pathlib.Path(args.previews).glob('watch-*.png'):
-            subprocess.run(['gh', 'release', 'upload', tag, '--repo', REPO, str(artifact), '--clobber'], check=True)
     print(f'Publicado {release_name}: {RAW}/source.json')
     subprocess.run(['python3', str(pathlib.Path(__file__).with_name('publish-release-assets.py'))], check=True)
 

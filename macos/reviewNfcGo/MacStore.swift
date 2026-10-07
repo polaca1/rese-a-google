@@ -1,0 +1,183 @@
+import Foundation
+import Combine
+
+enum DesktopError: LocalizedError {
+    case invalidProfile, invalidBusiness, invalidDate, missingBusiness, damagedStore, noUndo
+    var errorDescription: String? {
+        switch self {
+        case .invalidProfile: return "Introduce el correo de tu cuenta de iPhone para poder intercambiar copias."
+        case .invalidBusiness: return "Añade un nombre y unas coordenadas válidas al negocio."
+        case .invalidDate: return "La visita debe ser futura y el aviso no puede ser posterior a ella."
+        case .missingBusiness: return "La ficha de este negocio ya no está disponible. El movimiento se conserva en el historial."
+        case .damagedStore: return "No se han podido leer tus datos. El archivo original se conserva; puedes recuperar una copia desde Archivo."
+        case .noUndo: return "No hay cambios que deshacer."
+        }
+    }
+}
+
+/// The same validated domain and backup format as iPhone, committed as one atomic file.
+/// UI state changes only after writing succeeds, so a disk error never silently loses money.
+@MainActor final class MacStore: ObservableObject {
+    @Published private(set) var backup: BusinessBackup?
+    @Published var errorMessage: String?
+    @Published private(set) var undoTitle: String?
+    @Published private(set) var damaged = false
+    private struct UndoState { let title: String; let backup: BusinessBackup }
+    private var undoStates: [UndoState] = []
+    let fileURL: URL
+    var recoveryURL: URL { fileURL.deletingLastPathComponent().appendingPathComponent("Antes-de-importar.json") }
+    var owner: String? { backup?.owner }
+    var records: [VisitRecord] { backup?.records ?? [] }
+    var money: MoneyLedger { backup?.money ?? MoneyLedger() }
+    var upcoming: [VisitRecord] {
+        records.filter { $0.status != .completed && $0.arrivedAt == nil && $0.reminderDate != nil }
+            .sorted { $0.reminderDate! < $1.reminderDate! }
+    }
+    var soldCards: Int { money.sales.values.reduce(0) { $0 + $1.cards } }
+
+    init(fileURL: URL? = nil) {
+        self.fileURL = fileURL ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("reviewNfcGo", isDirectory: true).appendingPathComponent("Workspace.json")
+        guard FileManager.default.fileExists(atPath: self.fileURL.path) else { return }
+        do {
+            let data = try Data(contentsOf: self.fileURL)
+            backup = try Self.readBackup(data)
+        } catch { damaged = true; errorMessage = DesktopError.damagedStore.localizedDescription }
+    }
+    static func readBackup(_ data: Data) throws -> BusinessBackup {
+        guard data.count <= 25_000_000 else { throw BackupError.tooLarge }
+        let header = try JSONDecoder().decode(BusinessBackup.self, from: data)
+        return try BusinessBackup.decode(data, for: header.owner)
+    }
+    func createWorkspace(email: String) throws {
+        let owner = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard owner.contains("@"), owner.count <= 254, backup == nil, !damaged else { throw DesktopError.invalidProfile }
+        try write(BusinessBackup(owner: owner, records: [], money: MoneyLedger()))
+    }
+    private func write(_ value: BusinessBackup) throws {
+        let valid = try value.validated(for: value.owner)
+        let data = try valid.encoded()
+        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: fileURL, options: .atomic)
+        backup = valid; damaged = false
+    }
+    private func commit(_ next: BusinessBackup, title: String) throws {
+        guard let previous = backup else { throw DesktopError.invalidProfile }
+        var value = next; value.createdAt = Date()
+        try write(value)
+        undoStates.append(UndoState(title: title, backup: previous))
+        undoStates = Array(undoStates.suffix(12)); undoTitle = title
+    }
+    func save(_ record: VisitRecord) throws {
+        guard var value = backup else { throw DesktopError.invalidProfile }
+        var record = record
+        guard !record.place.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              (-90...90).contains(record.place.latitude), (-180...180).contains(record.place.longitude) else { throw DesktopError.invalidBusiness }
+        record.normalizeSales()
+        guard value.money.canAssign(record) else { throw MoneyError.insufficientStock }
+        let old = value.records.first { $0.id == record.id }
+        if record.reminderDate != old?.reminderDate || record.notificationDate != old?.notificationDate {
+            if let visit = record.reminderDate {
+                guard visit > Date(), (record.notificationDate ?? visit) > Date(), (record.notificationDate ?? visit) <= visit else { throw DesktopError.invalidDate }
+                record.arrivedAt = nil
+            }
+        }
+        if let index = value.records.firstIndex(where: { $0.id == record.id }) { value.records[index] = record }
+        else {
+            guard !value.records.contains(where: { $0.place.id == record.place.id }) else { throw DesktopError.invalidBusiness }
+            value.records.insert(record, at: 0)
+        }
+        value.money.synchronize(value.records)
+        try commit(value, title: old == nil ? "Añadir negocio" : "Editar negocio")
+    }
+    func arrive(_ id: UUID) throws {
+        guard var record = records.first(where: { $0.id == id }) else { throw DesktopError.missingBusiness }
+        record.arrivedAt = Date(); try save(record)
+    }
+    func tomorrow(_ id: UUID) throws {
+        guard var record = records.first(where: { $0.id == id }) else { throw DesktopError.missingBusiness }
+        let date = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        record.status = .pending; record.arrivedAt = nil; record.reminderDate = date
+        record.notificationDate = date.addingTimeInterval(-1800); try save(record)
+    }
+    func delete(_ id: UUID) throws {
+        guard var value = backup else { throw DesktopError.invalidProfile }
+        value.records.removeAll { $0.id == id }
+        // Historical income and sold inventory deliberately survive deletion of a business.
+        try commit(value, title: "Eliminar negocio")
+    }
+    func addExpense(title: String, amount: Double, quantity: Int, productID: UUID?, newProduct: InventoryProduct?, date: Date,
+                    merchant: String, method: String, url: String, notes: String) throws {
+        guard var value = backup else { throw DesktopError.invalidProfile }
+        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw MoneyError.invalidProduct }
+        try value.money.addExpense(title: title, amount: amount, quantity: quantity, productID: productID, newProduct: newProduct,
+                                   date: date, merchant: merchant, method: method, url: url, notes: notes)
+        if let id = productID, let index = value.money.products.firstIndex(where: { $0.id == id }), !url.isEmpty {
+            value.money.products[index].purchaseURL = url
+        }
+        try commit(value, title: "Registrar gasto")
+    }
+    func reverseExpense(_ id: UUID) throws {
+        guard var value = backup else { throw DesktopError.invalidProfile }
+        try value.money.reverseExpense(id); try commit(value, title: "Devolver gasto")
+    }
+    func adjustStock(_ id: UUID, quantity: Int, reason: String) throws {
+        guard var value = backup else { throw DesktopError.invalidProfile }
+        guard !reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw MoneyError.invalidProduct }
+        try value.money.adjustStock(id, quantity: quantity, reason: reason); try commit(value, title: "Ajustar existencias")
+    }
+    func undo() throws {
+        guard let last = undoStates.last, var value = backup else { throw DesktopError.noUndo }
+        value.records = last.backup.records
+        value.money.undo(to: last.backup.money, records: value.records)
+        value.createdAt = Date()
+        try write(value); undoStates.removeLast(); undoTitle = undoStates.last?.title
+    }
+    func importBackup(_ next: BusinessBackup) throws {
+        let next = try next.validated(for: next.owner)
+        // Preserve the actual previous bytes, including a damaged file, before replacement.
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            let previous = try Data(contentsOf: fileURL)
+            try previous.write(to: recoveryURL, options: .atomic)
+        }
+        try write(next); undoStates.removeAll(); undoTitle = nil
+    }
+    func exportData() throws -> Data {
+        guard let backup else { throw DesktopError.invalidProfile }
+        return try backup.encoded()
+    }
+    func run(_ action: () throws -> Void) { do { try action() } catch { errorMessage = error.localizedDescription } }
+}
+
+struct CashDay: Identifiable {
+    let date: Date
+    let income: Int64
+    let expenses: Int64
+    var id: Date { date }
+}
+enum DesktopAnalytics {
+    static func days(_ money: MoneyLedger, endingAt now: Date = Date(), count: Int = 14, calendar: Calendar = .current) -> [CashDay] {
+        let today = calendar.startOfDay(for: now)
+        return (0..<count).reversed().map { offset in
+            let day = calendar.date(byAdding: .day, value: -offset, to: today)!
+            let transactions = money.transactions.filter { calendar.isDate($0.date, inSameDayAs: day) }
+            return CashDay(date: day, income: transactions.filter { $0.kind.isIncome }.reduce(0) { $0 + $1.cents },
+                           expenses: -transactions.filter { [.expense, .refund].contains($0.kind) }.reduce(0) { $0 + $1.cents })
+        }
+    }
+    static func csv(_ money: MoneyLedger) -> Data {
+        func quoted(_ value: String) -> String {
+            // Neutralize spreadsheet formula injection in user-controlled fields.
+            let safe = ["=", "+", "-", "@", "\t", "\r"].contains(value.first.map(String.init) ?? "") ? "'" + value : value
+            return "\"" + safe.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        }
+        let formatter = ISO8601DateFormatter()
+        let header = "Fecha;Tipo;Concepto;Importe EUR;Unidades;Negocio ID;Proveedor;Pago;Enlace;Notas"
+        let lines = money.history.map { item in
+            [formatter.string(from: item.date), item.kind.title, item.title,
+             String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), item.amount), String(item.quantity),
+             item.businessID?.uuidString ?? "", item.merchant, item.paymentMethod, item.purchaseURL, item.notes].map(quoted).joined(separator: ";")
+        }
+        return Data(("\u{FEFF}" + ([header] + lines).joined(separator: "\r\n")).utf8)
+    }
+}

@@ -65,9 +65,3 @@ xcrun swiftc -parse-as-library -swift-version 5 \
     "$task_project_dir/Tests/BusinessToolsTests.swift" \
     -o "$task_test_dir/business-tools-tests"
 "$task_test_dir/business-tools-tests"
-xcrun swiftc -parse-as-library -swift-version 5 \
-    -module-cache-path "$task_test_dir/ModuleCache" \
-    "$task_project_dir/reviewNfcGo/WatchModels.swift" \
-    "$task_project_dir/Tests/WatchTests.swift" \
-    -o "$task_test_dir/watch-tests"
-"$task_test_dir/watch-tests"

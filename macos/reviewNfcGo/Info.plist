@@ -8,34 +8,31 @@
 	<string>reviewNfcGo</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>reviewNfcGo</string>
 	<key>CFBundlePackageType</key>
-	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>watch-business</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>reviewnfcgo-watch</string>
-			</array>
-		</dict>
-	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>WKApplication</key>
+	<key>GooglePlacesAPIKey</key>
+	<string></string>
+	<key>GooglePlacesFallbackAPIKey</key>
+	<string></string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSHighResolutionCapable</key>
 	<true/>
-	<key>WKCompanionAppBundleIdentifier</key>
-	<string>com.pablo.resenagoogle.20261004</string>
-	<key>WKRunsIndependentlyOfCompanionApp</key>
-	<false/>
+	<key>NSHumanReadableCopyright</key>
+	<string>Desarrollado por Pablo Cancho Flores</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
 </dict>
 </plist>

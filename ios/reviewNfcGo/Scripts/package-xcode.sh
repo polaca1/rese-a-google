@@ -18,5 +18,5 @@ python3 - "$task_package_dir/reviewNfcGo/reviewNfcGo/Info.plist" <<'PY'
 import pathlib,plistlib,sys
 path=pathlib.Path(sys.argv[1]);value=plistlib.loads(path.read_bytes());value['GooglePlacesAPIKey']='';path.write_bytes(plistlib.dumps(value))
 PY
-(cd "$task_package_dir" && /usr/bin/zip -qry "$task_output_dir/reviewNfcGo-5.0-Xcode.zip" reviewNfcGo)
+(cd "$task_package_dir" && /usr/bin/zip -qry "$task_output_dir/reviewNfcGo-5.1-Xcode.zip" reviewNfcGo)
 echo 'Proyecto de Xcode preparado sin credenciales.'

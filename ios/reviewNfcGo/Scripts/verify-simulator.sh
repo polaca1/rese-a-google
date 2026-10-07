@@ -15,7 +15,6 @@ xcodebuild -project "$task_project_dir/reviewNfcGo.xcodeproj" \
     }
 
 task_sim_app="$task_output_dir/SimulatorData/Build/Products/Debug-iphonesimulator/reviewNfcGo.app"
-rm -rf "$task_sim_app/Watch"
 codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGoLiveActivity/reviewNfcGoLiveActivity.entitlements" "$task_sim_app/PlugIns/reviewNfcGoLiveActivity.appex"
 codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGo/reviewNfcGo.entitlements" "$task_sim_app"
 
@@ -257,7 +256,7 @@ xcrun simctl ui "$task_device" appearance dark
 sleep 2
 xcrun simctl io "$task_device" screenshot "$task_output_dir/home-top-dark.png"
 
-# Verify backups, undo accounting and the phone-side Watch delegate using real app storage.
+# Verify backups, undo accounting and persistence using real app storage.
 xcrun simctl terminate "$task_device" "$task_bundle_id" >/dev/null 2>&1 || true
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-v5
 for task_attempt in $(seq 1 25); do

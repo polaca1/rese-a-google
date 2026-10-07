@@ -1,0 +1,197 @@
+import SwiftUI
+import AppKit
+
+@main struct ReviewNfcGoMacApp: App {
+    @StateObject private var store: MacStore
+    @StateObject private var navigation = MacNavigation.shared
+    @StateObject private var notifications = MacNotifications.shared
+    init() {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "--verify-desktop"), args.indices.contains(index + 1) {
+            _store = StateObject(wrappedValue: MacStore(fileURL: URL(fileURLWithPath: args[index + 1]).appendingPathComponent("Workspace.json")))
+            return
+        }
+        #endif
+        _store = StateObject(wrappedValue: MacStore())
+    }
+    var body: some Scene {
+        WindowGroup("reviewNfcGo") {
+            MacRootView().environmentObject(store).environmentObject(navigation).environmentObject(notifications)
+                .frame(minWidth: 900, minHeight: 620)
+        }
+        .defaultSize(width: 1220, height: 800)
+        .windowStyle(.titleBar)
+        .commands {
+            SidebarCommands()
+            CommandGroup(replacing: .newItem) {
+                Button("Nuevo negocio") { navigation.sheet = .business(nil) }.keyboardShortcut("n").disabled(store.owner == nil)
+                Button("Registrar gasto") { navigation.sheet = .expense }.keyboardShortcut("n", modifiers: [.command, .shift]).disabled(store.owner == nil)
+                Divider()
+                Button("Importar copia del iPhone…") { MacFiles.chooseImport(store: store, navigation: navigation) }.keyboardShortcut("o")
+                Button("Exportar copia…") { MacFiles.export(store: store) }.keyboardShortcut("s", modifiers: [.command, .shift]).disabled(store.owner == nil)
+                Button("Exportar operaciones CSV…") { MacFiles.export(store: store, csv: true) }.keyboardShortcut("e", modifiers: [.command, .shift]).disabled(store.owner == nil)
+            }
+            CommandGroup(replacing: .undoRedo) {
+                Button(store.undoTitle.map { "Deshacer \($0.lowercased())" } ?? "Deshacer") { store.run { try store.undo() } }
+                    .keyboardShortcut("z").disabled(store.undoTitle == nil)
+            }
+            CommandMenu("Ir a") {
+                ForEach(Array(MacSection.allCases.enumerated()), id: \.element.id) { index, section in
+                    Button(section.rawValue) { navigation.section = section }.keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
+                }
+            }
+        }
+        Settings {
+            MacSettingsView().environmentObject(store).environmentObject(navigation).environmentObject(notifications)
+        }
+    }
+}
+
+struct MacRootView: View {
+    @EnvironmentObject private var store: MacStore
+    @EnvironmentObject private var navigation: MacNavigation
+    @EnvironmentObject private var notifications: MacNotifications
+    var body: some View {
+        NavigationSplitView {
+            List(selection: $navigation.section) {
+                Section("reviewNfcGo") {
+                    ForEach(MacSection.allCases) { section in Label(section.rawValue, systemImage: section.symbol).tag(section) }
+                }
+            }.listStyle(.sidebar).navigationSplitViewColumnWidth(min: 170, ideal: 195, max: 240)
+        } detail: {
+            Group {
+                if store.owner == nil { MacWelcomeView() }
+                else {
+                    switch navigation.section ?? .dashboard {
+                    case .dashboard: MacDashboardView()
+                    case .businesses: MacBusinessesView()
+                    case .visits: MacVisitsView()
+                    case .money: MacMoneyView()
+                    case .inventory: MacInventoryView()
+                    case .map: MacMapView()
+                    }
+                }
+            }
+            .navigationTitle(navigation.section?.rawValue ?? "Resumen")
+            .toolbar {
+                ToolbarItemGroup {
+                    Button { MacFiles.chooseImport(store: store, navigation: navigation) } label: { Label("Importar copia", systemImage: "square.and.arrow.down") }
+                        .help("Importar copia del iPhone (⌘O)")
+                    Button { MacFiles.export(store: store) } label: { Label("Exportar copia", systemImage: "square.and.arrow.up") }
+                        .disabled(store.owner == nil).help("Exportar copia (⇧⌘S)")
+                    Menu {
+                        Button("Nuevo negocio", systemImage: "building.2") { navigation.sheet = .business(nil) }
+                        Button("Registrar gasto", systemImage: "eurosign.circle") { navigation.sheet = .expense }
+                    } label: { Label("Añadir", systemImage: "plus") }.disabled(store.owner == nil).help("Añadir negocio o gasto")
+                }
+            }
+        }
+        .sheet(item: $navigation.sheet) { sheet in
+            switch sheet {
+            case .business(let id): MacBusinessEditor(record: id.flatMap { id in store.records.first { $0.id == id } })
+            case .expense: MacExpenseEditor()
+            case .transaction(let id): if let item = store.money.transactions.first(where: { $0.id == id }) { MacTransactionDetail(item: item) }
+            case .stock(let id): if let product = store.money.products.first(where: { $0.id == id }) { MacStockEditor(product: product) }
+            }
+        }
+        .alert("No se ha podido completar", isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
+            Button("Cerrar", role: .cancel) { store.errorMessage = nil }
+        } message: { Text(store.errorMessage ?? "") }
+        .confirmationDialog("Importar copia", isPresented: Binding(get: { navigation.importCandidate != nil }, set: { if !$0 { navigation.importCandidate = nil } }), titleVisibility: .visible) {
+            Button("Importar y sustituir datos") {
+                if let value = navigation.importCandidate { store.run { try store.importBackup(value) } }
+                navigation.importCandidate = nil; navigation.selectedBusiness = nil
+            }
+            Button("Cancelar", role: .cancel) { navigation.importCandidate = nil }
+        } message: {
+            if let value = navigation.importCandidate {
+                Text("Cuenta: \(value.owner)\n\(value.records.count) negocios y \(value.money.transactions.count) operaciones. Sustituirá los datos actuales del Mac; se conservará una copia anterior para recuperarlos.")
+            }
+        }
+        .onAppear { notifications.didOpen = { id in navigation.openBusiness(id, store: store) } }
+        .onReceive(store.$backup) { value in notifications.replace(value?.records ?? []) }
+        .task {
+            #if DEBUG
+            let args = ProcessInfo.processInfo.arguments
+            if let index = args.firstIndex(of: "--verify-desktop"), args.indices.contains(index + 1) {
+                await MacVerification.run(store: store, navigation: navigation, output: URL(fileURLWithPath: args[index + 1]))
+            }
+            #endif
+        }
+    }
+}
+
+struct MacWelcomeView: View {
+    @EnvironmentObject private var store: MacStore
+    @EnvironmentObject private var navigation: MacNavigation
+    @State private var email = ""
+    var body: some View {
+        VStack(spacing: 20) {
+            Image("BrandMark").resizable().scaledToFit().frame(width: 92, height: 92).accessibilityHidden(true)
+            Text("Tu negocio, también en el Mac").font(.largeTitle.bold())
+            Text("Organiza tus visitas, tarjetas NFC e ingresos desde una sola ventana.")
+                .foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Button("Importar copia del iPhone…") { MacFiles.chooseImport(store: store, navigation: navigation) }
+                .buttonStyle(.borderedProminent).controlSize(.large)
+            Text("En el iPhone: Perfil → Copias de seguridad → Exportar. Pasa el archivo al Mac con AirDrop.")
+                .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 440)
+            if !store.damaged {
+                Divider().frame(width: 360)
+                Text("O empieza con un espacio vacío").font(.headline)
+                TextField("Correo de tu cuenta del iPhone", text: $email).textFieldStyle(.roundedBorder).frame(width: 340)
+                Button("Crear espacio") { store.run { try store.createWorkspace(email: email) } }.disabled(!email.contains("@"))
+            }
+        }.padding(36).frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct MacSettingsView: View {
+    @EnvironmentObject private var store: MacStore
+    @EnvironmentObject private var navigation: MacNavigation
+    @EnvironmentObject private var notifications: MacNotifications
+    var body: some View {
+        Form {
+            Section("Cuenta y datos") {
+                LabeledContent("Cuenta", value: store.owner ?? "Sin configurar")
+                Text("Las copias completas pasan los datos entre iPhone y Mac. Importar sustituye los datos; no los combina automáticamente.")
+                    .font(.callout).foregroundStyle(.secondary)
+                Button("Importar copia…") { MacFiles.chooseImport(store: store, navigation: navigation) }
+                Button("Exportar copia…") { MacFiles.export(store: store) }.disabled(store.owner == nil)
+                Button("Recuperar copia anterior…") {
+                    store.run { navigation.importCandidate = try MacStore.readBackup(Data(contentsOf: store.recoveryURL)) }
+                }.disabled(!FileManager.default.fileExists(atPath: store.recoveryURL.path))
+            }
+            Section("Avisos en este Mac") {
+                Toggle("Recordatorios de visitas", isOn: Binding(get: { notifications.enabled }, set: { value in Task { await notifications.setEnabled(value, records: store.records) } }))
+                if let message = notifications.message { Text(message).foregroundStyle(.secondary) }
+            }
+            Section {
+                LabeledContent("Versión", value: "1.0")
+                LabeledContent("Desarrollado por", value: "Pablo Cancho Flores")
+            }
+        }.formStyle(.grouped).padding().frame(width: 520, height: 480)
+    }
+}
+
+func euro(_ cents: Int64) -> String { (Double(cents) / 100).formatted(.currency(code: "EUR").locale(Locale(identifier: "es_ES"))) }
+func reviewAvailable(_ place: PlaceResult) -> Bool { !place.id.hasPrefix("local-") }
+
+struct MacCard<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(title).font(.headline)
+            content
+        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.07)))
+    }
+}
+struct MacEmptyView: View {
+    let title: String
+    let symbol: String
+    let detail: String
+    var body: some View { ContentUnavailableView(title, systemImage: symbol, description: Text(detail)) }
+}

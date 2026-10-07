@@ -1,0 +1,273 @@
+// !$*UTF8*$!
+{
+	"archiveVersion" = "1";
+	"classes" = {
+	};
+	"objectVersion" = "56";
+	"objects" = {
+		"DA5D9E8C801830B204305EAD" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "reviewNfcGo/MacApp.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"AB710704214BA704D188995D" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "DA5D9E8C801830B204305EAD";
+		};
+		"2FB45C840E8373A89388CE24" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "reviewNfcGo/MacStore.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"D1FBC6A100767A6DC8ED1B82" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "2FB45C840E8373A89388CE24";
+		};
+		"750307ACA113777592373B3E" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "reviewNfcGo/MacServices.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"46FF8211D864B279E309F25B" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "750307ACA113777592373B3E";
+		};
+		"455B919C3CF60E2AB82073FF" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "reviewNfcGo/MacDashboardViews.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"F60C3CE4A06CBC3183837E4D" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "455B919C3CF60E2AB82073FF";
+		};
+		"B4E68B5C6C6E203C6BDABB3B" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "reviewNfcGo/MacEditors.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"EE6693F92200FD22D60F5EE4" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "B4E68B5C6C6E203C6BDABB3B";
+		};
+		"BC60AA0D4B4B6C9A7E8027B8" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "reviewNfcGo/MacVerification.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"735DD10772D8BECE0F4B6BC8" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "BC60AA0D4B4B6C9A7E8027B8";
+		};
+		"7BE1C6F5BDD5806A2AD5F2B3" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "../ios/reviewNfcGo/reviewNfcGo/VisitRecord.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"5D9AB477E358E935B39BC5BC" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "7BE1C6F5BDD5806A2AD5F2B3";
+		};
+		"2E334F5CC121046A43577D7E" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "../ios/reviewNfcGo/reviewNfcGo/MoneyLedger.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"512D19F661BB5452230D0621" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "2E334F5CC121046A43577D7E";
+		};
+		"4484082FFC50FAFFCC353DFE" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "../ios/reviewNfcGo/reviewNfcGo/BusinessTools.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"2046AEA2AC374D00A5B77D80" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "4484082FFC50FAFFCC353DFE";
+		};
+		"A972C5238686CE535FE77F53" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "../ios/reviewNfcGo/reviewNfcGo/VisitScheduling.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"B16E54BFBA3BF0F3226F6D2E" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "A972C5238686CE535FE77F53";
+		};
+		"0DF3722E2AD7E6841EBF2C30" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "../ios/reviewNfcGo/reviewNfcGo/ProductMetadataService.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"E34E43126A025414CD8E0A20" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "0DF3722E2AD7E6841EBF2C30";
+		};
+		"6C4F315FA9ADAD345263C83D" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "image.icns";
+			"path" = "reviewNfcGo/Resources/AppIcon.icns";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"EEF6CA6E4E8CFF3CDFA458CD" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "6C4F315FA9ADAD345263C83D";
+		};
+		"A8ADD552F66F993B31F4E2FC" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "folder.assetcatalog";
+			"path" = "../ios/reviewNfcGo/reviewNfcGo/Assets.xcassets";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"806DC998D0D4175C525F018F" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "A8ADD552F66F993B31F4E2FC";
+		};
+		"A8792157CB4F27FB949C035F" = {
+			"isa" = "PBXFileReference";
+			"explicitFileType" = "wrapper.application";
+			"path" = "reviewNfcGo.app";
+			"sourceTree" = "BUILT_PRODUCTS_DIR";
+		};
+		"AD936FCBED631FA67E05C3EA" = {
+			"isa" = "PBXGroup";
+			"children" = ( "DA5D9E8C801830B204305EAD", "2FB45C840E8373A89388CE24", "750307ACA113777592373B3E", "455B919C3CF60E2AB82073FF", "B4E68B5C6C6E203C6BDABB3B", "BC60AA0D4B4B6C9A7E8027B8", "7BE1C6F5BDD5806A2AD5F2B3", "2E334F5CC121046A43577D7E", "4484082FFC50FAFFCC353DFE", "A972C5238686CE535FE77F53", "0DF3722E2AD7E6841EBF2C30", "6C4F315FA9ADAD345263C83D", "A8ADD552F66F993B31F4E2FC", "A8792157CB4F27FB949C035F" , );
+			"sourceTree" = "<group>";
+		};
+		"878A52FC5FF6A57D50B7B870" = {
+			"isa" = "PBXSourcesBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = ( "AB710704214BA704D188995D", "D1FBC6A100767A6DC8ED1B82", "46FF8211D864B279E309F25B", "F60C3CE4A06CBC3183837E4D", "EE6693F92200FD22D60F5EE4", "735DD10772D8BECE0F4B6BC8", "5D9AB477E358E935B39BC5BC", "512D19F661BB5452230D0621", "2046AEA2AC374D00A5B77D80", "B16E54BFBA3BF0F3226F6D2E", "E34E43126A025414CD8E0A20" , );
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
+		"41D311A605520FC7B8B9A980" = {
+			"isa" = "PBXResourcesBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = ( "EEF6CA6E4E8CFF3CDFA458CD", "806DC998D0D4175C525F018F" , );
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
+		"E2AA269EB967A8853A258BFA" = {
+			"isa" = "PBXFrameworksBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = (  );
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
+		"952548237D7F645F11D1E7B6" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"MACOSX_DEPLOYMENT_TARGET" = "14.0";
+				"SWIFT_VERSION" = "5.0";
+				"SDKROOT" = "macosx";
+				"SUPPORTED_PLATFORMS" = "macosx";
+				"PRODUCT_NAME" = "reviewNfcGo";
+				"EXECUTABLE_NAME" = "reviewNfcGoMac";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.pablo.reviewnfcgo.mac";
+				"MARKETING_VERSION" = "1.0";
+				"CURRENT_PROJECT_VERSION" = "1";
+				"INFOPLIST_FILE" = "reviewNfcGo/Info.plist";
+				"GENERATE_INFOPLIST_FILE" = "NO";
+				"CODE_SIGN_STYLE" = "Automatic";
+				"CODE_SIGNING_ALLOWED" = "NO";
+				"LD_RUNPATH_SEARCH_PATHS" = ( "$(inherited)", "@executable_path/../Frameworks" , );
+				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS" = "DEBUG";
+				"ONLY_ACTIVE_ARCH" = "YES";
+				"COMBINE_HIDPI_IMAGES" = "YES";
+				"CLANG_ENABLE_MODULES" = "YES";
+			};
+			"name" = "Debug";
+		};
+		"488864B3D19480A82F7F1786" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"CLANG_ENABLE_MODULES" = "YES";
+				"MACOSX_DEPLOYMENT_TARGET" = "14.0";
+			};
+			"name" = "Debug";
+		};
+		"E2D3A31BEAA1368FC62DA77A" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"MACOSX_DEPLOYMENT_TARGET" = "14.0";
+				"SWIFT_VERSION" = "5.0";
+				"SDKROOT" = "macosx";
+				"SUPPORTED_PLATFORMS" = "macosx";
+				"PRODUCT_NAME" = "reviewNfcGo";
+				"EXECUTABLE_NAME" = "reviewNfcGoMac";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.pablo.reviewnfcgo.mac";
+				"MARKETING_VERSION" = "1.0";
+				"CURRENT_PROJECT_VERSION" = "1";
+				"INFOPLIST_FILE" = "reviewNfcGo/Info.plist";
+				"GENERATE_INFOPLIST_FILE" = "NO";
+				"CODE_SIGN_STYLE" = "Automatic";
+				"CODE_SIGNING_ALLOWED" = "NO";
+				"LD_RUNPATH_SEARCH_PATHS" = ( "$(inherited)", "@executable_path/../Frameworks" , );
+				"SWIFT_OPTIMIZATION_LEVEL" = "-O";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS" = "";
+				"ONLY_ACTIVE_ARCH" = "NO";
+				"COMBINE_HIDPI_IMAGES" = "YES";
+				"CLANG_ENABLE_MODULES" = "YES";
+			};
+			"name" = "Release";
+		};
+		"35B1014F135DE9B45529B733" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"CLANG_ENABLE_MODULES" = "YES";
+				"MACOSX_DEPLOYMENT_TARGET" = "14.0";
+			};
+			"name" = "Release";
+		};
+		"86D70A8B0431CAF3048DAB39" = {
+			"isa" = "XCConfigurationList";
+			"buildConfigurations" = ( "952548237D7F645F11D1E7B6", "E2D3A31BEAA1368FC62DA77A" , );
+			"defaultConfigurationIsVisible" = "0";
+			"defaultConfigurationName" = "Release";
+		};
+		"3071495A5ED0E98C8D1C5F5D" = {
+			"isa" = "XCConfigurationList";
+			"buildConfigurations" = ( "488864B3D19480A82F7F1786", "35B1014F135DE9B45529B733" , );
+			"defaultConfigurationIsVisible" = "0";
+			"defaultConfigurationName" = "Release";
+		};
+		"34A04005BCAF206EEC990BD9" = {
+			"isa" = "PBXNativeTarget";
+			"buildConfigurationList" = "86D70A8B0431CAF3048DAB39";
+			"buildPhases" = ( "878A52FC5FF6A57D50B7B870", "E2AA269EB967A8853A258BFA", "41D311A605520FC7B8B9A980" , );
+			"buildRules" = (  );
+			"dependencies" = (  );
+			"name" = "reviewNfcGoMac";
+			"productName" = "reviewNfcGo";
+			"productReference" = "A8792157CB4F27FB949C035F";
+			"productType" = "com.apple.product-type.application";
+		};
+		"244210E48437B6556980A702" = {
+			"isa" = "PBXProject";
+			"attributes" = {
+				"LastUpgradeCheck" = "1620";
+			};
+			"buildConfigurationList" = "3071495A5ED0E98C8D1C5F5D";
+			"compatibilityVersion" = "Xcode 14.0";
+			"developmentRegion" = "es";
+			"hasScannedForEncodings" = "0";
+			"knownRegions" = ( "es", "en", "Base" , );
+			"mainGroup" = "AD936FCBED631FA67E05C3EA";
+			"projectDirPath" = "";
+			"projectRoot" = "";
+			"targets" = ( "34A04005BCAF206EEC990BD9" , );
+		};
+	};
+	"rootObject" = "244210E48437B6556980A702";
+}

@@ -39,20 +39,6 @@ import UIKit
             let count = store.money.transactions.count
             store.switchUser(owner)
             try check(store.money.transactions.count == count, "Restaurar y reiniciar no duplica dinero")
-            PhoneWatchBridge.shared.attach(store)
-            let snapshot = PhoneWatchBridge.shared.snapshot()
-            try check(snapshot.owner == WatchIdentity.token(owner) && snapshot.nextVisit(at: Date()) != nil, "Snapshot del iPhone contiene próxima visita")
-            let business = snapshot.businesses[0]
-            let action = WatchAction(owner: snapshot.owner!, sessionID: snapshot.sessionID!, businessID: business.id, revision: business.revision, kind: .arrive)
-            let receipt = PhoneWatchBridge.shared.verificationReceive(action)
-            try check(receipt?.accepted == true && store.records[0].arrivedAt != nil, "Acción He llegado aplicada por puente nativo")
-            try check(PhoneWatchBridge.shared.snapshot().nextVisit(at: Date()) == nil && store.pendingReminders.isEmpty, "Llegada finaliza cuenta atrás y avisos de la visita")
-            let arrived = store.records[0].arrivedAt
-            _ = PhoneWatchBridge.shared.verificationReceive(action)
-            try check(store.records[0].arrivedAt == arrived, "Reenvío de Watch no repite cambios")
-            let next = PhoneWatchBridge.shared.snapshot().businesses[0]
-            let tomorrow = WatchAction(owner: snapshot.owner!, sessionID: snapshot.sessionID!, businessID: next.id, revision: next.revision, kind: .tomorrow)
-            try check(PhoneWatchBridge.shared.verificationReceive(tomorrow)?.accepted == true && Calendar.current.isDateInTomorrow(store.records[0].reminderDate!), "Volver mañana desde Watch")
             let image = UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32)).image { context in UIColor.systemBlue.setFill(); context.fill(CGRect(x: 0, y: 0, width: 32, height: 32)) }
             try photos.save(image, for: owner)
             let photo = photos.backupData
@@ -62,7 +48,7 @@ import UIKit
             try check(photos.image != nil, "Foto incluida en copia y restauración")
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
         } catch { try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": error.localizedDescription], options: .prettyPrinted).write(to: output) }
-        store.switchUser(original); photos.switchUser(original); PhoneWatchBridge.shared.attach(store)
+        store.switchUser(original); photos.switchUser(original)
     }
 }
 #endif

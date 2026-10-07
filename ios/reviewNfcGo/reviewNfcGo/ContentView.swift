@@ -340,7 +340,6 @@ final class AppStore: ObservableObject {
         else { money.undo(to: state.money, records: records) }
         if state.restoresPhoto { restorePhoto?(state.photo) }
         persistUndo(); save()
-        PhoneWatchBridge.shared.invalidatePendingActions()
     }
     func backup(photo: Data? = nil) throws -> BusinessBackup {
         guard let userKey else { throw BackupError.wrongAccount }
@@ -354,7 +353,6 @@ final class AppStore: ObservableObject {
         remember("Restaurar copia", photo: previousPhoto, restoresPhoto: true)
         records = value.records; money = value.money
         save()
-        PhoneWatchBridge.shared.invalidatePendingActions()
     }
     func recoveryBackup() throws -> BusinessBackup? {
         guard let data = UserDefaults.standard.data(forKey: "resenago.preRestore.\(userKey ?? "guest")") else { return nil }
@@ -2110,7 +2108,6 @@ struct ProfileView: View {
             }
             Section("Tus datos") {
                 NavigationLink("Copias de seguridad") { BackupView() }
-                NavigationLink("Apple Watch") { WatchStatusView() }
                 if let title = store.undoTitle { Button("Deshacer: " + title) { store.undoLastChange() } }
             }
             Section("Acerca de reviewNfcGo") {

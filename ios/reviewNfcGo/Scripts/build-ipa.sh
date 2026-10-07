@@ -44,14 +44,6 @@ test -f "$task_app/reviewNfcGo"
 test -f "$task_app/PlugIns/reviewNfcGoLiveActivity.appex/reviewNfcGoLiveActivity"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$task_app/Info.plist")" = 'reviewnfcgo'
 
-# Keep the native Watch build as a separate signing-ready artifact. The SideStore
-# IPA retains the same iPhone/widget installation layout that the user verified.
-task_watch_app="$task_output_dir/DerivedData/Build/Products/Release-watchos/reviewNfcGoWatch.app"
-test -f "$task_watch_app/reviewNfcGoWatch"
-test -f "$task_watch_app/PlugIns/reviewNfcGoWatchWidgets.appex/reviewNfcGoWatchWidgets"
-(cd "$(dirname "$task_watch_app")" && /usr/bin/zip -qry "$task_output_dir/reviewNfcGo-5.0-Watch-device.zip" reviewNfcGoWatch.app)
-rm -rf "$task_app/Watch"
-
 # Embed only an ad-hoc entitlement template, so AltStore can discover and provision
 # the shared App Group. AltStore replaces this signature with the user's identity.
 codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGoLiveActivity/reviewNfcGoLiveActivity.entitlements" "$task_app/PlugIns/reviewNfcGoLiveActivity.appex"
@@ -61,7 +53,7 @@ codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGo/reviewNf
 task_package_dir=$(mktemp -d)
 mkdir -p "$task_package_dir/Payload"
 ditto "$task_app" "$task_package_dir/Payload/reviewNfcGo.app"
-task_ipa="$task_output_dir/reviewNfcGo-5.0-AltStore.ipa"
+task_ipa="$task_output_dir/reviewNfcGo-5.1-AltStore.ipa"
 rm -f "$task_ipa"
 (cd "$task_package_dir" && /usr/bin/zip -qry "$task_ipa" Payload)
 rm -rf "$task_package_dir"

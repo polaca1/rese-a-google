@@ -8,24 +8,16 @@ struct ReviewNfcGoLiveActivityBundle: WidgetBundle {
         if #available(iOS 17.0, *) { PendingMapWidget() }
         UpcomingVisitsWidget()
         EarningsSummaryWidget()
-        activityWidget()
+        ReviewNfcGoLiveActivity()
     }
-    private func activityWidget() -> some Widget {
-        if #available(iOS 18.0, *) {
-            return WidgetBundleBuilder.buildOptional(WidgetBundleBuilder.buildLimitedAvailability(ReviewNfcGoMirroredLiveActivity()))
-        }
-        return WidgetBundleBuilder.buildOptional(WidgetBundleBuilder.buildLimitedAvailability(ReviewNfcGoLiveActivity()))
-    }
+
 }
 
 struct ReviewNfcGoLiveActivity: Widget {
     var body: some WidgetConfiguration { configuration }
     fileprivate var configuration: some WidgetConfiguration {
         ActivityConfiguration(for: ReminderActivityAttributes.self) { context in
-            Group {
-                if #available(iOS 18.0, *) { AdaptiveVisitActivity(context: context) }
-                else { VisitActivityCard(context: context) }
-            }
+            VisitActivityCard(context: context)
             .activityBackgroundTint(Color(uiColor: .secondarySystemBackground))
             .activitySystemActionForegroundColor(.primary)
             .widgetURL(UUID(uuidString: context.attributes.recordID).map { PortalLink.url(recordID: $0) })
@@ -69,15 +61,4 @@ private struct VisitActivityCard: View {
             if !compact { Text(context.attributes.address).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
         }.padding(compact ? 4 : 16).privacySensitive()
     }
-}
-@available(iOS 18.0, *)
-private struct AdaptiveVisitActivity: View {
-    let context: ActivityViewContext<ReminderActivityAttributes>
-    @Environment(\.activityFamily) private var family
-    var body: some View { VisitActivityCard(context: context, compact: family == .small) }
-}
-
-@available(iOS 18.0, *)
-private struct ReviewNfcGoMirroredLiveActivity: Widget {
-    var body: some WidgetConfiguration { ReviewNfcGoLiveActivity().configuration.supplementalActivityFamilies([.small, .medium]) }
 }

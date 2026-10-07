@@ -1,0 +1,24 @@
+reviewNfcGo para Mac 1.0
+Desarrollado por Pablo Cancho Flores
+
+Compatible con macOS Sonoma 14 y posteriores. Incluye Intel y Apple Silicon.
+
+1. Arrastra reviewNfcGo.app a Aplicaciones.
+2. En macOS 14, si Gatekeeper bloquea la primera apertura, pulsa con el botón derecho
+   sobre la app y elige Abrir. Si es necesario, usa Ajustes del Sistema → Privacidad
+   y seguridad → Abrir igualmente después del primer intento. La app lleva firma
+   ad hoc; todavía no está notarizada por Apple. No desactives Gatekeeper.
+3. En el iPhone exporta tus datos desde Perfil → Copias de seguridad y envía el JSON
+   al Mac mediante AirDrop. En el Mac: Archivo → Importar copia del iPhone.
+4. Para devolver los cambios al iPhone, exporta una copia desde el Mac y restáurala
+   en la misma cuenta del iPhone. Importar sustituye los datos, no los combina.
+
+El Mac conserva un archivo antes de cada importación. Se recupera desde Ajustes.
+Los datos se guardan en tu Mac. El correo identifica la cuenta de la copia;
+crear un espacio local no es un inicio de sesión en un servidor.
+
+La app del Mac no utiliza perfiles de iOS ni caduca cada siete días.
+La escritura NFC sigue realizándose en el iPhone.
+
+⌘N: nuevo negocio. ⇧⌘N: gasto. ⌘O: importar. ⇧⌘S: exportar. ⇧⌘E: CSV.
+⌘Z: deshacer un cambio, conservando su historial de dinero.
