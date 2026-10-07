@@ -20,12 +20,18 @@ jobs:
     if: ${{ !inputs.release_downloads_only }}
     runs-on: macos-15
     timeout-minutes: 40
+    outputs:
+      source_commit: ${{ steps.source.outputs.commit }}
     env:
       GOOGLE_PLACES_API_KEY: ${{ secrets.REVIEWNFCGO_GOOGLE_PLACES_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.source_ref }}
+
+      - name: Fijar commit de la compilacion
+        id: source
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Usar la configuracion Google Places existente
         shell: bash
@@ -84,7 +90,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_ref }}
+          ref: ${{ needs.build.outputs.source_commit }}
       - uses: actions/download-artifact@v4
         with:
           name: reviewNfcGo-IPA
