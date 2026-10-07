@@ -7,6 +7,10 @@ on:
         description: Rama o commit de la app nativa
         required: true
         default: ios/minimal-icon-4.2
+      watch_only_verification:
+        description: Verificar solo watchOS sin publicar una release
+        type: boolean
+        default: false
       release_downloads_only:
         description: Publicar los IPA ya verificados como assets sin recompilar
         type: boolean
@@ -17,7 +21,7 @@ permissions:
 
 jobs:
   build:
-    if: ${{ !inputs.release_downloads_only }}
+    if: ${{ !inputs.release_downloads_only && !inputs.watch_only_verification }}
     runs-on: macos-15
     timeout-minutes: 40
     outputs:
@@ -66,9 +70,6 @@ jobs:
       - name: Comprobacion visual en simulador iOS 26
         run: bash ios/reviewNfcGo/Scripts/verify-simulator.sh "$RUNNER_TEMP/reviewNfcGo-build"
 
-      - name: Verificar app y complicacion en simulador watchOS 26
-        run: bash ios/reviewNfcGo/Scripts/verify-watch.sh "$RUNNER_TEMP/reviewNfcGo-build"
-
       - name: Guardar capturas y logs de verificacion
         if: always()
         uses: actions/upload-artifact@v4
@@ -79,8 +80,32 @@ jobs:
             ${{ runner.temp }}/reviewNfcGo-build/*.png
           if-no-files-found: ignore
 
+  watch:
+    if: ${{ !inputs.release_downloads_only }}
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: Seleccionar Xcode 26.2
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+      - name: Verificar app y complicacion en simulador watchOS 26
+        run: |
+          mkdir -p "$RUNNER_TEMP/reviewNfcGo-watch"
+          bash ios/reviewNfcGo/Scripts/verify-watch.sh "$RUNNER_TEMP/reviewNfcGo-watch"
+      - name: Guardar capturas y logs de watchOS
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewNfcGo-watch-verificacion
+          path: |
+            ${{ runner.temp }}/reviewNfcGo-watch/*.log
+            ${{ runner.temp }}/reviewNfcGo-watch/*.png
+          if-no-files-found: ignore
+
   publish:
-    needs: build
+    needs: [build, watch]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -98,6 +123,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: reviewNfcGo-verificacion
+          path: verification
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-watch-verificacion
           path: verification
       - name: Publicar IPA verificado y actualizar fuente SideStore
         env:
