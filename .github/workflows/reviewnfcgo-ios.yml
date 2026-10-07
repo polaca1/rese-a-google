@@ -48,6 +48,7 @@ jobs:
             ${{ runner.temp }}/reviewNfcGo-mac/*.log
             ${{ runner.temp }}/reviewNfcGo-mac/verification/*.json
             ${{ runner.temp }}/reviewNfcGo-mac/verification/*.png
+            ${{ runner.temp }}/reviewNfcGo-mac/verification/*.pdf
           if-no-files-found: ignore
   build:
     if: ${{ !inputs.mac_only_verification }}
@@ -136,3 +137,28 @@ jobs:
         run: |
           gh release upload "$REVIEWNFCGO_RELEASE_TAG" desktop/*.zip desktop/*.dmg desktop/verification/*.png --repo polaca1/rese-a-google --clobber
           gh release upload "$REVIEWNFCGO_RELEASE_TAG" macos/LEEME.txt server/INSTALAR-SERVIDOR.md --repo polaca1/rese-a-google --clobber
+
+  publish-mac:
+    if: ${{ inputs.mac_only_verification }}
+    needs: [source, mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: reviewnfcgo-mac-publication
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.commit }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-Mac
+          path: desktop
+      - name: Publicar Mac verificado para Intel y Apple Silicon
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          task_tag=$(python3 -c 'import pathlib,zipfile,plistlib; p=next(p for p in pathlib.Path("desktop").glob("*.zip") if "Xcode" not in p.name); z=zipfile.ZipFile(p); i=next(n for n in z.namelist() if n.endswith(".app/Contents/Info.plist")); v=plistlib.loads(z.read(i)); print("reviewnfcgo-mac-"+v["CFBundleShortVersionString"]+"-build"+v["CFBundleVersion"])')
+          gh release view "$task_tag" --repo polaca1/rese-a-google >/dev/null 2>&1 || gh release create "$task_tag" --repo polaca1/rese-a-google --target "$(git rev-parse HEAD)" --title 'reviewNfcGo para Mac — Análisis de negocio' --notes-file macos/LEEME.txt --latest=false
+          gh release upload "$task_tag" desktop/*.zip desktop/*.dmg desktop/verification/*.png macos/LEEME.txt --repo polaca1/rese-a-google --clobber
