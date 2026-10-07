@@ -76,11 +76,13 @@ struct WatchAction: Codable, Identifiable, Equatable {
 /// Durable receipts are kept separately from user backups to avoid replaying Watch sales after a restore.
 struct WatchActionJournal: Codable {
     var receipts: [String: WatchReceipt] = [:]
+    var order: [String]? = nil
     mutating func process(_ action: WatchAction, snapshot: WatchSnapshot, now: Date = Date(), apply: () -> String?) -> WatchReceipt {
         if let receipt = receipts[action.id.uuidString] { return receipt }
         let error = action.validate(snapshot: snapshot, now: now) ?? apply()
         let receipt = WatchReceipt(id: action.id, accepted: error == nil, message: error ?? "Guardado en el iPhone.")
         receipts[action.id.uuidString] = receipt
+        order = (order ?? []) + [action.id.uuidString]
         return receipt
     }
 }

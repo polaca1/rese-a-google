@@ -48,14 +48,14 @@ import Foundation
         do { _ = try corrupt.validated(for: backup.owner); preconditionFailure("Future schema accepted") } catch { checks += 1 }
         corrupt = backup; corrupt.money.transactions[0].cents = Int64.max
         do { _ = try corrupt.validated(for: backup.owner); preconditionFailure("Overflow accepted") } catch { checks += 1 }
-        corrupt = backup; corrupt.records[0].place.latitude = 200
+        corrupt = backup; corrupt.records[0].place = PlaceResult(id: "a", name: "A", address: "Madrid", latitude: 200, longitude: -3)
         do { _ = try corrupt.validated(for: backup.owner); preconditionFailure("Bad coordinate accepted") } catch { checks += 1 }
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
         var early = VisitRecord(place: place, createdAt: now, reminderDate: now.addingTimeInterval(100))
-        early.place.id = "early"
-        var late = early; late.id = UUID(); late.place.id = "late"; late.reminderDate = now.addingTimeInterval(1000)
+        early.place = PlaceResult(id: "early", name: "A", address: "", latitude: 40, longitude: -3)
+        var late = early; late.id = UUID(); late.place = PlaceResult(id: "late", name: "A", address: "", latitude: 40, longitude: -3); late.reminderDate = now.addingTimeInterval(1000)
         var near = VisitRecord(place: PlaceResult(id: "near", name: "Z", address: "", latitude: 40.001, longitude: -3), createdAt: now)
-        var far = near; far.id = UUID(); far.place.id = "far"; far.place.name = "B"; far.place.latitude = 41
+        var far = near; far.id = UUID(); far.place = PlaceResult(id: "far", name: "B", address: "", latitude: 41, longitude: -3)
         let route = DailyRoute.stops(records: [far, late, near, early], day: now, origin: place, calendar: calendar)
         check(route.map(\.id) == [early.id, late.id, near.id, far.id], "Appointment times precede flexible nearby visits")
         near.status = .completed

@@ -35,7 +35,7 @@ import WatchKit
         guard WCSession.default.activationState == .activated else { return }
         accept(WCSession.default.receivedApplicationContext)
         guard WCSession.default.isReachable else { message = "Sin conexión. Los cambios pendientes se enviarán cuando sea posible."; flush(); return }
-        WCSession.default.sendMessage(["refresh": true], replyHandler: { result in Task { @MainActor in self.accept(result); self.flush() } }, errorHandler: { _ in Task { @MainActor in self.message = "Abre la app del iPhone para sincronizar." } })
+        WCSession.default.sendMessage(["refresh": true, "pending": pending.map { $0.id.uuidString }], replyHandler: { result in Task { @MainActor in self.accept(result); self.flush() } }, errorHandler: { _ in Task { @MainActor in self.message = "Abre la app del iPhone para sincronizar." } })
     }
     func flush() {
         guard WCSession.default.activationState == .activated else { return }
@@ -81,8 +81,8 @@ import WatchKit
             snapshot = value
             for receipt in value.receipts { self.receipt(receipt) }
             WatchSharedStore.save(value)
-            if value.owner == nil { message = "Inicia sesión en reviewNfcGo en el iPhone." }
-            else if pending.isEmpty { self.message = "Datos sincronizados." }
+            if value.owner == nil { self.message = "Inicia sesión en reviewNfcGo en el iPhone." }
+            else if pending.isEmpty { self.message = errors.last?.message ?? "Datos sincronizados." }
         }
         if let data = message["receipt"] as? Data, let value = try? JSONDecoder().decode(WatchReceipt.self, from: data) { receipt(value) }
         persist()

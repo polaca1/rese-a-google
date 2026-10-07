@@ -56,7 +56,7 @@ import WatchConnectivity
         loadAccount()
         status = !WCSession.default.isPaired ? "No hay un Apple Watch enlazado." : !WCSession.default.isWatchAppInstalled ? "Instala la app complementaria en tu Apple Watch." : WCSession.default.isReachable ? "Apple Watch conectado." : "Se sincronizará cuando el Watch y el iPhone estén disponibles."
         var value = snapshot()
-        value.receipts = Array(journal.receipts.values.suffix(100))
+        value.receipts = (journal.order ?? []).suffix(100).compactMap { journal.receipts[$0] }
         let encoder = JSONEncoder()
         while let data = try? encoder.encode(value), data.count > 55_000, !value.businesses.isEmpty { value.businesses.removeLast() }
         guard let data = try? encoder.encode(value), data.count <= 60_000 else { return }
@@ -124,7 +124,9 @@ import WatchConnectivity
         Task { @MainActor in
             if message["refresh"] != nil {
                 self.publish()
-                let data = try? JSONEncoder().encode(self.snapshot())
+                var value = self.snapshot()
+                value.receipts = (message["pending"] as? [String] ?? []).prefix(100).compactMap { self.journal.receipts[$0] }
+                let data = try? JSONEncoder().encode(value)
                 replyHandler(data.map { ["snapshot": $0] } ?? [:])
             } else { replyHandler(self.receive(message)) }
         }

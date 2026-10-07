@@ -46,8 +46,13 @@ struct BusinessBackup: Codable {
                   sale.productID.map({ products.contains($0) }) ?? true,
                   sale.costCents.map({ (0...100_000_000_000_000).contains($0) }) ?? true else { throw BackupError.invalid }
         }
+        var stock: [UUID: Int] = [:]
+        for transaction in money.transactions where [.expense, .refund, .stockAdjustment].contains(transaction.kind) {
+            if let id = transaction.productID { stock[id, default: 0] += transaction.quantity }
+        }
+        for sale in money.sales.values { if let id = sale.productID { stock[id, default: 0] -= sale.cards } }
         for product in money.products {
-            guard money.stock(product.id) >= 0, product.name.count <= 500, product.color.count <= 100 else { throw BackupError.invalid }
+            guard stock[product.id, default: 0] >= 0, product.name.count <= 500, product.color.count <= 100 else { throw BackupError.invalid }
         }
         // A stale checkpoint would create a second income when the copy is restored.
         for record in records {
@@ -110,7 +115,8 @@ extension MoneyLedger {
     var lowStockProducts: [InventoryProduct] { products.filter { $0.kind == .nfcCard && stock($0.id) <= 5 } }
     /// Restore the state while retaining a compensating movement for every undone operation.
     mutating func undo(to previous: MoneyLedger, records: [VisitRecord], now: Date = Date()) {
-        let added = transactions.filter { item in !previous.transactions.contains { $0.id == item.id } }
+        let previousIDs = Set(previous.transactions.map(\.id))
+        let added = transactions.filter { !previousIDs.contains($0.id) }
         for item in added where !item.kind.isIncome {
             let reversedKind: MoneyKind = item.kind == .stockAdjustment ? .stockAdjustment : item.kind == .refund ? .expense : .refund
             transactions.append(MoneyTransaction(date: now, kind: reversedKind, title: item.title, cents: -item.cents,
