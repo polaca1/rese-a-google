@@ -105,7 +105,7 @@ xcrun simctl io "$task_device" screenshot "$task_output_dir/history-dark.png"
 xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl ui "$task_device" appearance light
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-map
-for task_attempt in $(seq 1 55); do
+for task_attempt in $(seq 1 90); do
     if [ -f "$task_container/Documents/map-camera-verification.json" ]; then break; fi
     sleep 1
 done

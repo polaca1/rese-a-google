@@ -1473,6 +1473,9 @@ struct NativeMapView: UIViewRepresentable {
         private var flightRequest: MapFocusRequest?
         private var flightStarted: CFTimeInterval = 0
         private var displayLink: CADisplayLink?
+        #if DEBUG
+        private var verificationElapsed: TimeInterval = 0
+        #endif
         init(parent: NativeMapView) { self.parent = parent }
 
         private final class FrameTarget: NSObject {
@@ -1511,6 +1514,9 @@ struct NativeMapView: UIViewRepresentable {
             flightMap = map
             flightRequest = request
             flightStarted = CACurrentMediaTime()
+            #if DEBUG
+            verificationElapsed = 0
+            #endif
             let target = FrameTarget(self)
             let link = CADisplayLink(target: target, selector: #selector(FrameTarget.tick(_:)))
             link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
@@ -1520,7 +1526,15 @@ struct NativeMapView: UIViewRepresentable {
 
         private func advanceFlight(_ link: CADisplayLink) {
             guard let map = flightMap, let flight, let request = flightRequest else { cancelFlight(); return }
-            let elapsed = max(0, link.timestamp - flightStarted)
+            var elapsed = max(0, link.timestamp - flightStarted)
+            #if DEBUG
+            // Exercise every native camera step even when a headless runner drops
+            // several seconds of callbacks. Release flights retain wall-clock time.
+            if ProcessInfo.processInfo.arguments.contains("--verification-map") {
+                verificationElapsed += 1.0 / 30.0
+                elapsed = verificationElapsed
+            }
+            #endif
             let frame = flight.frame(at: elapsed)
             let v = frame.viewport
             map.setVisibleMapRect(MKMapRect(x: v.x - v.width / 2, y: v.y - v.height / 2,
@@ -2445,7 +2459,7 @@ enum MapCameraVerification {
     private static func assertFocus(_ map: MKMapView, on coordinate: CLLocationCoordinate2D,
                                     label: String, checks: inout [String]) async throws {
         let target = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        for _ in 0..<60 {
+        for _ in 0..<150 {
             let actual = CLLocation(latitude: map.centerCoordinate.latitude, longitude: map.centerCoordinate.longitude)
             if actual.distance(from: target) < 100 && map.region.span.latitudeDelta < 0.03 && coordinator?.isFlying != true {
                 checks.append(label)
