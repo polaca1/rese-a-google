@@ -1,0 +1,22 @@
+name: reviewNfcGo - Publicar guía de Supabase
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Rama o commit de la guía
+        required: true
+        default: accounts/supabase-free
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: Publicar solo los archivos de instalación
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload reviewnfcgo-cloud-setup-1.0 server/cloud/downloads/GUIA-SUPABASE.pdf server/cloud/downloads/reviewNfcGo-Cuentas-Nube.zip server/cloud/GUIA-SUPABASE.md --repo polaca1/rese-a-google --clobber
