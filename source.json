@@ -18,7 +18,7 @@
           "buildVersion": "26",
           "date": "2026-10-08T22:15:57Z",
           "localizedDescription": "Tus datos en la nube. Negocios, visitas, inventario, ingresos, gastos y foto se guardan automáticamente en tu cuenta y se recuperan al iniciar sesión después de reinstalar.\nComprueba «Guardado en la nube» en Perfil. Sin conexión, los cambios quedan pendientes en el dispositivo. Los cambios simultáneos se resuelven conservando copias de recuperación.\nCompatible con la sincronización de reviewNfcGo para Mac 1.4.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.4-build26.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.4-build26/reviewNfcGo-5.4-build26.ipa",
           "size": 6513820,
           "minOSVersion": "16.1"
         },
@@ -161,7 +161,7 @@
       "version": "5.4",
       "versionDate": "2026-10-08T22:15:57Z",
       "versionDescription": "Tus datos en la nube. Negocios, visitas, inventario, ingresos, gastos y foto se guardan automáticamente en tu cuenta y se recuperan al iniciar sesión después de reinstalar.\nComprueba «Guardado en la nube» en Perfil. Sin conexión, los cambios quedan pendientes en el dispositivo. Los cambios simultáneos se resuelven conservando copias de recuperación.\nCompatible con la sincronización de reviewNfcGo para Mac 1.4.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.4-build26.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.4-build26/reviewNfcGo-5.4-build26.ipa",
       "size": 6513820,
       "appPermissions": {
         "entitlements": [
