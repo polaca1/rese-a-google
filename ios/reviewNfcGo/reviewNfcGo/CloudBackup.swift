@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import CryptoKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct CloudBackupRecord: Codable {
     let user_id: String
@@ -52,6 +53,10 @@ extension BusinessBackup {
     private var baselineKey: String { "reviewNfcGo.cloud.baseline." + (owner ?? "") }
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
+    func recoveryData(remote: Bool) -> Data? {
+        guard let owner else { return nil }
+        return defaults.data(forKey: "reviewNfcGo.cloud.recovery." + (remote ? "remote." : "local.") + owner)
+    }
     var message: String {
         switch state {
         case .signedOut: return "Inicia sesión para guardar tus datos en la nube."
@@ -155,7 +160,7 @@ extension BusinessBackup {
     /// Explicit conflict resolution only. Both alternatives are kept in local recovery storage.
     func resolve(useCloud: Bool) async {
         guard !running, let owner, let copy = conflictCopy, let read, let apply else { return }
-        let active = generation; running = true
+        let active = generation; running = true; repeatPass = false
         defer { if generation == active { running = false; if repeatPass { requestSync() } } }
         do {
             let local = try read().validated(for: owner)
@@ -178,6 +183,8 @@ extension BusinessBackup {
 struct CloudBackupStatusView: View {
     @EnvironmentObject private var cloud: CloudBackupController
     @State private var resolving = false
+    @State private var exporting = false
+    @State private var recovery = CloudRecoveryDocument()
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(cloud.message, systemImage: cloud.state == .saved ? "checkmark.icloud" : "icloud")
@@ -191,10 +198,27 @@ struct CloudBackupStatusView: View {
                 Button("Sincronizar ahora") { cloud.requestSync(immediate: true) }
             }
         }
+        .fileExporter(isPresented: $exporting, document: recovery, contentType: .json, defaultFilename: "reviewNfcGo-recuperacion") { _ in }
+        .contextMenu {
+            if let data = cloud.recoveryData(remote: false) {
+                Button("Exportar copia local anterior al conflicto") { recovery = CloudRecoveryDocument(data: data); exporting = true }
+            }
+            if let data = cloud.recoveryData(remote: true) {
+                Button("Exportar copia de nube anterior al conflicto") { recovery = CloudRecoveryDocument(data: data); exporting = true }
+            }
+        }
         .confirmationDialog("Hay cambios en dos dispositivos", isPresented: $resolving, titleVisibility: .visible) {
             Button("Usar la copia de la nube") { Task { await cloud.resolve(useCloud: true) } }
             Button("Guardar la copia de este dispositivo") { Task { await cloud.resolve(useCloud: false) } }
             Button("Cancelar", role: .cancel) { }
         } message: { Text("Se conservará una copia de recuperación de las dos versiones en este dispositivo antes de sustituir los datos.") }
     }
+}
+
+private struct CloudRecoveryDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    var data = Data()
+    init(data: Data = Data()) { self.data = data }
+    init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }

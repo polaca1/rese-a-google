@@ -18,6 +18,7 @@ import CryptoKit
             checks += try await verifySupabaseAccounts()
             checks += try await verifyGoogleAccounts()
             checks += try await verifyCloudData()
+            checks += try await verifyCloudTransport()
             let owner = "pablo@example.invalid"
             try store.createWorkspace(email: owner)
             let card = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Azul")
@@ -284,6 +285,56 @@ import CryptoKit
         }
         return checks
     }
+    private static func verifyCloudTransport() async throws -> [String] {
+        var checks: [String] = []
+        func check(_ value: Bool, _ label: String) throws {
+            guard value else { throw NSError(domain: "CloudTransport", code: 1, userInfo: [NSLocalizedDescriptionKey: label]) }; checks.append(label)
+        }
+        let suite = "cloud-transport-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        let configuration = URLSessionConfiguration.ephemeral; configuration.protocolClasses = [AuthVerificationProtocol.self]
+        let network = URLSession(configuration: configuration)
+        let auth = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        defer { auth.clearSession(); defaults.removePersistentDomain(forName: suite); AuthVerificationProtocol.handler = nil; network.invalidateAndCancel() }
+        let id = UUID().uuidString.lowercased(), email = "transport@example.com"
+        let key = "sb_publishable_verification0123456789"
+        let user: [String: Any] = ["id": id, "email": email]
+        let manifest: [String: Any] = ["schema": 1, "provider": "supabase", "serverURL": "https://abcdefghijklmnopqrst.supabase.co", "publishableKey": key]
+        var row: CloudBackupRecord?
+        var verifiedHeaders = false, verifiedCAS = false, stale = false, forbidden = false
+        AuthVerificationProtocol.handler = { request in
+            if request.url!.host == "raw.githubusercontent.com" { return (200, manifest) }
+            if request.url!.path == "/auth/v1/token" { return (200, ["access_token": "private-access", "refresh_token": "private-refresh", "expires_in": 3600, "user": user]) }
+            if request.url!.path == "/auth/v1/user" { return (200, user) }
+            guard request.url!.path == "/rest/v1/reviewnfcgo_backups" else { throw CloudBackupError.invalid }
+            verifiedHeaders = request.value(forHTTPHeaderField: "Authorization") == "Bearer private-access" && request.value(forHTTPHeaderField: "apikey") == key
+            if forbidden { return (403, ["code": "42501"]) }
+            if request.httpMethod != "GET" {
+                let incoming = try JSONDecoder().decode(CloudBackupRecord.self, from: AuthVerificationProtocol.bodyData(request))
+                if request.httpMethod == "PATCH" {
+                    let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+                    verifiedCAS = query.contains(URLQueryItem(name: "user_id", value: "eq." + id)) && query.contains(URLQueryItem(name: "revision", value: "eq.1")) && incoming.revision == 2
+                    if stale { return (200, []) }
+                }
+                row = incoming
+            }
+            return (200, try JSONSerialization.jsonObject(with: JSONEncoder().encode(row.map { [$0] } ?? [])))
+        }
+        _ = try await auth.authenticate(email: email, password: "Test-only-password")
+        let backup = BusinessBackup(owner: email, records: [], money: MoneyLedger())
+        let first = try await auth.saveCloudBackup(backup, expectedRevision: nil)
+        let restored = try await auth.loadCloudBackup(owner: email)
+        try check(verifiedHeaders && first.user_id == id && restored?.payload.owner == email, "REST utiliza sesión privada e identidad de Supabase al guardar y recuperar")
+        _ = try await auth.saveCloudBackup(backup, expectedRevision: 1)
+        try check(verifiedCAS, "REST actualiza solo la revisión esperada de la cuenta autenticada")
+        stale = true
+        do { _ = try await auth.saveCloudBackup(backup, expectedRevision: 1); throw DesktopError.invalidBusiness }
+        catch CloudBackupError.conflict { checks.append("REST detecta conflictos en vez de forzar sobrescritura") }
+        forbidden = true
+        do { _ = try await auth.loadCloudBackup(owner: email); throw DesktopError.invalidBusiness }
+        catch CloudBackupError.notConfigured { checks.append("REST no presenta permisos denegados como nube vacía") }
+        return checks
+    }
     private static func verifyCloudData() async throws -> [String] {
         var checks: [String] = []
         func check(_ condition: Bool, _ label: String) throws {
@@ -464,7 +515,7 @@ import CryptoKit
 }
 
 private final class AuthVerificationProtocol: URLProtocol {
-    static var handler: ((URLRequest) throws -> (Int, [String: Any]))?
+    static var handler: ((URLRequest) throws -> (Int, Any))?
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {

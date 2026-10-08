@@ -65,7 +65,7 @@ struct MacRootView: View {
             }.listStyle(.sidebar).navigationSplitViewColumnWidth(min: 170, ideal: 195, max: 240)
         } detail: {
             Group {
-                if store.owner == nil { MacWelcomeView() }
+                if store.owner == nil || auth.session == nil { MacWelcomeView() }
                 else {
                     switch navigation.section ?? .dashboard {
                     case .dashboard: MacDashboardView()
@@ -155,7 +155,7 @@ struct MacWelcomeView: View {
             Form { MacAccountSection() }.formStyle(.grouped).frame(width: 440, height: 280)
             Button("Importar copia del iPhone…") { MacFiles.chooseImport(store: store, navigation: navigation) }
                 .buttonStyle(.borderedProminent).controlSize(.large)
-            Text("En el iPhone: Perfil → Copias de seguridad → Exportar. Pasa el archivo al Mac con AirDrop.")
+            Text("Inicia sesión con la misma cuenta del iPhone para recuperar tus datos automáticamente.")
                 .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 440)
 
         }.padding(36).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -185,7 +185,7 @@ struct MacSettingsView: View {
                 if let message = notifications.message { Text(message).foregroundStyle(.secondary) }
             }
             Section {
-                LabeledContent("Versión", value: "1.3")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.4")
                 LabeledContent("Desarrollado por", value: "Pablo Cancho Flores")
             }
         }.formStyle(.grouped).padding().frame(width: 560, height: 680)
