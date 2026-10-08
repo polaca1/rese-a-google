@@ -48,7 +48,7 @@ struct GoogleOAuthRequest {
     func code(from url: URL) throws -> String {
         guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
               parts.scheme == callback.scheme, parts.host == callback.host, parts.path == callback.path,
-              parts.user == nil, parts.password == nil, parts.port == nil, parts.fragment == nil else {
+              parts.user == nil, parts.password == nil, parts.port == nil else {
             throw RemoteAuthError.rejected("El acceso no corresponde a esta solicitud. Vuelve a intentarlo.")
         }
         let items = parts.queryItems ?? []
@@ -56,6 +56,7 @@ struct GoogleOAuthRequest {
             if items.contains(where: { $0.name == "error" && $0.value == "access_denied" }) { throw CancellationError() }
             throw RemoteAuthError.rejected("Google no pudo completar el acceso. Inténtalo de nuevo.")
         }
+        guard parts.fragment == nil else { throw RemoteAuthError.rejected("El acceso no se ha completado. Vuelve a intentarlo.") }
         let codes = items.filter { $0.name == "code" }
         guard codes.count == 1, let code = codes.first?.value, !code.isEmpty, code.utf8.count <= 4096,
               !items.contains(where: { ["access_token", "refresh_token"].contains($0.name) }) else {

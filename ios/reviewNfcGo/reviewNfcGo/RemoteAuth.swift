@@ -230,7 +230,8 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         revoke.httpMethod = "POST"
         revoke.setValue("Bearer " + value.token, forHTTPHeaderField: "Authorization")
         if provider == .supabase { revoke.setValue(key, forHTTPHeaderField: "apikey") }
-        Task { _ = try? await urlSession.data(for: revoke) }
+        // Start immediately: a deferred Task could outlive an injected session's teardown.
+        urlSession.dataTask(with: revoke) { _, _, _ in }.resume()
     }
     private struct SupabaseUser: Decodable {
         let email: String?

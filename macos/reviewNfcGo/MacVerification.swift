@@ -381,6 +381,10 @@ import CryptoKit
         }
         do { _ = try flow.code(from: URL(string: flow.callback.absoluteString + "?error=access_denied")!); throw DesktopError.invalidBusiness }
         catch is CancellationError { try check(true, "Consentimiento denegado tratado como cancelación") }
+        do {
+            _ = try flow.code(from: URL(string: flow.callback.absoluteString + "?error=access_denied#error=access_denied&sb=")!)
+            throw DesktopError.invalidBusiness
+        } catch is CancellationError { try check(true, "La cancelación acepta el fragmento de error que añade Supabase") }
         return checks
     }
     private static func capture(name: String, output: URL) throws {
