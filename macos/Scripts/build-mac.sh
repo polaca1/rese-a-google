@@ -47,13 +47,24 @@ xcodebuild -project "$task_root/macos/reviewNfcGo.xcodeproj" -scheme reviewNfcGo
 task_debug="$task_out/DerivedData/Build/Products/Debug/reviewNfcGo.app"
 codesign --force --sign - --timestamp=none "$task_debug"
 mkdir -p "$task_out/verification"
-open -n -W "$task_debug" --args --verify-desktop "$task_out/verification" > "$task_out/mac-run.log" 2>&1 &
+"$task_debug/Contents/MacOS/reviewNfcGoMac" --verify-desktop "$task_out/verification" > "$task_out/mac-run.log" 2>&1 &
 task_process=$!
 for task_attempt in $(seq 1 90); do
   if [ -f "$task_out/verification/verification.json" ]; then break; fi
   if ! kill -0 "$task_process" 2>/dev/null; then break; fi
   sleep 2
 done
+if [ ! -f "$task_out/verification/verification.json" ]; then
+  tail -n 100 "$task_out/mac-run.log"
+  python3 - "$task_out/mac-crash.log" <<'PY'
+import pathlib,sys
+reports=sorted(pathlib.Path.home().joinpath('Library/Logs/DiagnosticReports').glob('reviewNfcGo*.ips'), key=lambda p:p.stat().st_mtime)
+if reports:
+    text=reports[-1].read_text(errors='replace')
+    pathlib.Path(sys.argv[1]).write_text(text)
+    print(text[-20000:])
+PY
+fi
 python3 - "$task_out/verification/verification.json" <<'PY'
 import json,pathlib,sys
 p=pathlib.Path(sys.argv[1]);assert p.exists(),'La app no terminó la verificación nativa'

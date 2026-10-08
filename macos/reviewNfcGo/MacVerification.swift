@@ -11,6 +11,8 @@ import CryptoKit
             func check(_ value: Bool, _ label: String) throws {
                 guard value else { throw NSError(domain: "DesktopVerification", code: 1, userInfo: [NSLocalizedDescriptionKey: label]) }
                 checks.append(label)
+                try JSONSerialization.data(withJSONObject: ["checks": checks], options: [.prettyPrinted, .sortedKeys])
+                    .write(to: output.appendingPathComponent("verification-progress.json"))
             }
             checks += try await verifyCentralAccounts()
             checks += try await verifySupabaseAccounts()
