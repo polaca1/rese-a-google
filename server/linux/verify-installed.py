@@ -42,7 +42,8 @@ ready()
 checked(subprocess.run(['systemctl', 'is-enabled', '--quiet', UNIT]).returncode == 0, 'Arranque automático habilitado sin sesión de escritorio')
 checked(subprocess.check_output(['systemctl', 'show', UNIT, '--property=User', '--value'], text=True).strip() == 'reviewnfcgo', 'Servicio sin permisos de administrador')
 for target in ('sleep.target', 'suspend.target', 'hibernate.target', 'hybrid-sleep.target'):
-    checked(subprocess.check_output(['systemctl', 'is-enabled', target], text=True).strip() == 'masked', 'Suspensión bloqueada: ' + target)
+    state = subprocess.run(['systemctl', 'is-enabled', target], text=True, capture_output=True)
+    checked(state.stdout.strip() == 'masked', 'Suspensión bloqueada: ' + target)
 ports = subprocess.check_output(['ss', '-ltn'], text=True)
 checked('127.0.0.1:8080' in ports and '0.0.0.0:8080' not in ports and '[::]:8080' not in ports, 'Puerto de cuentas solo accesible localmente')
 for index in range(3):
