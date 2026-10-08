@@ -1,5 +1,6 @@
-reviewNfcGo 5.2: cuentas compartidas.
+reviewNfcGo 5.2: cuentas en la nube.
 
-Cada cuenta se registra en el servidor común de reviewNfcGo y puede iniciar sesión desde iPhone o Mac. Los usuarios no necesitan configurar direcciones ni instalar Tailscale. El registro requiere conexión; no se crean cuentas locales como sustituto.
-Se conservan los negocios, visitas y operaciones del mismo correo en cada dispositivo. Las copias de seguridad siguen disponibles para transferir esos datos.
+Registro e inicio de sesión en Supabase desde iPhone y Mac, sin dejar un PC encendido ni configurar direcciones. El registro requiere conexión y las sesiones se guardan en el llavero del dispositivo.
+Si vienes de una versión con cuentas locales, crea tu cuenta en la nube con el mismo correo. Puedes elegir una contraseña nueva. Actualiza sin desinstalar para conservar tus negocios, visitas y operaciones.
+Las cuentas se comparten entre dispositivos. Los negocios, inventario y dinero siguen guardándose en cada dispositivo: para trasladarlos utiliza exportar e importar una copia JSON. No hay sincronización automática de esos datos en esta versión.
 Búsquedas con una segunda clave de respaldo. En Mac: análisis por periodos, comparación de ingresos y gastos, saldo acumulado, categorías, ranking de negocios, objetivos e informes PDF y CSV.

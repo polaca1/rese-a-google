@@ -17,6 +17,14 @@ El Mac conserva un archivo antes de cada importación. Se recupera desde Ajustes
 Los datos se guardan en tu Mac. El correo identifica la cuenta de la copia;
 crear un espacio local no es un inicio de sesión en un servidor.
 
+Para conectar tu cuenta de Supabase, abre Ajustes → Cuenta. Si vienes de una
+versión con cuentas locales, crea la cuenta con el mismo correo y una contraseña
+nueva. Todas las cuentas se guardan en Supabase; no necesitas un PC servidor.
+Los negocios, inventario y dinero no se sincronizan automáticamente: usa las
+copias JSON para trasladarlos entre iPhone y Mac.
+
+El plan gratuito de Supabase puede pausarse tras una semana de inactividad.
+
 La app del Mac no utiliza perfiles de iOS ni caduca cada siete días.
 La escritura NFC sigue realizándose en el iPhone.
 

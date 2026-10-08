@@ -793,6 +793,11 @@ struct AuthView: View {
                     .frame(maxWidth: .infinity)
                     .appSecondaryButton()
 
+                    if createMode {
+                        Text("Si ya usabas reviewNfcGo, crea la cuenta con el mismo correo para conservar tus datos de este iPhone. Puedes elegir una contraseña nueva.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+
                     Spacer(minLength: 20)
                 }
                 .padding(24)
