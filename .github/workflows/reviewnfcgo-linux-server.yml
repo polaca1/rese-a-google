@@ -1,0 +1,98 @@
+name: reviewNfcGo - Servidor ligero para Debian
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Rama o commit del servidor Linux
+        required: true
+        default: server/debian-1.1
+permissions:
+  contents: read
+concurrency:
+  group: reviewnfcgo-linux-server
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [debian13, ubuntu24]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verificar autenticación y crear paquete
+        run: |
+          python -m pip install -r server/requirements.txt -r server/requirements-dev.txt
+          python -m pytest server/tests -q
+          bash -n server/linux/Instalar.sh server/linux/package.sh
+          python -m compileall -q server/linux
+          bash server/linux/package.sh "$RUNNER_TEMP/linux-package"
+      - name: Verificar servicio real en Ubuntu
+        if: matrix.platform == 'ubuntu24'
+        run: |
+          sudo bash "$RUNNER_TEMP/linux-package/reviewNfcGo-Servidor-Linux/Instalar.sh" --local-only
+          sudo python3 server/linux/verify-installed.py "$RUNNER_TEMP/linux-package/verification-ubuntu24.json"
+          sudo bash "$RUNNER_TEMP/linux-package/reviewNfcGo-Servidor-Linux/Instalar.sh" --local-only
+          sudo python3 server/linux/verify-reinstall.py
+          sudo apt-get install -y xvfb xauth
+          xvfb-run -a /usr/bin/python3 server/linux/verify-gui.py
+      - name: Verificar Debian 13 con systemd y límite de 2 GB
+        if: matrix.platform == 'debian13'
+        run: |
+          docker build -t reviewnfcgo-debian-test -f server/linux/Verification.Dockerfile server/linux
+          docker run -d --name reviewnfcgo-debian-test --privileged --cgroupns=private --memory=2g --tmpfs /run --tmpfs /run/lock --tmpfs /tmp -v /sys/fs/cgroup:/sys/fs/cgroup:rw -v "$RUNNER_TEMP/linux-package:/package" -v "$PWD/server/linux:/checks:ro" reviewnfcgo-debian-test
+          for task_attempt in $(seq 1 40); do
+            if docker exec reviewnfcgo-debian-test systemctl is-system-running --wait >/dev/null 2>&1; then break; fi
+            if docker exec reviewnfcgo-debian-test systemctl show --property=SystemState --value | grep -q degraded; then break; fi
+            sleep 1
+          done
+          docker exec reviewnfcgo-debian-test bash /package/reviewNfcGo-Servidor-Linux/Instalar.sh --local-only
+          docker exec reviewnfcgo-debian-test python3 /checks/verify-installed.py /package/verification-debian13.json
+          docker exec reviewnfcgo-debian-test bash /package/reviewNfcGo-Servidor-Linux/Instalar.sh --local-only
+          docker exec reviewnfcgo-debian-test python3 /checks/verify-reinstall.py
+          docker exec reviewnfcgo-debian-test xvfb-run -a python3 /checks/verify-gui.py
+      - name: Guardar diagnóstico
+        if: always()
+        run: |
+          if [ '${{ matrix.platform }}' = debian13 ]; then
+            docker logs reviewnfcgo-debian-test > "$RUNNER_TEMP/linux-package/boot-debian13.log" 2>&1 || true
+            docker exec reviewnfcgo-debian-test journalctl -u reviewnfcgo-cuentas -n 80 > "$RUNNER_TEMP/linux-package/service-debian13.log" 2>&1 || true
+            docker rm -f reviewnfcgo-debian-test || true
+          else
+            sudo journalctl -u reviewnfcgo-cuentas -n 80 > "$RUNNER_TEMP/linux-package/service-ubuntu24.log" 2>&1 || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reviewNfcGo-Servidor-Linux-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/linux-package/*.zip
+            ${{ runner.temp }}/linux-package/*.json
+            ${{ runner.temp }}/linux-package/*.log
+            ${{ runner.temp }}/linux-package/SHA256SUMS.txt
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-Servidor-Linux-debian13
+          path: release
+      - name: Publicar instalador verificado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          task_tag=reviewnfcgo-server-linux-1.1
+          gh release view "$task_tag" --repo polaca1/rese-a-google >/dev/null 2>&1 || gh release create "$task_tag" --repo polaca1/rese-a-google --target "$(git rev-parse HEAD)" --title 'Servidor de reviewNfcGo para Debian y mini PC de 2 GB' --notes-file server/linux/GUIA-RKM-DESDE-MAC.md --latest=false
+          gh release upload "$task_tag" release/*.zip release/*.json release/SHA256SUMS.txt server/linux/GUIA-RKM-DESDE-MAC.md --repo polaca1/rese-a-google --clobber
