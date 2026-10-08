@@ -49,7 +49,7 @@ jobs:
           docker run -d --name reviewnfcgo-debian-test --privileged --cgroupns=host --memory=2g --tmpfs /run --tmpfs /run/lock --tmpfs /tmp -v /sys/fs/cgroup:/sys/fs/cgroup:rw -v "$RUNNER_TEMP/linux-package:/package" -v "$PWD/server/linux:/checks:ro" reviewnfcgo-debian-test
           for task_attempt in $(seq 1 40); do
             if [ "$(docker inspect --format '{{.State.Running}}' reviewnfcgo-debian-test)" != true ]; then docker logs reviewnfcgo-debian-test; exit 1; fi
-            task_boot_state=$(docker exec reviewnfcgo-debian-test systemctl show --property=SystemState --value)
+            task_boot_state=$(docker exec reviewnfcgo-debian-test systemctl show --property=SystemState --value 2>/dev/null || true)
             if [ "$task_boot_state" = running ] || [ "$task_boot_state" = degraded ]; then break; fi
             sleep 1
           done
