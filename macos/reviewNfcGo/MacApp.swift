@@ -164,7 +164,7 @@ struct MacSettingsView: View {
                 if let message = notifications.message { Text(message).foregroundStyle(.secondary) }
             }
             Section {
-                LabeledContent("Versión", value: "1.2")
+                LabeledContent("Versión", value: "1.3")
                 LabeledContent("Desarrollado por", value: "Pablo Cancho Flores")
             }
         }.formStyle(.grouped).padding().frame(width: 560, height: 680)
@@ -184,7 +184,7 @@ struct MacAccountSection: View {
         Section("Cuenta") {
             if let session = auth.session, auth.signedIn {
                 LabeledContent("Sesión", value: session.user.email)
-                Button("Cerrar sesión") { auth.logout() }
+                Button("Cerrar sesión") { auth.logout() }.disabled(busy)
             } else {
                 Toggle("Crear cuenta", isOn: $registering).disabled(busy)
                 if registering { TextField("Nombre", text: $name) }
@@ -201,8 +201,22 @@ struct MacAccountSection: View {
                         } catch { message = error.localizedDescription }
                     }
                 }.disabled(busy || email.isEmpty || password.isEmpty)
-                if busy { ProgressView().controlSize(.small) }
             }
+            Button {
+                let expectedEmail = auth.signedIn ? auth.session?.user.email : nil
+                busy = true; message = nil
+                Task {
+                    defer { busy = false }
+                    do {
+                        let user = try await auth.authenticateWithGoogle(expectedEmail: expectedEmail)
+                        if store.owner == nil { try store.createWorkspace(email: user.email) }
+                        if store.owner != user.email { message = "La cuenta está conectada. Importa su copia para cambiar los datos de este Mac." }
+                    } catch is CancellationError { }
+                    catch { message = error.localizedDescription }
+                }
+            } label: { GoogleSignInLabel() }
+            .disabled(busy)
+            if busy { ProgressView().controlSize(.small) }
             if let message { Text(message).foregroundStyle(.secondary) }
             Text("El servidor verifica tu cuenta. Los negocios se guardan en el Mac y se transfieren mediante copias de seguridad.")
                 .font(.callout).foregroundStyle(.secondary)

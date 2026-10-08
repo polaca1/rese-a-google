@@ -1,4 +1,6 @@
-reviewNfcGo 5.2: cuentas en la nube.
+reviewNfcGo 5.3: acceso con Google.
+
+Botón Continuar con Google en acceso y perfil, también en Mac. Acceso nativo mediante navegador del sistema y PKCE; al cancelarlo se conserva la sesión existente. Desde Perfil se comprueba el mismo correo antes de cambiar la sesión. Disponible cuando el propietario active el proveedor de Google en Supabase.
 
 Registro e inicio de sesión en Supabase desde iPhone y Mac, sin dejar un PC encendido ni configurar direcciones. El registro requiere conexión y las sesiones se guardan en el llavero del dispositivo.
 Si vienes de una versión con cuentas locales, crea tu cuenta en la nube con el mismo correo. Puedes elegir una contraseña nueva. Actualiza sin desinstalar para conservar tus negocios, visitas y operaciones.

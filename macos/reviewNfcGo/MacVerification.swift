@@ -1,6 +1,7 @@
 #if DEBUG
 import SwiftUI
 import AppKit
+import CryptoKit
 
 @MainActor enum MacVerification {
     static func run(store: MacStore, navigation: MacNavigation, output: URL) async {
@@ -13,6 +14,7 @@ import AppKit
             }
             checks += try await verifyCentralAccounts()
             checks += try await verifySupabaseAccounts()
+            checks += try await verifyGoogleAccounts()
             let owner = "pablo@example.invalid"
             try store.createWorkspace(email: owner)
             let card = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Azul")
@@ -277,6 +279,106 @@ import AppKit
             } catch RemoteAuthError.invalidURL {}
             try check(calls == 1 && !invalid.configured && !invalid.signedIn, label)
         }
+        return checks
+    }
+    private static func verifyGoogleAccounts() async throws -> [String] {
+        var checks: [String] = []
+        func check(_ value: Bool, _ label: String) throws {
+            guard value else { throw NSError(domain: "GoogleAccounts", code: 1, userInfo: [NSLocalizedDescriptionKey: label]) }
+            checks.append(label)
+        }
+        let suite = "reviewNfcGo.google-verification." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [AuthVerificationProtocol.self]
+        let network = URLSession(configuration: configuration)
+        let auth = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        defer {
+            auth.clearSession(); defaults.removePersistentDomain(forName: suite)
+            AuthVerificationProtocol.handler = nil; network.invalidateAndCancel()
+        }
+        let origin = "https://abcdefghijklmnopqrst.supabase.co"
+        let key = "sb_publishable_verification0123456789"
+        let manifest: [String: Any] = ["schema": 1, "provider": "supabase", "serverURL": origin, "publishableKey": key]
+        var challenge = ""
+        var exchanged = false
+        var googleEnabled = true
+        var responseEmail = "pablo@example.com"
+        AuthVerificationProtocol.handler = { request in
+            if request.url!.host == "raw.githubusercontent.com" { return (200, manifest) }
+            if request.url!.path == "/auth/v1/settings" { return (200, ["external": ["google": googleEnabled]]) }
+            if request.url!.path == "/auth/v1/logout" { return (200, [:]) }
+            let body = try JSONSerialization.jsonObject(with: AuthVerificationProtocol.bodyData(request)) as? [String: String]
+            let verifier = body?["code_verifier"] ?? ""
+            exchanged = request.url!.path == "/auth/v1/token" && request.url!.query == "grant_type=pkce"
+                && request.httpMethod == "POST" && request.value(forHTTPHeaderField: "apikey") == key
+                && request.value(forHTTPHeaderField: "Authorization") == nil && body?["auth_code"] == "one-use-code"
+                && verifier.count == 43 && GoogleOAuthRequest.base64URL(Data(SHA256.hash(data: Data(verifier.utf8)))) == challenge
+            return (200, ["access_token": "google-" + responseEmail, "refresh_token": "google-refresh", "expires_in": 3600,
+                          "user": ["email": responseEmail, "user_metadata": ["full_name": "Pablo Google"]]])
+        }
+        func successfulBrowser(_ url: URL) throws -> URL {
+            let query = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
+            challenge = query.first(where: { $0.name == "code_challenge" })!.value!
+            guard query.first(where: { $0.name == "provider" })?.value == "google",
+                  query.first(where: { $0.name == "code_challenge_method" })?.value == "s256",
+                  query.first(where: { $0.name == "prompt" })?.value == "select_account" else { throw DesktopError.invalidBusiness }
+            var callback = URLComponents(string: query.first(where: { $0.name == "redirect_to" })!.value!)!
+            callback.queryItems = [URLQueryItem(name: "code", value: "one-use-code")]
+            return callback.url!
+        }
+        let user = try await auth.authenticateWithGoogle(openBrowser: { try successfulBrowser($0) })
+        try check(exchanged && auth.signedIn && user.email == "pablo@example.com" && user.name == "Pablo Google",
+                  "Google intercambia código con PKCE, clave pública y nombre del perfil verificado")
+        let restored = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        try check(restored.session?.token == auth.session?.token && restored.session?.refreshToken == "google-refresh",
+                  "La sesión de Google se guarda en Keychain y se recupera al abrir la app")
+        let originalToken = auth.session?.token
+        do {
+            _ = try await auth.authenticateWithGoogle(openBrowser: { _ in throw CancellationError() })
+            throw DesktopError.invalidBusiness
+        } catch is CancellationError { }
+        try check(auth.session?.token == originalToken, "Cancelar Google conserva la cuenta existente")
+        responseEmail = "otra@example.com"
+        do {
+            _ = try await auth.authenticateWithGoogle(expectedEmail: user.email, openBrowser: { try successfulBrowser($0) })
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.rejected(let message) {
+            try check(auth.session?.token == originalToken && message.contains(user.email), "Elegir otro correo desde Perfil conserva la sesión y los datos de la cuenta actual")
+        }
+        googleEnabled = false
+        var browserOpened = false
+        do {
+            _ = try await auth.authenticateWithGoogle(openBrowser: { url in browserOpened = true; return url })
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.rejected { }
+        try check(!browserOpened && auth.session?.token == originalToken, "Google desactivado no abre el navegador ni modifica la sesión")
+        googleEnabled = true
+        exchanged = false
+        do {
+            _ = try await auth.authenticateWithGoogle(openBrowser: { _ in
+                auth.logout()
+                return URL(string: "reviewnfcgo://auth/callback/stale?code=one-use-code")!
+            })
+            throw DesktopError.invalidBusiness
+        } catch is CancellationError { }
+        try check(!auth.signedIn && !exchanged, "Un callback recibido después de cerrar sesión no vuelve a autenticar al usuario")
+
+        let flow = try GoogleOAuthRequest(origin: origin)
+        let next = try GoogleOAuthRequest(origin: origin)
+        try check(flow.verifier != next.verifier && flow.callback != next.callback, "Cada intento genera un verificador y un callback independientes")
+        for (label, url) in [
+            ("Callback de otro intento rechazado", next.callback.absoluteString + "?code=test"),
+            ("Callback con destino ajeno rechazado", "reviewnfcgo://business/callback?code=test"),
+            ("Tokens implícitos rechazados", flow.callback.absoluteString + "#access_token=unsafe"),
+            ("Código repetido rechazado", flow.callback.absoluteString + "?code=a&code=b"),
+            ("Código vacío rechazado", flow.callback.absoluteString + "?code=")
+        ] {
+            do { _ = try flow.code(from: URL(string: url)!); throw DesktopError.invalidBusiness }
+            catch RemoteAuthError.rejected { try check(true, label) }
+        }
+        do { _ = try flow.code(from: URL(string: flow.callback.absoluteString + "?error=access_denied")!); throw DesktopError.invalidBusiness }
+        catch is CancellationError { try check(true, "Consentimiento denegado tratado como cancelación") }
         return checks
     }
     private static func capture(name: String, output: URL) throws {

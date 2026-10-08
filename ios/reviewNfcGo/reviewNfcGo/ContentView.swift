@@ -127,6 +127,16 @@ struct UserProfile: Codable, Equatable {
             setCurrent(UserProfile(name: user.name, email: user.email)); errorMessage = nil
         } catch { errorMessage = error.localizedDescription }
     }
+    func authenticateWithGoogle() async {
+        guard !isAuthenticating else { return }
+        isAuthenticating = true; errorMessage = nil
+        defer { isAuthenticating = false }
+        do {
+            let user = try await remote.authenticateWithGoogle(expectedEmail: currentUser?.email)
+            setCurrent(UserProfile(name: user.name, email: user.email))
+        } catch is CancellationError { }
+        catch { errorMessage = error.localizedDescription }
+    }
     func validateServerSession() async {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--verification-") }) { return }
@@ -786,12 +796,21 @@ struct AuthView: View {
                     .appPrimaryButton()
                     .disabled(auth.isAuthenticating)
 
+                    Button {
+                        Task { await auth.authenticateWithGoogle() }
+                    } label: {
+                        GoogleSignInLabel().frame(maxWidth: .infinity)
+                    }
+                    .appSecondaryButton()
+                    .disabled(auth.isAuthenticating)
+
                     Button(createMode ? "Ya tengo cuenta" : "Crear una cuenta") {
                         createMode.toggle()
                         auth.errorMessage = nil
                     }
                     .frame(maxWidth: .infinity)
                     .appSecondaryButton()
+                    .disabled(auth.isAuthenticating)
 
                     if createMode {
                         Text("Si ya usabas reviewNfcGo, crea la cuenta con el mismo correo para conservar tus datos de este iPhone. Puedes elegir una contraseña nueva.")
@@ -2168,9 +2187,18 @@ struct ProfileView: View {
                 LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.2.1")
             }
             Section("Cuenta") {
-                Text("Tus datos se guardan en este iPhone.")
+                Button {
+                    Task { await auth.authenticateWithGoogle() }
+                } label: {
+                    HStack {
+                        GoogleSignInLabel()
+                        if auth.isAuthenticating { Spacer(); ProgressView() }
+                    }
+                }.disabled(auth.isAuthenticating)
+                if let error = auth.errorMessage { Text(error).font(.footnote).foregroundStyle(.red) }
+                Text("Los negocios y el dinero se guardan en este iPhone. Antes de borrar la app, exporta una copia desde Copias de seguridad.")
                     .font(.footnote).foregroundStyle(.secondary)
-                Button("Cerrar sesión", role: .destructive) { auth.logout() }
+                Button("Cerrar sesión", role: .destructive) { auth.logout() }.disabled(auth.isAuthenticating)
             }
         }
         .navigationTitle("Perfil")

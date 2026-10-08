@@ -32,12 +32,12 @@ PY
 lipo "$task_app/Contents/MacOS/reviewNfcGoMac" -verify_arch arm64 x86_64
 codesign --force --sign - --timestamp=none "$task_app"
 codesign --verify --deep --strict "$task_app"
-ditto -c -k --sequesterRsrc --keepParent "$task_app" "$task_out/reviewNfcGo-Mac-1.2.zip"
+ditto -c -k --sequesterRsrc --keepParent "$task_app" "$task_out/reviewNfcGo-Mac-1.3.zip"
 mkdir -p "$task_out/Installer"
 ditto "$task_app" "$task_out/Installer/reviewNfcGo.app"
 ln -s /Applications "$task_out/Installer/Applications"
 cp "$task_root/macos/LEEME.txt" "$task_out/Installer/LEEME.txt"
-hdiutil create -volname reviewNfcGo -srcfolder "$task_out/Installer" -ov -format UDZO "$task_out/reviewNfcGo-Mac-1.2.dmg" >/dev/null
+hdiutil create -volname reviewNfcGo -srcfolder "$task_out/Installer" -ov -format UDZO "$task_out/reviewNfcGo-Mac-1.3.dmg" >/dev/null
 
 # The native app is exercised on the runner with an isolated data directory.
 xcodebuild -project "$task_root/macos/reviewNfcGo.xcodeproj" -scheme reviewNfcGoMac \
@@ -59,5 +59,5 @@ import json,pathlib,sys
 p=pathlib.Path(sys.argv[1]);assert p.exists(),'La app no terminó la verificación nativa'
 v=json.loads(p.read_text());print(json.dumps(v,ensure_ascii=False));assert v['passed'],v.get('error')
 PY
-git -C "$task_root" archive --format=zip --output="$task_out/reviewNfcGo-Mac-1.2-Xcode.zip" HEAD macos ios/reviewNfcGo server
+git -C "$task_root" archive --format=zip --output="$task_out/reviewNfcGo-Mac-1.3-Xcode.zip" HEAD macos ios/reviewNfcGo server
 echo 'App universal para macOS 14 preparada y verificada.'

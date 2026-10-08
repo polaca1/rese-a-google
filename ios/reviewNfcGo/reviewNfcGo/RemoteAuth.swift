@@ -46,6 +46,9 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
     }
     private struct StoredSession: Codable { let server: String; let session: RemoteSession; var provider: String? = nil }
     private var lastResolution: Date?
+    private var authorizationGeneration = UUID()
+    private var googleAttempt: UUID?
+    private var googleBrowser: NativeGoogleBrowser?
     private static func cleanOrigin(_ address: String) throws -> String {
         guard let url = URLComponents(string: address), url.scheme == "https", let host = url.host, !host.isEmpty,
               url.port == nil || url.port == 443, url.user == nil, url.password == nil,
@@ -116,7 +119,10 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         lastResolution = Date()
     }
     func authenticate(email: String, password: String, name: String? = nil) async throws -> RemoteUser {
+        invalidateAuthorization()
+        let generation = authorizationGeneration
         try await resolveServer()
+        guard generation == authorizationGeneration else { throw CancellationError() }
         var body: [String: Any] = ["email": email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), "password": password]
         if let name {
             let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -132,8 +138,58 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         } else {
             response = try await request(name == nil ? "login" : "register", method: "POST", body: body, authorized: false)
         }
-        guard server == origin else { throw CancellationError() }
+        guard server == origin, generation == authorizationGeneration, !Task.isCancelled else { throw CancellationError() }
         try saveSession(response); return response.user
+    }
+    func authenticateWithGoogle(expectedEmail: String? = nil, openBrowser: ((URL) async throws -> URL)? = nil) async throws -> RemoteUser {
+        guard googleAttempt == nil else { throw RemoteAuthError.rejected("Ya hay un acceso en curso.") }
+        invalidateAuthorization()
+        let attempt = authorizationGeneration
+        googleAttempt = attempt
+        defer {
+            if googleAttempt == attempt { googleAttempt = nil; googleBrowser = nil }
+        }
+        func checkAttempt() throws {
+            guard googleAttempt == attempt, authorizationGeneration == attempt, !Task.isCancelled else { throw CancellationError() }
+        }
+        try await resolveServer()
+        try checkAttempt()
+        guard provider == .supabase else { throw RemoteAuthError.rejected("El acceso con Google todavía no está disponible. Puedes entrar con tu correo.") }
+        let origin = server
+        let settings: SupabaseSettings = try await request("settings", method: "GET", authorized: false)
+        try checkAttempt()
+        guard settings.external?.google == true else {
+            throw RemoteAuthError.rejected("El acceso con Google todavía no está disponible. Puedes entrar con tu correo.")
+        }
+        let flow = try GoogleOAuthRequest(origin: origin)
+        let callback: URL
+        if let openBrowser { callback = try await openBrowser(flow.authorizeURL) }
+        else {
+            let browser = NativeGoogleBrowser(); googleBrowser = browser
+            callback = try await browser.open(flow.authorizeURL)
+        }
+        try checkAttempt()
+        guard server == origin else { throw CancellationError() }
+        let code = try flow.code(from: callback)
+        let value: SupabaseSession = try await request("token", method: "POST", body: ["auth_code": code, "code_verifier": flow.verifier],
+                                                     authorized: false, query: "grant_type=pkce")
+        try checkAttempt()
+        let response = try value.remoteSession()
+        if let expectedEmail, response.user.email != expectedEmail.lowercased() {
+            revoke(response, address: origin, provider: .supabase, key: publishableKey)
+            throw RemoteAuthError.rejected("Selecciona la cuenta de Google de \(expectedEmail). Para utilizar otra cuenta, cierra la sesión actual.")
+        }
+        try saveSession(response)
+        return response.user
+    }
+    private struct SupabaseSettings: Decodable {
+        var external: External?
+        struct External: Decodable { var google: Bool? }
+    }
+    private func invalidateAuthorization() {
+        authorizationGeneration = UUID()
+        googleAttempt = nil
+        googleBrowser?.cancel(); googleBrowser = nil
     }
     func validate() async throws -> RemoteUser {
         try await resolveServer()
@@ -158,27 +214,31 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         return try await request("me", method: "GET", authorized: true)
     }
     func logout() {
+        invalidateAuthorization()
         let old = session
         let address = server
         let oldProvider = provider
         let oldKey = publishableKey
         clearSession()
-        guard let old, let base = URL(string: address) else { return }
-        var components = URLComponents(url: base.appendingPathComponent(oldProvider == .supabase ? "auth/v1/logout" : "v1/auth/logout"), resolvingAgainstBaseURL: false)!
-        if oldProvider == .supabase { components.query = "scope=local" }
+        if let old { revoke(old, address: address, provider: oldProvider, key: oldKey) }
+    }
+    private func revoke(_ value: RemoteSession, address: String, provider: Provider, key: String) {
+        guard let base = URL(string: address) else { return }
+        var components = URLComponents(url: base.appendingPathComponent(provider == .supabase ? "auth/v1/logout" : "v1/auth/logout"), resolvingAgainstBaseURL: false)!
+        if provider == .supabase { components.query = "scope=local" }
         var revoke = URLRequest(url: components.url!, timeoutInterval: 15)
         revoke.httpMethod = "POST"
-        revoke.setValue("Bearer " + old.token, forHTTPHeaderField: "Authorization")
-        if oldProvider == .supabase { revoke.setValue(oldKey, forHTTPHeaderField: "apikey") }
+        revoke.setValue("Bearer " + value.token, forHTTPHeaderField: "Authorization")
+        if provider == .supabase { revoke.setValue(key, forHTTPHeaderField: "apikey") }
         Task { _ = try? await urlSession.data(for: revoke) }
     }
     private struct SupabaseUser: Decodable {
         let email: String?
         var user_metadata: Metadata?
-        struct Metadata: Decodable { var name: String? }
+        struct Metadata: Decodable { var name: String?; var full_name: String? }
         func remoteUser() throws -> RemoteUser {
             guard let email, !email.isEmpty else { throw RemoteAuthError.unavailable }
-            return RemoteUser(name: user_metadata?.name ?? String(email.split(separator: "@").first ?? ""), email: email.lowercased())
+            return RemoteUser(name: user_metadata?.name ?? user_metadata?.full_name ?? String(email.split(separator: "@").first ?? ""), email: email.lowercased())
         }
     }
     private struct SupabaseSession: Decodable {
