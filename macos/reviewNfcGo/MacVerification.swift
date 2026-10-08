@@ -12,6 +12,7 @@ import AppKit
                 checks.append(label)
             }
             checks += try await verifyCentralAccounts()
+            checks += try await verifySupabaseAccounts()
             let owner = "pablo@example.invalid"
             try store.createWorkspace(email: owner)
             let card = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Azul")
@@ -181,6 +182,101 @@ import AppKit
             throw DesktopError.invalidBusiness
         } catch RemoteAuthError.invalidURL {}
         try check(!invalid.signedIn && !invalid.configured, "La configuración automática rechaza servidores HTTP")
+        return checks
+    }
+    private static func verifySupabaseAccounts() async throws -> [String] {
+        var checks: [String] = []
+        func check(_ value: Bool, _ label: String) throws {
+            guard value else { throw NSError(domain: "SupabaseAccounts", code: 1, userInfo: [NSLocalizedDescriptionKey: label]) }
+            checks.append(label)
+        }
+        let suite = "reviewNfcGo.supabase-verification." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [AuthVerificationProtocol.self]
+        let network = URLSession(configuration: configuration)
+        let auth = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        defer {
+            auth.clearSession(); defaults.removePersistentDomain(forName: suite)
+            AuthVerificationProtocol.handler = nil; network.invalidateAndCancel()
+        }
+        let key = "sb_publishable_verification0123456789"
+        let manifest: [String: Any] = ["schema": 1, "provider": "supabase", "serverURL": "https://abcdefghijklmnopqrst.supabase.co", "publishableKey": key]
+        let cloudUser: [String: Any] = ["id": UUID().uuidString, "email": "pablo@example.com", "user_metadata": ["name": "Pablo"]]
+        var signupChecked = false
+        AuthVerificationProtocol.handler = { request in
+            if request.url!.host == "raw.githubusercontent.com" { return (200, manifest) }
+            let body = try JSONSerialization.jsonObject(with: AuthVerificationProtocol.bodyData(request)) as? [String: Any]
+            signupChecked = request.url!.path == "/auth/v1/signup" && request.httpMethod == "POST"
+                && request.value(forHTTPHeaderField: "apikey") == key && request.value(forHTTPHeaderField: "Authorization") == nil
+                && body?["email"] as? String == "pablo@example.com" && body?["password"] as? String == " Keep-spaces "
+                && (body?["data"] as? [String: String])?["name"] == "Pablo"
+            return (200, ["access_token": "cloud-access", "refresh_token": "cloud-refresh", "expires_in": 60, "user": cloudUser])
+        }
+        let user = try await auth.authenticate(email: " PABLO@example.com ", password: " Keep-spaces ", name: " Pablo ")
+        try check(signupChecked && auth.signedIn && user.name == "Pablo", "Supabase recibe el registro con clave pública, nombre y contraseña sin modificar")
+        let restored = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        try check(restored.session?.refreshToken == "cloud-refresh" && restored.signedIn, "Keychain conserva la sesión de nube y su token de renovación")
+        var refreshed = false
+        AuthVerificationProtocol.handler = { request in
+            if request.url!.host == "raw.githubusercontent.com" { return (200, manifest) }
+            let body = try JSONSerialization.jsonObject(with: AuthVerificationProtocol.bodyData(request)) as? [String: String]
+            refreshed = request.url!.path == "/auth/v1/token" && request.url!.query == "grant_type=refresh_token"
+                && request.httpMethod == "POST" && body?["refresh_token"] == "cloud-refresh"
+                && request.value(forHTTPHeaderField: "Authorization") == nil && request.value(forHTTPHeaderField: "apikey") == key
+            return (200, ["access_token": "cloud-access-rotated", "refresh_token": "cloud-refresh-rotated", "expires_in": 3600, "user": cloudUser])
+        }
+        _ = try await restored.validate()
+        let rotated = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        try check(refreshed && rotated.session?.token == "cloud-access-rotated" && rotated.session?.refreshToken == "cloud-refresh-rotated", "Renovación usa el refresh token y guarda ambos tokens rotados")
+        var validated = false
+        AuthVerificationProtocol.handler = { request in
+            if request.url!.host == "raw.githubusercontent.com" { return (200, manifest) }
+            validated = request.url!.path == "/auth/v1/user" && request.httpMethod == "GET"
+                && request.value(forHTTPHeaderField: "Authorization") == "Bearer cloud-access-rotated"
+                && request.value(forHTTPHeaderField: "apikey") == key
+            return (200, cloudUser)
+        }
+        _ = try await rotated.validate()
+        try check(validated, "La validación consulta la cuenta real con JWT y clave pública")
+        AuthVerificationProtocol.handler = { _ in throw URLError(.notConnectedToInternet) }
+        do { _ = try await rotated.validate(); throw DesktopError.invalidBusiness } catch RemoteAuthError.unavailable {}
+        try check(rotated.signedIn, "Una desconexión temporal no borra la sesión de Supabase")
+        auth.clearSession(); restored.clearSession(); rotated.clearSession()
+        AuthVerificationProtocol.handler = { request in
+            if request.url!.host == "raw.githubusercontent.com" { return (200, manifest) }
+            return (200, ["user": cloudUser])
+        }
+        do {
+            _ = try await auth.authenticate(email: "pablo@example.com", password: "Verification-password", name: "Pablo")
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.rejected(let message) {
+            try check(!auth.signedIn && message.contains("confirmar"), "El registro pendiente de confirmar no inventa una sesión local")
+        }
+        AuthVerificationProtocol.handler = { _ in (400, ["error_code": "invalid_credentials"]) }
+        do {
+            _ = try await auth.authenticate(email: "pablo@example.com", password: "Wrong-password")
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.rejected(let message) {
+            try check(!auth.signedIn && message == "Correo o contraseña incorrectos.", "Credenciales incorrectas rechazadas con mensaje en español")
+        }
+        for (label, changed) in [
+            ("La app rechaza claves secretas antes de transmitir credenciales", ["publishableKey": "sb_secret_never_embed_this_key"]),
+            ("El proveedor de nube rechaza destinos ajenos a Supabase", ["serverURL": "https://untrusted.example.com"])] {
+            let isolatedSuite = suite + UUID().uuidString
+            let isolatedDefaults = UserDefaults(suiteName: isolatedSuite)!
+            defer { isolatedDefaults.removePersistentDomain(forName: isolatedSuite) }
+            let invalid = RemoteAuthClient(defaults: isolatedDefaults, credentialService: isolatedSuite, networkSession: network)
+            var calls = 0
+            var invalidManifest = manifest
+            for (field, value) in changed { invalidManifest[field] = value }
+            AuthVerificationProtocol.handler = { _ in calls += 1; return (200, invalidManifest) }
+            do {
+                _ = try await invalid.authenticate(email: "pablo@example.com", password: "Verification-password")
+                throw DesktopError.invalidBusiness
+            } catch RemoteAuthError.invalidURL {}
+            try check(calls == 1 && !invalid.configured && !invalid.signedIn, label)
+        }
         return checks
     }
     private static func capture(name: String, output: URL) throws {

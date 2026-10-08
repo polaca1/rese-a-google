@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "provider": "supabase",
+  "serverURL": "https://YOUR_PROJECT.supabase.co",
+  "publishableKey": "sb_publishable_REPLACE_WITH_YOUR_PUBLIC_KEY"
+}
