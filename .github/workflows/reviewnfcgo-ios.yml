@@ -142,6 +142,9 @@ jobs:
           else
             gh release upload "$REVIEWNFCGO_RELEASE_TAG" server/INSTALAR-SERVIDOR.md --repo polaca1/rese-a-google --clobber
           fi
+          if [ -f server/cloud/GUIA-GOOGLE.md ]; then
+            gh release upload "$REVIEWNFCGO_RELEASE_TAG" server/cloud/GUIA-GOOGLE.md --repo polaca1/rese-a-google --clobber
+          fi
 
   publish-mac:
     if: ${{ inputs.mac_only_verification }}
