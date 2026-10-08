@@ -36,7 +36,7 @@ jobs:
       - name: Verificar servicio real en Ubuntu
         if: matrix.platform == 'ubuntu24'
         run: |
-          sudo bash "$RUNNER_TEMP/linux-package/reviewNfcGo-Servidor-Linux/Instalar.sh" --local-only
+          sudo bash "$RUNNER_TEMP/linux-package/reviewNfcGo-Servidor-Linux/Instalar.sh"
           sudo python3 server/linux/verify-installed.py "$RUNNER_TEMP/linux-package/verification-ubuntu24.json"
           sudo bash "$RUNNER_TEMP/linux-package/reviewNfcGo-Servidor-Linux/Instalar.sh" --local-only
           sudo python3 server/linux/verify-reinstall.py
@@ -46,13 +46,14 @@ jobs:
         if: matrix.platform == 'debian13'
         run: |
           docker build -t reviewnfcgo-debian-test -f server/linux/Verification.Dockerfile server/linux
-          docker run -d --name reviewnfcgo-debian-test --privileged --cgroupns=private --memory=2g --tmpfs /run --tmpfs /run/lock --tmpfs /tmp -v /sys/fs/cgroup:/sys/fs/cgroup:rw -v "$RUNNER_TEMP/linux-package:/package" -v "$PWD/server/linux:/checks:ro" reviewnfcgo-debian-test
+          docker run -d --name reviewnfcgo-debian-test --privileged --cgroupns=host --memory=2g --tmpfs /run --tmpfs /run/lock --tmpfs /tmp -v /sys/fs/cgroup:/sys/fs/cgroup:rw -v "$RUNNER_TEMP/linux-package:/package" -v "$PWD/server/linux:/checks:ro" reviewnfcgo-debian-test
           for task_attempt in $(seq 1 40); do
-            if docker exec reviewnfcgo-debian-test systemctl is-system-running --wait >/dev/null 2>&1; then break; fi
-            if docker exec reviewnfcgo-debian-test systemctl show --property=SystemState --value | grep -q degraded; then break; fi
+            if [ "$(docker inspect --format '{{.State.Running}}' reviewnfcgo-debian-test)" != true ]; then docker logs reviewnfcgo-debian-test; exit 1; fi
+            task_boot_state=$(docker exec reviewnfcgo-debian-test systemctl show --property=SystemState --value)
+            if [ "$task_boot_state" = running ] || [ "$task_boot_state" = degraded ]; then break; fi
             sleep 1
           done
-          docker exec reviewnfcgo-debian-test bash /package/reviewNfcGo-Servidor-Linux/Instalar.sh --local-only
+          docker exec reviewnfcgo-debian-test bash /package/reviewNfcGo-Servidor-Linux/Instalar.sh
           docker exec reviewnfcgo-debian-test python3 /checks/verify-installed.py /package/verification-debian13.json
           docker exec reviewnfcgo-debian-test bash /package/reviewNfcGo-Servidor-Linux/Instalar.sh --local-only
           docker exec reviewnfcgo-debian-test python3 /checks/verify-reinstall.py
