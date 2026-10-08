@@ -18,7 +18,7 @@
           "buildVersion": "25",
           "date": "2026-10-08T21:25:43Z",
           "localizedDescription": "reviewNfcGo 5.3: acceso con Google.\n\nBotón Continuar con Google en acceso y perfil, también en Mac. Acceso nativo mediante navegador del sistema y PKCE; al cancelarlo se conserva la sesión existente. Desde Perfil se comprueba el mismo correo antes de cambiar la sesión. Disponible cuando el propietario active el proveedor de Google en Supabase.\n\nRegistro e inicio de sesión en Supabase desde iPhone y Mac, sin dejar un PC encendido ni configurar direcciones. El registro requiere conexión y las sesiones se guardan en el llavero del dispositivo.\nSi vienes de una versión con cuentas locales, crea tu cuenta en la nube con el mismo correo. Puedes elegir una contraseña nueva. Actualiza sin desinstalar para conservar tus negocios, visitas y operaciones.\nLas cuentas se comparten entre dispositivos. Los negocios, inventario y dinero siguen guardándose en cada dispositivo: para trasladarlos utiliza exportar e importar una copia JSON. No hay sincronización automática de esos datos en esta versión.\nBúsquedas con una segunda clave de respaldo. En Mac: análisis por periodos, comparación de ingresos y gastos, saldo acumulado, categorías, ranking de negocios, objetivos e informes PDF y CSV.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.3-build25.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.3-build25/reviewNfcGo-5.3-build25.ipa",
           "size": 6466938,
           "minOSVersion": "16.1"
         },
@@ -152,7 +152,7 @@
       "version": "5.3",
       "versionDate": "2026-10-08T21:25:43Z",
       "versionDescription": "reviewNfcGo 5.3: acceso con Google.\n\nBotón Continuar con Google en acceso y perfil, también en Mac. Acceso nativo mediante navegador del sistema y PKCE; al cancelarlo se conserva la sesión existente. Desde Perfil se comprueba el mismo correo antes de cambiar la sesión. Disponible cuando el propietario active el proveedor de Google en Supabase.\n\nRegistro e inicio de sesión en Supabase desde iPhone y Mac, sin dejar un PC encendido ni configurar direcciones. El registro requiere conexión y las sesiones se guardan en el llavero del dispositivo.\nSi vienes de una versión con cuentas locales, crea tu cuenta en la nube con el mismo correo. Puedes elegir una contraseña nueva. Actualiza sin desinstalar para conservar tus negocios, visitas y operaciones.\nLas cuentas se comparten entre dispositivos. Los negocios, inventario y dinero siguen guardándose en cada dispositivo: para trasladarlos utiliza exportar e importar una copia JSON. No hay sincronización automática de esos datos en esta versión.\nBúsquedas con una segunda clave de respaldo. En Mac: análisis por periodos, comparación de ingresos y gastos, saldo acumulado, categorías, ranking de negocios, objetivos e informes PDF y CSV.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.3-build25.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.3-build25/reviewNfcGo-5.3-build25.ipa",
       "size": 6466938,
       "appPermissions": {
         "entitlements": [
