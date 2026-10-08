@@ -1,0 +1,33 @@
+[Unit]
+Description=reviewNfcGo - Cuentas
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=reviewnfcgo
+Group=reviewnfcgo
+WorkingDirectory=/opt/reviewnfcgo-cuentas
+ExecStart=/opt/reviewnfcgo-cuentas/venv/bin/python /opt/reviewnfcgo-cuentas/runtime.py --data /var/lib/reviewnfcgo-cuentas
+Restart=always
+RestartSec=5
+StateDirectory=reviewnfcgo-cuentas
+StateDirectoryMode=0700
+UMask=0077
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryMax=384M
+TasksMax=96
+
+[Install]
+WantedBy=multi-user.target
