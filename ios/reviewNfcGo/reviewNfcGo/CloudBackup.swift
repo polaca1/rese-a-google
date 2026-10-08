@@ -184,6 +184,7 @@ struct CloudBackupStatusView: View {
     @EnvironmentObject private var cloud: CloudBackupController
     @State private var resolving = false
     @State private var exporting = false
+    @State private var exportError: String?
     @State private var recovery = CloudRecoveryDocument()
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -197,9 +198,8 @@ struct CloudBackupStatusView: View {
             } else if cloud.state != .signedOut {
                 Button("Sincronizar ahora") { cloud.requestSync(immediate: true) }
             }
-        }
-        .fileExporter(isPresented: $exporting, document: recovery, contentType: .json, defaultFilename: "reviewNfcGo-recuperacion") { _ in }
-        .contextMenu {
+            if cloud.recoveryData(remote: false) != nil || cloud.recoveryData(remote: true) != nil {
+            Menu("Copias anteriores al conflicto") {
             if let data = cloud.recoveryData(remote: false) {
                 Button("Exportar copia local anterior al conflicto") { recovery = CloudRecoveryDocument(data: data); exporting = true }
             }
@@ -207,6 +207,10 @@ struct CloudBackupStatusView: View {
                 Button("Exportar copia de nube anterior al conflicto") { recovery = CloudRecoveryDocument(data: data); exporting = true }
             }
         }
+            }
+        }
+        .fileExporter(isPresented: $exporting, document: recovery, contentType: .json, defaultFilename: "reviewNfcGo-recuperacion") { result in if case .failure(let error) = result { exportError = error.localizedDescription } }
+        .alert("No se pudo exportar", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) { Button("Aceptar") { exportError = nil } } message: { Text(exportError ?? "") }
         .confirmationDialog("Hay cambios en dos dispositivos", isPresented: $resolving, titleVisibility: .visible) {
             Button("Usar la copia de la nube") { Task { await cloud.resolve(useCloud: true) } }
             Button("Guardar la copia de este dispositivo") { Task { await cloud.resolve(useCloud: false) } }

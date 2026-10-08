@@ -68,7 +68,7 @@ Pega la URL y la Publishable key en el chat. Con esos dos datos comprobaré el s
 
 Esta conexión centraliza **las cuentas y el acceso** de todos los usuarios. Las sesiones se guardan en el llavero de cada dispositivo y se renuevan mediante Supabase.
 
-Los negocios, visitas, inventario y movimientos de dinero siguen guardándose en cada dispositivo. **Esta actualización no añade sincronización automática de esos datos entre iPhone y Mac.** Para trasladarlos, utiliza exportar/importar una copia. Tampoco se sube automáticamente a la nube el historial de cuentas locales de las versiones anteriores: cada usuario tendrá que crear su cuenta de Supabase.
+Desde iPhone 5.4 y Mac 1.4, los negocios, visitas, inventario, movimientos y foto se sincronizan automáticamente con Supabase. El administrador debe ejecutar una sola vez `ACTIVAR-DATOS-NUBE.sql` en SQL Editor. Cada cuenta solo puede leer y modificar sus propios datos. Los usuarios de versiones antiguas deben entrar con su cuenta e importar su copia JSON si los datos ya no están en el dispositivo. Antes de desinstalar, comprueba «Guardado en la nube». Sin conexión, los cambios permanecen pendientes en el dispositivo.
 
 ## Qué ofrece el plan gratuito
 

@@ -56,6 +56,12 @@ struct MacRootView: View {
     @EnvironmentObject private var store: MacStore
     @EnvironmentObject private var navigation: MacNavigation
     @EnvironmentObject private var notifications: MacNotifications
+    private var showsWorkspace: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--verify-desktop") { return store.owner != nil }
+        #endif
+        return store.owner != nil && auth.session != nil
+    }
     var body: some View {
         NavigationSplitView {
             List(selection: $navigation.section) {
@@ -65,7 +71,7 @@ struct MacRootView: View {
             }.listStyle(.sidebar).navigationSplitViewColumnWidth(min: 170, ideal: 195, max: 240)
         } detail: {
             Group {
-                if store.owner == nil || auth.session == nil { MacWelcomeView() }
+                if !showsWorkspace { MacWelcomeView() }
                 else {
                     switch navigation.section ?? .dashboard {
                     case .dashboard: MacDashboardView()
@@ -133,7 +139,7 @@ struct MacRootView: View {
         if ProcessInfo.processInfo.arguments.contains("--verify-desktop") { return }
         #endif
         cloud.connect(owner: nil, transport: auth, read: { guard let value = store.backup else { throw BackupError.invalid }; return value }, apply: { _ in })
-        guard let email = auth.session?.user.email else { return }
+        guard let email = auth.session?.user.email else { store.run { try store.deactivateAccount() }; return }
         do { try store.activateAccount(email) } catch { store.errorMessage = error.localizedDescription; return }
         store.didChange = { [weak cloud] in cloud?.localChanged() }
         cloud.connect(owner: email, transport: auth, read: {

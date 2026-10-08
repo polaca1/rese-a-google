@@ -56,6 +56,13 @@ enum DesktopError: LocalizedError {
         guard owner.contains("@"), owner.count <= 254, backup == nil, !damaged else { throw DesktopError.invalidProfile }
         try write(BusinessBackup(owner: owner, records: [], money: MoneyLedger()))
     }
+    func deactivateAccount() throws {
+        guard let backup else { return }
+        let hash = SHA256.hash(data: Data(backup.owner.utf8)).map { String(format: "%02x", $0) }.joined()
+        let cached = fileURL.deletingLastPathComponent().appendingPathComponent("Account-" + hash + ".json")
+        try backup.encoded().write(to: cached, options: .atomic)
+        self.backup = nil; undoStates = []; undoTitle = nil
+    }
     func activateAccount(_ email: String) throws {
         guard !damaged else { throw DesktopError.damagedStore }
         guard owner != email else { return }

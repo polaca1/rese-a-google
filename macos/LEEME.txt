@@ -1,4 +1,4 @@
-reviewNfcGo para Mac 1.3
+reviewNfcGo para Mac 1.4
 Desarrollado por Pablo Cancho Flores
 
 Compatible con macOS Sonoma 14 y posteriores. Incluye Intel y Apple Silicon.
@@ -8,20 +8,16 @@ Compatible con macOS Sonoma 14 y posteriores. Incluye Intel y Apple Silicon.
    sobre la app y elige Abrir. Si es necesario, usa Ajustes del Sistema → Privacidad
    y seguridad → Abrir igualmente después del primer intento. La app lleva firma
    ad hoc; todavía no está notarizada por Apple. No desactives Gatekeeper.
-3. En el iPhone exporta tus datos desde Perfil → Copias de seguridad y envía el JSON
-   al Mac mediante AirDrop. En el Mac: Archivo → Importar copia del iPhone.
-4. Para devolver los cambios al iPhone, exporta una copia desde el Mac y restáurala
-   en la misma cuenta del iPhone. Importar sustituye los datos, no los combina.
+3. Inicia sesión con la misma cuenta de Google o correo que utilizas en el iPhone.
+   Los negocios, visitas, inventario, movimientos y foto se recuperan automáticamente.
+4. Los cambios se guardan en tu cuenta. En Ajustes → Datos en la nube puedes comprobar
+   «Guardado en la nube». Sin conexión, quedan pendientes en este dispositivo.
+5. Para recuperar una copia antigua, importa el JSON en la cuenta correspondiente.
+   Espera «Guardado en la nube» antes de eliminar la app o sus datos.
 
-El Mac conserva un archivo antes de cada importación. Se recupera desde Ajustes.
-Los datos se guardan en tu Mac. El correo identifica la cuenta de la copia;
-crear un espacio local no es un inicio de sesión en un servidor.
-
-Para conectar tu cuenta de Supabase, abre Ajustes → Cuenta. Si vienes de una
-versión con cuentas locales, crea la cuenta con el mismo correo y una contraseña
-nueva. Todas las cuentas se guardan en Supabase; no necesitas un PC servidor.
-Los negocios, inventario y dinero no se sincronizan automáticamente: usa las
-copias JSON para trasladarlos entre iPhone y Mac.
+Si hay cambios diferentes en dos dispositivos, podrás elegir la copia que quieres
+conservar. Se guardan ambas versiones para recuperarlas. También puedes exportar
+copias JSON adicionales desde Archivo. Importar sustituye los datos; no los combina.
 
 El plan gratuito de Supabase puede pausarse tras una semana de inactividad.
 
