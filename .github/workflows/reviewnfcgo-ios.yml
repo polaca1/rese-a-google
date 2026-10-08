@@ -5,7 +5,7 @@ on:
       source_ref:
         description: Rama o commit de las apps
         required: true
-        default: ios/places-fallback-5.1.1
+        default: accounts/supabase-free
       mac_only_verification:
         description: Compilar y verificar solo Mac sin publicar
         type: boolean
@@ -136,7 +136,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "$REVIEWNFCGO_RELEASE_TAG" desktop/*.zip desktop/*.dmg desktop/verification/*.png --repo polaca1/rese-a-google --clobber
-          gh release upload "$REVIEWNFCGO_RELEASE_TAG" macos/LEEME.txt server/INSTALAR-SERVIDOR.md --repo polaca1/rese-a-google --clobber
+          gh release upload "$REVIEWNFCGO_RELEASE_TAG" macos/LEEME.txt --repo polaca1/rese-a-google --clobber
+          if [ -f server/cloud/GUIA-SUPABASE.md ]; then
+            gh release upload "$REVIEWNFCGO_RELEASE_TAG" server/cloud/GUIA-SUPABASE.md server/cloud/downloads/GUIA-SUPABASE.pdf --repo polaca1/rese-a-google --clobber
+          else
+            gh release upload "$REVIEWNFCGO_RELEASE_TAG" server/INSTALAR-SERVIDOR.md --repo polaca1/rese-a-google --clobber
+          fi
 
   publish-mac:
     if: ${{ inputs.mac_only_verification }}
