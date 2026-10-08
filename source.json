@@ -14,6 +14,15 @@
       "tintColor": "1976EC",
       "versions": [
         {
+          "version": "5.2",
+          "buildVersion": "24",
+          "date": "2026-10-08T20:18:34Z",
+          "localizedDescription": "reviewNfcGo 5.2: cuentas en la nube.\n\nRegistro e inicio de sesión en Supabase desde iPhone y Mac, sin dejar un PC encendido ni configurar direcciones. El registro requiere conexión y las sesiones se guardan en el llavero del dispositivo.\nSi vienes de una versión con cuentas locales, crea tu cuenta en la nube con el mismo correo. Puedes elegir una contraseña nueva. Actualiza sin desinstalar para conservar tus negocios, visitas y operaciones.\nLas cuentas se comparten entre dispositivos. Los negocios, inventario y dinero siguen guardándose en cada dispositivo: para trasladarlos utiliza exportar e importar una copia JSON. No hay sincronización automática de esos datos en esta versión.\nBúsquedas con una segunda clave de respaldo. En Mac: análisis por periodos, comparación de ingresos y gastos, saldo acumulado, categorías, ranking de negocios, objetivos e informes PDF y CSV.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.2-build24.ipa",
+          "size": 6395826,
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "5.1.1",
           "buildVersion": "23",
           "date": "2026-10-07T22:13:25Z",
@@ -131,11 +140,11 @@
           "minOSVersion": "16.1"
         }
       ],
-      "version": "5.1.1",
-      "versionDate": "2026-10-07T22:13:25Z",
-      "versionDescription": "reviewNfcGo 5.1.1: búsquedas con respaldo.\n\nLa búsqueda de negocios utiliza una segunda clave de Google Places si la principal tiene un problema de acceso, cuota o conexión. Se conserva la app de iPhone y Mac, con tus negocios, visitas, inventario y operaciones.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.1.1-build23/reviewNfcGo-5.1.1-build23.ipa",
-      "size": 6382599,
+      "version": "5.2",
+      "versionDate": "2026-10-08T20:18:34Z",
+      "versionDescription": "reviewNfcGo 5.2: cuentas en la nube.\n\nRegistro e inicio de sesión en Supabase desde iPhone y Mac, sin dejar un PC encendido ni configurar direcciones. El registro requiere conexión y las sesiones se guardan en el llavero del dispositivo.\nSi vienes de una versión con cuentas locales, crea tu cuenta en la nube con el mismo correo. Puedes elegir una contraseña nueva. Actualiza sin desinstalar para conservar tus negocios, visitas y operaciones.\nLas cuentas se comparten entre dispositivos. Los negocios, inventario y dinero siguen guardándose en cada dispositivo: para trasladarlos utiliza exportar e importar una copia JSON. No hay sincronización automática de esos datos en esta versión.\nBúsquedas con una segunda clave de respaldo. En Mac: análisis por periodos, comparación de ingresos y gastos, saldo acumulado, categorías, ranking de negocios, objetivos e informes PDF y CSV.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.2-build24.ipa",
+      "size": 6395826,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
@@ -163,6 +172,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 5.2 (24)",
+      "identifier": "reviewnfcgo-5.2-build24",
+      "caption": "reviewNfcGo 5.2: cuentas en la nube.",
+      "date": "2026-10-08T20:18:34Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-5.2-build24",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 5.1.1 (23)",
       "identifier": "reviewnfcgo-5.1.1-build23",

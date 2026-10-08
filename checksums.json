@@ -63,5 +63,10 @@
     "sha256": "2b25c962e082c7aa6bca0fabbce05962033c728d2cad7f52b868d651a16762f4",
     "size": 6382599,
     "sourceCommit": "5500b55729ea75540772ee22334dbdc14ca34d22"
+  },
+  "reviewNfcGo-5.2-build24.ipa": {
+    "sha256": "1008d3cd4f5a92fc60ef1ff24194bd6883abb234cbaaf7fcc097a5021e0ed080",
+    "size": 6395826,
+    "sourceCommit": "a54f3554e33c6a627291d706b371b6ef3aba8d5f"
   }
 }
