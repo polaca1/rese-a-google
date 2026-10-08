@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 @main struct ReviewNfcGoMacApp: App {
+    @StateObject private var cloud = CloudBackupController()
     @StateObject private var store: MacStore
     @StateObject private var navigation = MacNavigation.shared
     @StateObject private var notifications = MacNotifications.shared
@@ -17,7 +18,7 @@ import AppKit
     }
     var body: some Scene {
         WindowGroup("reviewNfcGo") {
-            MacRootView().environmentObject(store).environmentObject(navigation).environmentObject(notifications)
+            MacRootView().environmentObject(store).environmentObject(navigation).environmentObject(notifications).environmentObject(cloud)
                 .frame(minWidth: 900, minHeight: 620)
         }
         .defaultSize(width: 1220, height: 800)
@@ -43,12 +44,15 @@ import AppKit
             }
         }
         Settings {
-            MacSettingsView().environmentObject(store).environmentObject(navigation).environmentObject(notifications)
+            MacSettingsView().environmentObject(store).environmentObject(navigation).environmentObject(notifications).environmentObject(cloud)
         }
     }
 }
 
 struct MacRootView: View {
+    @ObservedObject private var auth = RemoteAuthClient.shared
+    @EnvironmentObject private var cloud: CloudBackupController
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var store: MacStore
     @EnvironmentObject private var navigation: MacNavigation
     @EnvironmentObject private var notifications: MacNotifications
@@ -88,6 +92,9 @@ struct MacRootView: View {
                 }
             }
         }
+        .onAppear { configureCloud() }
+        .onChange(of: auth.session?.user.email) { _, _ in configureCloud() }
+        .onChange(of: scenePhase) { _, _ in cloud.requestSync(immediate: true) }
         .sheet(item: $navigation.sheet) { sheet in
             switch sheet {
             case .business(let id): MacBusinessEditor(record: id.flatMap { id in store.records.first { $0.id == id } })
@@ -121,6 +128,19 @@ struct MacRootView: View {
             #endif
         }
     }
+    private func configureCloud() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--verify-desktop") { return }
+        #endif
+        cloud.connect(owner: nil, transport: auth, read: { guard let value = store.backup else { throw BackupError.invalid }; return value }, apply: { _ in })
+        guard let email = auth.session?.user.email else { return }
+        do { try store.activateAccount(email) } catch { store.errorMessage = error.localizedDescription; return }
+        store.didChange = { [weak cloud] in cloud?.localChanged() }
+        cloud.connect(owner: email, transport: auth, read: {
+            guard let value = store.backup else { throw BackupError.invalid }; return value
+        }, apply: { value in try store.importBackup(value) })
+    }
+
 }
 
 struct MacWelcomeView: View {
@@ -149,9 +169,10 @@ struct MacSettingsView: View {
     var body: some View {
         Form {
             MacAccountSection()
+            Section("Datos en la nube") { CloudBackupStatusView() }
             Section("Cuenta y datos") {
                 LabeledContent("Cuenta", value: store.owner ?? "Sin configurar")
-                Text("Las copias completas pasan los datos entre iPhone y Mac. Importar sustituye los datos; no los combina automáticamente.")
+                Text("Tus datos se sincronizan entre iPhone y Mac. También puedes exportar una copia adicional. Importar sustituye los datos de la cuenta.")
                     .font(.callout).foregroundStyle(.secondary)
                 Button("Importar copia…") { MacFiles.chooseImport(store: store, navigation: navigation) }
                 Button("Exportar copia…") { MacFiles.export(store: store) }.disabled(store.owner == nil)
@@ -196,8 +217,8 @@ struct MacAccountSection: View {
                         defer { busy = false; password = "" }
                         do {
                             let user = try await auth.authenticate(email: email, password: password, name: registering ? name : nil)
-                            if store.owner == nil { try store.createWorkspace(email: user.email) }
-                            if store.owner != user.email { message = "La cuenta está conectada. Importa su copia para cambiar los datos de este Mac." }
+                            try store.activateAccount(user.email)
+
                         } catch { message = error.localizedDescription }
                     }
                 }.disabled(busy || email.isEmpty || password.isEmpty)
@@ -209,8 +230,8 @@ struct MacAccountSection: View {
                     defer { busy = false }
                     do {
                         let user = try await auth.authenticateWithGoogle(expectedEmail: expectedEmail)
-                        if store.owner == nil { try store.createWorkspace(email: user.email) }
-                        if store.owner != user.email { message = "La cuenta está conectada. Importa su copia para cambiar los datos de este Mac." }
+                        try store.activateAccount(user.email)
+
                     } catch is CancellationError { }
                     catch { message = error.localizedDescription }
                 }
@@ -218,7 +239,7 @@ struct MacAccountSection: View {
             .disabled(busy)
             if busy { ProgressView().controlSize(.small) }
             if let message { Text(message).foregroundStyle(.secondary) }
-            Text("El servidor verifica tu cuenta. Los negocios se guardan en el Mac y se transfieren mediante copias de seguridad.")
+            Text("Tus negocios, visitas, inventario y dinero se sincronizan con tu cuenta. Comprueba el estado del guardado antes de cerrar la app.")
                 .font(.callout).foregroundStyle(.secondary)
         }.onAppear { email = store.owner ?? "" }
     }

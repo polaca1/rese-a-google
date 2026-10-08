@@ -30,6 +30,7 @@ struct UserProfile: Codable, Equatable {
     @Published private(set) var currentUser: UserProfile?
     @Published var errorMessage: String?
     @Published private(set) var isAuthenticating = false
+    var accountService: RemoteAuthClient { remote }
     private let remote: RemoteAuthClient
 
     private let userKey = "resenago.currentUser"
@@ -2177,6 +2178,7 @@ struct ProfileView: View {
                 LabeledContent("Tarjetas vendidas", value: "\(store.totalCardsSold)")
                 LabeledContent("Recordatorios", value: "\(store.pendingReminders.count)")
             }
+            Section("Datos en la nube") { CloudBackupStatusView() }
             Section("Tus datos") {
                 NavigationLink("Copias de seguridad") { BackupView() }
                 if let title = store.undoTitle { Button("Deshacer: " + title) { store.undoLastChange() } }
@@ -2196,7 +2198,7 @@ struct ProfileView: View {
                     }
                 }.disabled(auth.isAuthenticating)
                 if let error = auth.errorMessage { Text(error).font(.footnote).foregroundStyle(.red) }
-                Text("Los negocios y el dinero se guardan en este iPhone. Antes de borrar la app, exporta una copia desde Copias de seguridad.")
+                Text("Tus cambios se guardan automáticamente en tu cuenta. Antes de borrar la app, comprueba que aparece «Guardado en la nube».")
                     .font(.footnote).foregroundStyle(.secondary)
                 Button("Cerrar sesión", role: .destructive) { auth.logout() }.disabled(auth.isAuthenticating)
             }

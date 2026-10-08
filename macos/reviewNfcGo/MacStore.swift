@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import CryptoKit
 
 enum DesktopError: LocalizedError {
     case invalidProfile, invalidBusiness, invalidDate, missingBusiness, damagedStore, noUndo
@@ -24,6 +25,7 @@ enum DesktopError: LocalizedError {
     @Published private(set) var damaged = false
     private struct UndoState { let title: String; let backup: BusinessBackup }
     private var undoStates: [UndoState] = []
+    var didChange: (() -> Void)?
     let fileURL: URL
     var recoveryURL: URL { fileURL.deletingLastPathComponent().appendingPathComponent("Antes-de-importar.json") }
     var owner: String? { backup?.owner }
@@ -54,12 +56,26 @@ enum DesktopError: LocalizedError {
         guard owner.contains("@"), owner.count <= 254, backup == nil, !damaged else { throw DesktopError.invalidProfile }
         try write(BusinessBackup(owner: owner, records: [], money: MoneyLedger()))
     }
+    func activateAccount(_ email: String) throws {
+        guard !damaged else { throw DesktopError.damagedStore }
+        guard owner != email else { return }
+        func cache(_ owner: String) -> URL {
+            let hash = SHA256.hash(data: Data(owner.utf8)).map { String(format: "%02x", $0) }.joined()
+            return fileURL.deletingLastPathComponent().appendingPathComponent("Account-" + hash + ".json")
+        }
+        if let backup { try backup.encoded().write(to: cache(backup.owner), options: .atomic) }
+        let target = cache(email)
+        let value = FileManager.default.fileExists(atPath: target.path)
+            ? try BusinessBackup.decode(Data(contentsOf: target), for: email)
+            : BusinessBackup(owner: email, records: [], money: MoneyLedger())
+        try write(value); undoStates = []; undoTitle = nil
+    }
     private func write(_ value: BusinessBackup) throws {
         let valid = try value.validated(for: value.owner)
         let data = try valid.encoded()
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: fileURL, options: .atomic)
-        backup = valid; damaged = false
+        backup = valid; damaged = false; didChange?()
     }
     private func commit(_ next: BusinessBackup, title: String) throws {
         guard let previous = backup else { throw DesktopError.invalidProfile }

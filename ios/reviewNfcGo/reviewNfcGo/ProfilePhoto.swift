@@ -7,6 +7,7 @@ import ImageIO
 @MainActor
 final class ProfilePhotoStore: ObservableObject {
     @Published private(set) var image: UIImage?
+    var didChange: (() -> Void)?
     private(set) var email: String?
     var backupData: Data? { email.flatMap { UserDefaults.standard.data(forKey: key($0)) } }
     static func validateBackupPhoto(_ data: Data?) throws {
@@ -22,6 +23,7 @@ final class ProfilePhotoStore: ObservableObject {
         guard let email else { throw BackupError.wrongAccount }
         if let data { UserDefaults.standard.set(data, forKey: key(email)); image = UIImage(data: data) }
         else { remove() }
+        didChange?()
     }
     private func key(_ email: String) -> String {
         let hash = SHA256.hash(data: Data(email.utf8)).map { String(format: "%02x", $0) }.joined()
@@ -44,8 +46,9 @@ final class ProfilePhotoStore: ObservableObject {
         }
         guard let data = normalized.jpegData(compressionQuality: 0.85) else { throw PhotoError.invalid }
         UserDefaults.standard.set(data, forKey: key(owner)); image = UIImage(data: data)
+        didChange?()
     }
-    func remove() { if let email { UserDefaults.standard.removeObject(forKey: key(email)) }; image = nil }
+    func remove() { if let email { UserDefaults.standard.removeObject(forKey: key(email)) }; image = nil; didChange?() }
     enum PhotoError: LocalizedError { case invalid; var errorDescription: String? { "No se pudo abrir esa foto. Prueba con otra imagen." } }
 }
 struct ProfileAvatar: View {

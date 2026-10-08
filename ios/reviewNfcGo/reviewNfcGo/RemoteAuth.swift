@@ -2,7 +2,7 @@ import Foundation
 import Combine
 import Security
 
-struct RemoteUser: Codable { let name: String; let email: String }
+struct RemoteUser: Codable { let name: String; let email: String; var id: String? = nil }
 struct RemoteSession: Codable {
     let token: String; let expiresAt: Double; let user: RemoteUser
     var refreshToken: String? = nil
@@ -25,7 +25,7 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
 }
 
 /// Shared by iPhone and Mac. Server login never falls back to a local password check.
-@MainActor final class RemoteAuthClient: ObservableObject {
+@MainActor final class RemoteAuthClient: ObservableObject, CloudBackupTransport {
     static let shared = RemoteAuthClient()
     @Published private(set) var server = ""
     @Published private(set) var session: RemoteSession?
@@ -234,12 +234,13 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         urlSession.dataTask(with: revoke) { _, _, _ in }.resume()
     }
     private struct SupabaseUser: Decodable {
+        var id: String?
         let email: String?
         var user_metadata: Metadata?
         struct Metadata: Decodable { var name: String?; var full_name: String? }
         func remoteUser() throws -> RemoteUser {
             guard let email, !email.isEmpty else { throw RemoteAuthError.unavailable }
-            return RemoteUser(name: user_metadata?.name ?? user_metadata?.full_name ?? String(email.split(separator: "@").first ?? ""), email: email.lowercased())
+            return RemoteUser(name: user_metadata?.name ?? user_metadata?.full_name ?? String(email.split(separator: "@").first ?? ""), email: email.lowercased(), id: id)
         }
     }
     private struct SupabaseSession: Decodable {
@@ -255,6 +256,49 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
             }
             return RemoteSession(token: token, expiresAt: expiry, user: try user.remoteUser(), refreshToken: refresh)
         }
+    }
+    func loadCloudBackup(owner: String) async throws -> CloudBackupRecord? {
+        try await cloudRequest(owner: owner, value: nil, expected: nil).first
+    }
+    func saveCloudBackup(_ value: BusinessBackup, expectedRevision: Int64?) async throws -> CloudBackupRecord {
+        guard let saved = try await cloudRequest(owner: value.owner, value: value, expected: expectedRevision).first else { throw CloudBackupError.conflict }
+        return saved
+    }
+    private func cloudRequest(owner: String, value: BusinessBackup?, expected: Int64?) async throws -> [CloudBackupRecord] {
+        let generation = authorizationGeneration
+        let user = try await validate()
+        guard generation == authorizationGeneration, user.email == owner, provider == .supabase,
+              let id = user.id, UUID(uuidString: id) != nil, let token = session?.token else { throw CloudBackupError.invalid }
+        let origin = server
+        var url = URLComponents(string: server + "/rest/v1/reviewnfcgo_backups")!
+        url.queryItems = [URLQueryItem(name: "select", value: "user_id,revision,payload,updated_at")]
+        if value == nil || expected != nil { url.queryItems!.append(URLQueryItem(name: "user_id", value: "eq." + id)) }
+        if let expected { url.queryItems!.append(URLQueryItem(name: "revision", value: "eq.\(expected)")) }
+        if value == nil { url.queryItems!.append(URLQueryItem(name: "limit", value: "1")) }
+        var request = URLRequest(url: url.url!, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 45)
+        request.httpMethod = value == nil ? "GET" : (expected == nil ? "POST" : "PATCH")
+        request.setValue(publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("return=representation", forHTTPHeaderField: "Prefer")
+        if let value {
+            let valid = try value.validated(for: owner)
+            request.httpBody = try JSONEncoder().encode(CloudBackupRecord(user_id: id, revision: (expected ?? 0) + 1, payload: valid))
+            guard request.httpBody!.count <= 25_000_000 else { throw BackupError.tooLarge }
+        }
+        let (data, response) = try await urlSession.data(for: request)
+        guard generation == authorizationGeneration, server == origin, session?.token == token else { throw CancellationError() }
+        guard let http = response as? HTTPURLResponse, data.count <= 26_000_000 else { throw CloudBackupError.invalid }
+        if http.statusCode == 409 { throw CloudBackupError.conflict }
+        if [404, 403].contains(http.statusCode) { throw CloudBackupError.notConfigured }
+        guard (200...299).contains(http.statusCode) else { throw CloudBackupError.unavailable }
+        let rows = try JSONDecoder().decode([CloudBackupRecord].self, from: data)
+        guard rows.count <= 1 else { throw CloudBackupError.invalid }
+        for row in rows {
+            guard row.user_id.lowercased() == id.lowercased(), row.revision > 0 else { throw CloudBackupError.invalid }
+            _ = try row.payload.validated(for: owner)
+        }
+        return rows
     }
     private struct EmptyResponse: Decodable {}
     private func request<Response: Decodable>(_ path: String, method: String, body: [String: Any]? = nil, authorized: Bool,

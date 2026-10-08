@@ -15,6 +15,7 @@ struct BackupDocument: FileDocument {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
 struct BackupView: View {
+    @EnvironmentObject private var cloud: CloudBackupController
     @EnvironmentObject private var store: AppStore
     @EnvironmentObject private var photos: ProfilePhotoStore
     @State private var document = BackupDocument()
@@ -25,6 +26,7 @@ struct BackupView: View {
     @State private var message: String?
     var body: some View {
         List {
+            Section("Datos en la nube") { CloudBackupStatusView() }
             Section {
                 Button { export() } label: { Label("Guardar copia en Archivos", systemImage: "square.and.arrow.up") }
                 Button { importing = true } label: { Label("Restaurar una copia", systemImage: "arrow.clockwise") }

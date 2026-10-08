@@ -17,6 +17,7 @@ import CryptoKit
             checks += try await verifyCentralAccounts()
             checks += try await verifySupabaseAccounts()
             checks += try await verifyGoogleAccounts()
+            checks += try await verifyCloudData()
             let owner = "pablo@example.invalid"
             try store.createWorkspace(email: owner)
             let card = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Azul")
@@ -283,6 +284,53 @@ import CryptoKit
         }
         return checks
     }
+    private static func verifyCloudData() async throws -> [String] {
+        var checks: [String] = []
+        func check(_ condition: Bool, _ label: String) throws {
+            guard condition else { throw NSError(domain: "CloudData", code: 1, userInfo: [NSLocalizedDescriptionKey: label]) }
+            checks.append(label)
+        }
+        let owner = "cloud@example.com"
+        let suite = "cloud-data-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let transport = CloudVerificationTransport()
+        let record = VisitRecord(place: PlaceResult(id: "cloud-cafe", name: "Café", address: "Centro", latitude: 38, longitude: -6), earnings: 20, cardsSold: 2, unitEarnings: 10, status: .completed)
+        var ledger = MoneyLedger(); ledger.synchronize([record])
+        let original = BusinessBackup(owner: owner, records: [record], money: ledger)
+        var local = original
+        let sync = CloudBackupController(defaults: defaults)
+        sync.connect(owner: owner, transport: transport, read: { local }, apply: { local = $0 }, automatic: false)
+        await sync.synchronize()
+        try check(sync.state == .saved && transport.row?.payload.money.balanceCents == 2000, "Guardar negocio sube ingresos y datos a la nube")
+        defaults.removePersistentDomain(forName: suite)
+        local = BusinessBackup(owner: owner, records: [], money: MoneyLedger())
+        let reinstall = CloudBackupController(defaults: defaults)
+        reinstall.connect(owner: owner, transport: transport, read: { local }, apply: { local = $0 }, automatic: false)
+        await reinstall.synchronize()
+        try check(reinstall.state == .saved && local.records == original.records && local.money == original.money && transport.writes == 1, "Reinstalar y entrar recupera negocios y dinero sin sobrescribir la nube vacía")
+        local.records[0].notes = "Cambio en iPhone"
+        var remote = original; remote.records[0].notes = "Cambio en Mac"
+        transport.row = CloudBackupRecord(user_id: "test", revision: 2, payload: remote)
+        await reinstall.synchronize()
+        try check(reinstall.state == .conflict && local.records[0].notes == "Cambio en iPhone" && transport.writes == 1, "Cambios simultáneos conservan ambas copias y piden resolver")
+        await reinstall.resolve(useCloud: true)
+        try check(local.records[0].notes == "Cambio en Mac" && defaults.data(forKey: "reviewNfcGo.cloud.recovery.local." + owner) != nil, "Resolver conserva recuperación antes de aplicar nube")
+        transport.offline = true
+        local.records[0].notes = "Sin conexión"
+        await reinstall.synchronize()
+        try check(local.records[0].notes == "Sin conexión" && transport.writes == 1, "Sin conexión conserva cambios locales pendientes")
+        transport.offline = false
+        await reinstall.synchronize()
+        try check(reinstall.state == .saved && transport.row?.payload.records[0].notes == "Sin conexión", "Recuperar conexión sube los cambios pendientes")
+        let another = BusinessBackup(owner: "other@example.com", records: [], money: MoneyLedger())
+        transport.row = CloudBackupRecord(user_id: "other", revision: 1, payload: another)
+        await reinstall.synchronize()
+        try check(local.owner == owner && local.records.count == 1 && reinstall.state != .saved, "Una respuesta de otra cuenta nunca sustituye los datos")
+        var dated = original; dated.createdAt = Date().addingTimeInterval(100)
+        try check(try original.cloudFingerprint() == dated.cloudFingerprint(), "La fecha de exportación no provoca conflictos falsos")
+        return checks
+    }
     private static func verifyGoogleAccounts() async throws -> [String] {
         var checks: [String] = []
         func check(_ value: Bool, _ label: String) throws {
@@ -400,6 +448,21 @@ import CryptoKit
         try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]).write(to: output.appendingPathComponent("verification.json"))
     }
 }
+@MainActor private final class CloudVerificationTransport: CloudBackupTransport {
+    var row: CloudBackupRecord?
+    var writes = 0
+    var offline = false
+    func loadCloudBackup(owner: String) async throws -> CloudBackupRecord? {
+        if offline { throw CloudBackupError.unavailable }; return row
+    }
+    func saveCloudBackup(_ value: BusinessBackup, expectedRevision: Int64?) async throws -> CloudBackupRecord {
+        if offline { throw CloudBackupError.unavailable }
+        guard row?.revision == expectedRevision else { throw CloudBackupError.conflict }
+        let next = CloudBackupRecord(user_id: "test", revision: (expectedRevision ?? 0) + 1, payload: value)
+        row = next; writes += 1; return next
+    }
+}
+
 private final class AuthVerificationProtocol: URLProtocol {
     static var handler: ((URLRequest) throws -> (Int, [String: Any]))?
     override class func canInit(with request: URLRequest) -> Bool { true }

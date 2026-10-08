@@ -1,8 +1,3 @@
-reviewNfcGo 5.3: acceso con Google.
-
-Botón Continuar con Google en acceso y perfil, también en Mac. Acceso nativo mediante navegador del sistema y PKCE; al cancelarlo se conserva la sesión existente. Desde Perfil se comprueba el mismo correo antes de cambiar la sesión. Disponible cuando el propietario active el proveedor de Google en Supabase.
-
-Registro e inicio de sesión en Supabase desde iPhone y Mac, sin dejar un PC encendido ni configurar direcciones. El registro requiere conexión y las sesiones se guardan en el llavero del dispositivo.
-Si vienes de una versión con cuentas locales, crea tu cuenta en la nube con el mismo correo. Puedes elegir una contraseña nueva. Actualiza sin desinstalar para conservar tus negocios, visitas y operaciones.
-Las cuentas se comparten entre dispositivos. Los negocios, inventario y dinero siguen guardándose en cada dispositivo: para trasladarlos utiliza exportar e importar una copia JSON. No hay sincronización automática de esos datos en esta versión.
-Búsquedas con una segunda clave de respaldo. En Mac: análisis por periodos, comparación de ingresos y gastos, saldo acumulado, categorías, ranking de negocios, objetivos e informes PDF y CSV.
+Tus datos en la nube. Negocios, visitas, inventario, ingresos, gastos y foto se guardan automáticamente en tu cuenta y se recuperan al iniciar sesión después de reinstalar.
+Comprueba «Guardado en la nube» en Perfil. Sin conexión, los cambios quedan pendientes en el dispositivo. Los cambios simultáneos se resuelven conservando copias de recuperación.
+Compatible con la sincronización de reviewNfcGo para Mac 1.4.

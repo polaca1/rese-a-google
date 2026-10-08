@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 @main
 struct ReviewNfcGoApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @StateObject private var cloud = CloudBackupController()
     @StateObject private var auth = AuthStore()
     @StateObject private var store = AppStore.shared
     @StateObject private var photos = ProfilePhotoStore()
@@ -62,6 +63,7 @@ struct ReviewNfcGoApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environmentObject(cloud)
                 .environmentObject(auth)
                 .environmentObject(store)
                 .environmentObject(photos)
@@ -75,6 +77,7 @@ struct ReviewNfcGoApp: App {
                     store.switchUser(auth.currentUser?.email)
                     photos.switchUser(auth.currentUser?.email)
                     store.restorePhoto = { [weak photos] data in try? photos?.restoreBackupData(data) }
+                    configureCloud()
                     Task { await auth.validateServerSession() }
                     #if DEBUG
                     // Simulator verification enters the same validated route without
@@ -91,10 +94,10 @@ struct ReviewNfcGoApp: App {
                     #endif
                 }
                 .onChange(of: auth.currentUser?.email) { email in
-                    store.switchUser(email)
-                    photos.switchUser(email)
+                    configureCloud()
                 }
                 .onChange(of: scenePhase) { phase in
+                    cloud.requestSync(immediate: true)
                     if phase == .active {
                         ReminderCoordinator.refresh()
                         AlertHistoryStore.shared.refresh()
@@ -104,4 +107,20 @@ struct ReviewNfcGoApp: App {
                 }
         }
     }
+    private func configureCloud() {
+        var email = auth.currentUser?.email
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--verification") }) { email = nil }
+        #endif
+        cloud.connect(owner: nil, transport: auth.accountService, read: { try store.backup(photo: photos.backupData) }, apply: { _ in })
+        store.switchUser(auth.currentUser?.email); photos.switchUser(auth.currentUser?.email)
+        store.didChange = { [weak cloud] in cloud?.localChanged() }
+        photos.didChange = { [weak cloud] in cloud?.localChanged() }
+        cloud.connect(owner: email, transport: auth.accountService, read: { try store.backup(photo: photos.backupData) }, apply: { value in
+            try ProfilePhotoStore.validateBackupPhoto(value.photo)
+            try store.restore(value, previousPhoto: photos.backupData)
+            try photos.restoreBackupData(value.photo)
+        })
+    }
+
 }
