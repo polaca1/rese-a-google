@@ -69,8 +69,8 @@ struct MacBusinessEditor: View {
                     }.pickerStyle(.segmented)
                     TextField("Notas", text: $draft.notes, axis: .vertical).lineLimit(3...5)
                 }
-                Section("Venta de tarjetas") {
-                    Stepper("Tarjetas vendidas: \(draft.cardsSold)", value: $draft.cardsSold, in: (draft.status == .completed ? 1 : 0)...100_000)
+                Section(draft.hasQuickSales == true ? "Ventas anteriores de tarjetas" : "Venta de tarjetas") {
+                    Stepper("Tarjetas vendidas: \(draft.cardsSold)", value: $draft.cardsSold, in: (draft.status == .completed && draft.hasQuickSales != true ? 1 : 0)...100_000)
                     TextField("Ganancia por tarjeta (€)", text: $unitAmount)
                     LabeledContent("Total", value: euro(MoneyLedger.cents(VisitRecord.totalEarnings(perCard: SaleAmountFormatting.parse(unitAmount) ?? 0, count: draft.cardsSold)) ?? 0))
                     Picker("Tarjeta / color", selection: $draft.inventoryProductID) {
@@ -91,7 +91,7 @@ struct MacBusinessEditor: View {
             sheetFooter { dismiss() } save: { save() }
         }.frame(width: 600, height: 700)
         .onAppear { owner = store.owner }
-        .onChange(of: draft.status) { _, value in if value == .completed { draft.cardsSold = max(1, draft.cardsSold); hasVisit = false } }
+        .onChange(of: draft.status) { _, value in if value == .completed { draft.cardsSold = max(draft.hasQuickSales == true ? 0 : 1, draft.cardsSold); hasVisit = false } }
     }
     private func choose(_ place: PlaceResult) {
         if let existing = store.records.first(where: { $0.place.id == place.id }) {

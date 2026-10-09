@@ -1900,7 +1900,7 @@ struct RecordEditView: View {
                     .pickerStyle(.segmented)
                     .onChange(of: binding.wrappedValue.status) { status in
                         if status == .completed {
-                            draft?.cardsSold = max(1, draft?.cardsSold ?? 0)
+                            draft?.cardsSold = max(draft?.hasQuickSales == true ? 0 : 1, draft?.cardsSold ?? 0)
                             reminderEnabled = false
                             draft?.reminderDate = nil
                             draft?.notificationDate = nil
@@ -1909,7 +1909,7 @@ struct RecordEditView: View {
                     TextField("Notas", text: binding.notes, axis: .vertical).lineLimit(3...7).focused($focusedField, equals: .notes)
                 }
                 Section {
-                    Stepper(value: binding.cardsSold, in: (isSold ? 1 : 0)...max(100_000, original?.cardsSold ?? 0)) {
+                    Stepper(value: binding.cardsSold, in: (isSold && draft?.hasQuickSales != true ? 1 : 0)...max(100_000, original?.cardsSold ?? 0)) {
                         LabeledContent("Tarjetas vendidas", value: "\(binding.wrappedValue.cardsSold)")
                     }
                     if !store.money.products.filter({ $0.kind == .nfcCard }).isEmpty {
@@ -1943,7 +1943,7 @@ struct RecordEditView: View {
                             .font(.footnote).foregroundStyle(.red)
                     }
                 } header: {
-                    Text("Venta de tarjetas")
+                    Text(draft?.hasQuickSales == true ? "Ventas anteriores de tarjetas" : "Venta de tarjetas")
                 } footer: {
                     Text("Ganancia total = tarjetas vendidas × ganancia por tarjeta. Máximo de 50 € por tarjeta.")
                 }

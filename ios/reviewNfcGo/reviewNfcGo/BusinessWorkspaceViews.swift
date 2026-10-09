@@ -289,12 +289,19 @@ struct WorkspaceRouteView: View {
     @Published var message: String?
     private let manager = CLLocationManager()
     override init() { super.init(); manager.delegate = self; manager.desiredAccuracy = kCLLocationAccuracyHundredMeters }
+    private var authorized: Bool {
+        #if os(macOS)
+        return manager.authorizationStatus == .authorizedAlways
+        #else
+        return [.authorizedAlways, .authorizedWhenInUse].contains(manager.authorizationStatus)
+        #endif
+    }
     func request() {
         if manager.authorizationStatus == .notDetermined { manager.requestWhenInUseAuthorization() }
-        else if [.authorizedAlways, .authorizedWhenInUse].contains(manager.authorizationStatus) { message = "Buscando ubicación…"; manager.requestLocation() }
+        else if authorized { message = "Buscando ubicación…"; manager.requestLocation() }
         else { message = "Permite la ubicación en los ajustes de privacidad." }
     }
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) { if [.authorizedAlways, .authorizedWhenInUse].contains(manager.authorizationStatus) { manager.requestLocation() } }
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) { if authorized { manager.requestLocation() } }
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let value = locations.last else { return }
         origin = PlaceResult(id: "route-origin", name: "Mi ubicación", address: "", latitude: value.coordinate.latitude, longitude: value.coordinate.longitude); message = "Ruta ordenada desde tu ubicación."
