@@ -77,18 +77,17 @@ struct SalesTests {
         let review = "https://search.google.com/local/writereview?placeid=ChIJ-Abc_123"
         let handoff = NFCWriterLink.handoff(for: review)!
         let query = URLComponents(url: handoff, resolvingAgainstBaseURL: false)!.queryItems!
-        precondition(handoff.scheme == "nfchelper" && handoff.host == "write")
+        precondition(handoff.scheme == "simplynfc" && handoff.host == "writer")
         precondition(query.count == 1 && query[0].name == "url")
-        precondition(query[0].value == "search.google.com/local/writereview?placeid=ChIJ-Abc_123")
-        precondition("https://" + query[0].value! == review)
+        precondition(query[0].value == review)
         let complex = "https://search.google.com/local/writereview?placeid=ChIJ%2BAbc&source=app+test#review"
         let transported = URLComponents(url: NFCWriterLink.handoff(for: complex)!, resolvingAgainstBaseURL: false)!.queryItems!
-        precondition(transported.count == 1 && "https://" + transported[0].value! == complex)
+        precondition(transported.count == 1 && transported[0].value == complex)
         precondition(NFCWriterLink.handoff(for: "https://") == nil)
         precondition(NFCWriterLink.handoff(for: "http://search.google.com/") == nil)
         precondition(NFCWriterLink.handoff(for: "https://user:password@example.com/") == nil)
         precondition(NFCWriterLink.handoff(for: "https://search.google.com/bad path") == nil)
-        print("NFC: un solo prefijo HTTPS, Place ID completo y parámetros conservados")
+        print("NFC: Simply NFC recibe el enlace HTTPS completo y conserva Place ID y parámetros")
         print("Ventas: límites de 0/1/varias tarjetas, reducción, persistencia y migración correctos")
     }
 }

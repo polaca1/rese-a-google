@@ -672,15 +672,13 @@ struct GooglePlacesService {
 // MARK: - NFC handoff (sin entitlement Core NFC)
 
 enum ExternalNFCWriter {
-    private static let appStoreURL = URL(string: "https://apps.apple.com/es/app/nfc-helper/id6472720100")!
+    private static let appStoreURL = URL(string: "https://apps.apple.com/es/app/simply-nfc-tag-writer-reader/id1262550712")!
 
-    /// NFC Helper documenta nfchelper://write?url=... para abrir directamente
-    /// la pantalla de escritura con el registro URL ya cargado.
+    /// Simply NFC expone simplynfc://writer. Se conserva la dirección completa
+    /// en el portapapeles por si el escritor necesita que se pegue manualmente.
     static func write(reviewURL: String) {
-        // Respaldo silencioso: si hiciera falta, el mismo enlace queda en el portapapeles.
-        UIPasteboard.general.string = reviewURL
-
         guard let writerURL = NFCWriterLink.handoff(for: reviewURL) else { return }
+        UIPasteboard.general.string = reviewURL
         UIApplication.shared.open(writerURL, options: [:]) { success in
             if !success {
                 UIApplication.shared.open(appStoreURL)

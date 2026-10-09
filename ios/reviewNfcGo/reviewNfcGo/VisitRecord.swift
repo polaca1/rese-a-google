@@ -160,21 +160,17 @@ enum SaleAmountFormatting {
     }
 }
 
-/// NFC Helper prepends the selected https:// URI prefix when writing the NDEF
-/// record. Its body field must therefore contain only the remainder of the URL.
+/// Transport the entire HTTPS URL as one encoded query value. Simply NFC owns
+/// the NDEF URI encoding; stripping a prefix here would lose part of the address.
 enum NFCWriterLink {
-    static func body(for reviewURL: String) -> String? {
+    static func handoff(for reviewURL: String) -> URL? {
         guard reviewURL.hasPrefix("https://"), let value = URLComponents(string: reviewURL),
               value.scheme == "https", let host = value.host, !host.isEmpty,
               value.user == nil, value.password == nil, value.port == nil,
               !reviewURL.contains(where: { $0.isWhitespace || $0.isNewline }) else { return nil }
-        return String(reviewURL.dropFirst("https://".count))
-    }
-    static func handoff(for reviewURL: String) -> URL? {
-        guard let body = body(for: reviewURL) else { return nil }
         // Escape all delimiters, including nested query separators, exactly once.
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
-        guard let encoded = body.addingPercentEncoding(withAllowedCharacters: allowed) else { return nil }
-        return URL(string: "nfchelper://write?url=" + encoded)
+        guard let encoded = reviewURL.addingPercentEncoding(withAllowedCharacters: allowed) else { return nil }
+        return URL(string: "simplynfc://writer?url=" + encoded)
     }
 }
