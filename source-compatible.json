@@ -9,11 +9,11 @@
       "developerName": "Pablo Cancho Flores",
       "localizedDescription": "Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Versión de escritorio para macOS 14 disponible en la release.",
       "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/icon.png",
-      "version": "5.5",
-      "versionDate": "2026-10-09T15:22:57Z",
-      "versionDescription": "Actividad, ventas y objetivos sincronizados entre iPhone y Mac.\n\n• Ruta del día por horarios y cercanía, con recorridos por tramos en Google Maps.\n• Clientes con estados Pendiente, Interesado, Volver y Vendido; notas y visitas con fecha.\n• Venta rápida de tarjetas por color, stands y otros productos, con cantidad, precio y forma de pago.\n• Beneficio por venta y negocio, descontando el coste de los productos vendidos sin duplicar gastos.\n• Objetivos semanales de tarjetas, negocios visitados y beneficio, con gráfica diaria.\n• Recuperación de las tres versiones anteriores conservadas en la nube, con copia previa y control de conflictos.\n\nLos cambios se guardan automáticamente en tu cuenta. Actualiza sin borrar la app para conservar también los datos pendientes de sincronización.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.5-build28/reviewNfcGo-5.5-build28.ipa",
-      "size": 6682440,
+      "version": "5.5.1",
+      "versionDate": "2026-10-09T17:49:26Z",
+      "versionDescription": "El botón Escribir NFC abre Simply NFC en lugar de NFC Helper. Si no está instalada, se abre su página en App Store.\n\nEl enlace de reseña completo se conserva en el portapapeles y se envía al escritor. Si la dirección no aparece preparada, selecciona un registro URL y pega el enlace copiado.\n\nVuelve a escribir las tarjetas afectadas por el error anterior: actualizar la app no modifica lo que ya está grabado en ellas.\n\nSe mantienen las funciones de actividad y la sincronización automática de tu cuenta.",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.5.1-build29/reviewNfcGo-5.5.1-build29.ipa",
+      "size": 6684225,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
