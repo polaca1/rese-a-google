@@ -14,6 +14,15 @@
       "tintColor": "1976EC",
       "versions": [
         {
+          "version": "5.4.1",
+          "buildVersion": "27",
+          "date": "2026-10-09T13:24:24Z",
+          "localizedDescription": "Corrección del retorno de Google: acepta los fragmentos auxiliares del navegador sin rechazar un código válido y mantiene la protección PKCE.\nGoogle y correo con contraseña comparten los datos de la misma cuenta verificada mediante la vinculación automática de Supabase. Al conectar Google desde Perfil se comprueba que se conserva la cuenta original.\nSe mantiene el guardado automático de negocios, visitas, inventario, dinero y foto. Comprueba «Guardado en la nube» antes de eliminar la app.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.4.1-build27.ipa",
+          "size": 6516746,
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "5.4",
           "buildVersion": "26",
           "date": "2026-10-08T22:15:57Z",
@@ -158,11 +167,11 @@
           "minOSVersion": "16.1"
         }
       ],
-      "version": "5.4",
-      "versionDate": "2026-10-08T22:15:57Z",
-      "versionDescription": "Tus datos en la nube. Negocios, visitas, inventario, ingresos, gastos y foto se guardan automáticamente en tu cuenta y se recuperan al iniciar sesión después de reinstalar.\nComprueba «Guardado en la nube» en Perfil. Sin conexión, los cambios quedan pendientes en el dispositivo. Los cambios simultáneos se resuelven conservando copias de recuperación.\nCompatible con la sincronización de reviewNfcGo para Mac 1.4.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.4-build26/reviewNfcGo-5.4-build26.ipa",
-      "size": 6513820,
+      "version": "5.4.1",
+      "versionDate": "2026-10-09T13:24:24Z",
+      "versionDescription": "Corrección del retorno de Google: acepta los fragmentos auxiliares del navegador sin rechazar un código válido y mantiene la protección PKCE.\nGoogle y correo con contraseña comparten los datos de la misma cuenta verificada mediante la vinculación automática de Supabase. Al conectar Google desde Perfil se comprueba que se conserva la cuenta original.\nSe mantiene el guardado automático de negocios, visitas, inventario, dinero y foto. Comprueba «Guardado en la nube» antes de eliminar la app.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.4.1-build27.ipa",
+      "size": 6516746,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
@@ -190,6 +199,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 5.4.1 (27)",
+      "identifier": "reviewnfcgo-5.4.1-build27",
+      "caption": "Corrección del retorno de Google: acepta los fragmentos auxiliares del navegador sin rechazar un código válido y mantiene la protección PKCE.",
+      "date": "2026-10-09T13:24:24Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-5.4.1-build27",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 5.4 (26)",
       "identifier": "reviewnfcgo-5.4-build26",
