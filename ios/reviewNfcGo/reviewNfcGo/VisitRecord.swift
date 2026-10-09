@@ -35,6 +35,16 @@ enum VisitStatus: String, Codable, CaseIterable {
     }
 }
 
+enum ContactStage: String, Codable, CaseIterable, Identifiable {
+    case pending = "Pendiente", interested = "Interesado", returnLater = "Volver", sold = "Vendido"
+    var id: String { rawValue }
+}
+struct FollowUpEvent: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var date = Date()
+    var text: String
+    var isVisit = false
+}
 struct VisitRecord: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var place: PlaceResult
@@ -52,6 +62,22 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     /// Momento en el que el usuario quiere recibir el aviso. Si es nil, se avisa a la hora de la visita.
     var notificationDate: Date? = nil
 
+    var interested: Bool? = nil
+    var followUp: [FollowUpEvent]? = nil
+    var hasQuickSales: Bool? = nil
+    var trackingStage: ContactStage {
+        get { status == .completed ? .sold : status == .pending ? .returnLater : interested == true ? .interested : .pending }
+        set {
+            interested = newValue == .interested
+            status = newValue == .sold ? .completed : newValue == .returnLater ? .pending : .contacted
+        }
+    }
+    mutating func trackChanges(from old: VisitRecord?, now: Date = Date()) {
+        var events = followUp ?? []
+        if let old, old.trackingStage != trackingStage { events.append(FollowUpEvent(date: now, text: "Estado: " + trackingStage.rawValue)) }
+        if let old, old.notes != notes { events.append(FollowUpEvent(date: now, text: notes.isEmpty ? "Nota eliminada" : notes)) }
+        followUp = events.isEmpty ? nil : Array(events.suffix(1000))
+    }
     static let maximumEarningsPerCard: Double = 50
     var maximumEarnings: Double { Double(max(0, cardsSold)) * Self.maximumEarningsPerCard }
     var earningsPerCard: Double { unitEarnings ?? (cardsSold > 0 ? earnings / Double(cardsSold) : 0) }
@@ -61,7 +87,7 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     var cardsSoldDescription: String { cardsSold == 1 ? "1 tarjeta vendida" : "\(cardsSold) tarjetas vendidas" }
 
     mutating func normalizeSales() {
-        cardsSold = max(status == .completed ? 1 : 0, cardsSold)
+        cardsSold = max(status == .completed && hasQuickSales != true ? 1 : 0, cardsSold)
         if let unitEarnings {
             let unit = unitEarnings.isFinite ? min(max(0, unitEarnings), Self.maximumEarningsPerCard) : 0
             self.unitEarnings = (unit * 100).rounded() / 100
@@ -71,6 +97,7 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case interested, followUp, hasQuickSales
         case id, place, createdAt, earnings, cardsSold, unitEarnings, inventoryProductID, arrivedAt, notes, status, reminderDate, notificationDate
     }
 }
@@ -96,6 +123,9 @@ extension VisitRecord {
         unitEarnings = try values.decodeIfPresent(Double.self, forKey: .unitEarnings)
         inventoryProductID = try values.decodeIfPresent(UUID.self, forKey: .inventoryProductID)
         arrivedAt = try values.decodeIfPresent(Date.self, forKey: .arrivedAt)
+        interested = try values.decodeIfPresent(Bool.self, forKey: .interested)
+        followUp = try values.decodeIfPresent([FollowUpEvent].self, forKey: .followUp)
+        hasQuickSales = try values.decodeIfPresent(Bool.self, forKey: .hasQuickSales)
         normalizeSales()
     }
 }

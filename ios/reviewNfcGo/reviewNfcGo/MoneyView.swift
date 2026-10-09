@@ -29,8 +29,10 @@ struct MoneyView: View {
                 }.padding(.vertical, 8)
             }
             Section {
+                NavigationLink { QuickSaleView() } label: { Label("Registrar venta", systemImage: "plus.circle.fill") }
+                NavigationLink { BusinessHubView() } label: { Label("Actividad y objetivos", systemImage: "target") }
                 Button { showExpense = true } label: { Label("Registrar compra o gasto", systemImage: "plus.circle.fill") }
-                NavigationLink { ProfitView() } label: { Label("Beneficio por negocio", systemImage: "chart.line.uptrend.xyaxis") }
+                NavigationLink { SaleProfitView() } label: { Label("Beneficio por negocio", systemImage: "chart.line.uptrend.xyaxis") }
                 if let title = store.undoTitle { Button { store.undoLastChange() } label: { Label("Deshacer: " + title, systemImage: "arrow.uturn.backward") } }
                 NavigationLink { InventoryView() } label: {
                     HStack {

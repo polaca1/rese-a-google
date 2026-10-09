@@ -317,6 +317,8 @@ import CryptoKit
                                earnings: 30, cardsSold: 3, unitEarnings: 10, inventoryProductID: product.id, status: .completed)
         try store.save(sale)
         try await waitUntil { sync.state == .saved && transport.row?.payload.money.balanceCents == 2000 && transport.row?.payload.money.stock(product.id) == 7 }
+        try store.setWeeklyGoals(WeeklyGoals(cards: 40, visits: 8, profitCents: 12000))
+        try await waitUntil { transport.row?.payload.money.weeklyGoals?.cards == 40 && sync.state == .saved }
         try store.delete(sale.id)
         try await waitUntil { sync.state == .saved && transport.row?.payload.records.isEmpty == true && transport.row?.payload.money.balanceCents == 2000 }
         return ["Añadir un producto sube inventario y gasto automáticamente sin pulsar sincronizar",
@@ -429,6 +431,16 @@ import CryptoKit
         transport.offline = false
         await reinstall.synchronize()
         try check(reinstall.state == .saved && transport.row?.payload.records[0].notes == "Sin conexión", "Recuperar conexión sube los cambios pendientes")
+        let historical = CloudBackupRecord(user_id: "test", revision: 1, payload: original)
+        let revisionBeforeRestore = transport.row!.revision
+        try await reinstall.restorePrevious(historical)
+        try check(reinstall.state == .saved && local.records == original.records && transport.row?.revision == revisionBeforeRestore + 1, "Restaurar una versión antigua crea una revisión nueva sin rebobinar el servidor")
+        try check(reinstall.recoveryData(remote: false) != nil && reinstall.recoveryData(remote: true) != nil, "Restaurar conserva copias locales y remotas anteriores")
+        let history = try await reinstall.previousCopies()
+        try check(!history.isEmpty && history.count <= 3, "Historial de recuperación devuelve las últimas versiones")
+        var foreign = original; foreign.owner = "foreign@example.com"
+        do { try await reinstall.restorePrevious(CloudBackupRecord(user_id: "other", revision: 1, payload: foreign)); throw DesktopError.invalidBusiness }
+        catch BackupError.wrongAccount { checks.append("Restauración rechaza copias de otra cuenta") }
         let another = BusinessBackup(owner: "other@example.com", records: [], money: MoneyLedger())
         transport.row = CloudBackupRecord(user_id: "other", revision: 1, payload: another)
         await reinstall.synchronize()
@@ -578,7 +590,11 @@ import CryptoKit
 @MainActor private final class CloudVerificationTransport: CloudBackupTransport {
     var row: CloudBackupRecord?
     var writes = 0
+    var history: [CloudBackupRecord] = []
     var offline = false
+    func loadCloudHistory(owner: String) async throws -> [CloudBackupRecord] {
+        if offline { throw CloudBackupError.unavailable }; return history
+    }
     func loadCloudBackup(owner: String) async throws -> CloudBackupRecord? {
         if offline { throw CloudBackupError.unavailable }; return row
     }
@@ -586,6 +602,7 @@ import CryptoKit
         if offline { throw CloudBackupError.unavailable }
         guard row?.revision == expectedRevision else { throw CloudBackupError.conflict }
         let next = CloudBackupRecord(user_id: "test", revision: (expectedRevision ?? 0) + 1, payload: value)
+        if let row { history.insert(row, at: 0); history = Array(history.prefix(3)) }
         row = next; writes += 1; return next
     }
 }

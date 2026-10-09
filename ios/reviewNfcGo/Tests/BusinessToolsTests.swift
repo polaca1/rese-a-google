@@ -77,6 +77,49 @@ import Foundation
         bulk.cardsSold = 16; bulk.earnings = 160
         cheap.synchronize([bulk], now: now)
         check(cheap.sales[bulk.id.uuidString]?.costCents == 450, "Bulk purchase cost retains fractions of a cent across partial sales")
+        var quick = purchased
+        var customer = VisitRecord(place: place, createdAt: now)
+        quick.synchronize([customer], now: now)
+        let stand = InventoryProduct(name: "Stand", kind: .stand)
+        try quick.addExpense(title: "Stands", amount: 12, quantity: 4, productID: stand.id, newProduct: stand, date: now, merchant: "", method: "", url: "", notes: "")
+        let beforeQuick = quick, beforeCustomer = customer
+        let items = [QuickSaleInput(productID: card.id, quantity: 2, unitPrice: 15), QuickSaleInput(productID: stand.id, quantity: 1, unitPrice: 8)]
+        try quick.registerSale(business: &customer, items: items, payment: "Bizum", now: now)
+        check(quick.businessIncome(customer.id) == 3800 && quick.businessProfit(customer.id) == 2500, "Mixed card and stand sale preserves gross, cost and profit")
+        check(quick.stock(card.id) == 8 && quick.stock(stand.id) == 3 && quick.allCardsSold == 2, "Sale consumes both products without inventing a legacy card")
+        let quickCount = quick.transactions.count
+        quick.synchronize([customer], now: now)
+        check(quick.transactions.count == quickCount && customer.cardsSold == 0, "Repeated sync never duplicates quick sale income")
+        let quickBackup = BusinessBackup(owner: backup.owner, records: [customer], money: quick)
+        let quickDecoded = try BusinessBackup.decode(quickBackup.encoded(), for: backup.owner)
+        check(quickDecoded.money == quick && quickDecoded.records == [customer], "Quick sale backups round trip without legacy normalization")
+        let valid = quick
+        do { try quick.registerSale(business: &customer, items: [QuickSaleInput(productID: stand.id, quantity: 100, unitPrice: 8)], payment: "Tarjeta"); preconditionFailure("Oversell accepted") } catch { checks += 1 }
+        check(quick == valid, "Rejected sale leaves money and stock untouched")
+        do { try quick.registerSale(business: &customer, items: [items[0], items[0]], payment: "Tarjeta"); preconditionFailure("Duplicate products accepted") } catch { checks += 1 }
+        check(quick == valid, "Duplicate line cannot overdraw inventory")
+        var quickUndo = quick
+        quickUndo.undo(to: beforeQuick, records: [beforeCustomer], now: now)
+        check(quickUndo.incomeCents == beforeQuick.incomeCents && quickUndo.stock(card.id) == 10 && quickUndo.stock(stand.id) == 4, "Undo mixed sale reverses receipts and returns inventory")
+        check(quickUndo.quickSales?.first?.voidedAt != nil && quickUndo.transactions.count > quick.transactions.count, "Undo keeps sale audit and compensation")
+        _ = try BusinessBackup(owner: backup.owner, records: [beforeCustomer], money: quickUndo).validated(for: backup.owner)
+        try quick.addExpense(title: "More stands", amount: 100, quantity: 2, productID: stand.id, date: now, merchant: "", method: "", url: "", notes: "")
+        check(quick.businessProfit(customer.id) == 2500, "New expensive stands do not alter historical margin")
+        customer.followUp = [FollowUpEvent(date: now, text: "Visita", isVisit: true), FollowUpEvent(date: now, text: "Segunda visita", isVisit: true)]
+        customer.arrivedAt = now
+        let progress = WeeklyProgress(records: [customer], money: quick, date: now, calendar: calendar)
+        check(progress.cards == 2 && progress.visits == 1 && progress.profit == 2500 && !progress.unknownCosts, "Weekly totals use sale costs and distinct visited businesses")
+        let laterWeek = calendar.date(byAdding: .day, value: 7, to: now)!
+        check(WeeklyProgress(records: [customer], money: quick, date: laterWeek, calendar: calendar).visits == 0, "Weekly visits stay inside the chosen week")
+        let url = DailyRoute.mapURL(stops: route)!
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
+        check(query.first { $0.name == "destination" }?.value == "41.0,-3.0" && query.first { $0.name == "waypoints" }?.value?.split(separator: "|").count == 3, "Directions preserve ordered stops")
+        check(DailyRoute.mapURL(stops: route + route) == nil && DailyRoute.mapURL(stops: []) == nil, "Routes reject empty or unsupported oversized segments")
+        var prospect = beforeCustomer
+        prospect.trackingStage = .interested; prospect.notes = "Prefiere el viernes"; prospect.trackChanges(from: beforeCustomer, now: now)
+        check(prospect.followUp?.count == 2 && prospect.trackingStage == .interested, "Stage and notes append dated history")
+        let roundTrip = try JSONDecoder().decode(VisitRecord.self, from: JSONEncoder().encode(prospect))
+        check(roundTrip == prospect, "Follow-up survives serialization")
         print("Business tools: \(checks) checks passed")
     }
 }

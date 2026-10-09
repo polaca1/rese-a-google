@@ -242,7 +242,7 @@ final class AppStore: ObservableObject {
     var restorePhoto: ((Data?) -> Void)?
 
     var totalEarnings: Double { Double(money.incomeCents) / 100 }
-    var totalCardsSold: Int { money.sales.values.reduce(0) { $0 + $1.cards } }
+    var totalCardsSold: Int { money.allCardsSold }
     var pendingReminders: [VisitRecord] {
         records.filter { $0.reminderDate != nil && $0.status != .completed && $0.arrivedAt == nil }
             .sorted { ($0.reminderDate ?? .distantFuture) < ($1.reminderDate ?? .distantFuture) }
@@ -302,6 +302,7 @@ final class AppStore: ObservableObject {
         if value.reminderDate != records[index].reminderDate { value.arrivedAt = nil }
         guard money.canAssign(value), MoneyLedger.cents(value.earnings) != nil else { return false }
         if value == records[index] { return true }
+        value.trackChanges(from: records[index])
         remember("Editar negocio")
         records[index] = value
         save()
@@ -400,6 +401,25 @@ final class AppStore: ObservableObject {
         remember("Restaurar copia", photo: previousPhoto, restoresPhoto: true)
         records = value.records; money = value.money
         save()
+    }
+    func registerQuickSale(recordID: UUID, items: [QuickSaleInput], payment: String) throws {
+        guard let index = records.firstIndex(where: { $0.id == recordID }) else { throw BackupError.invalid }
+        var next = money; var record = records[index]
+        try next.registerSale(business: &record, items: items, payment: payment)
+        remember("Registrar venta rápida"); money = next; records[index] = record; save()
+    }
+    func updateTracking(recordID: UUID, stage: ContactStage, note: String, visited: Bool) throws {
+        guard var record = records.first(where: { $0.id == recordID }) else { throw BackupError.invalid }
+        record.trackingStage = stage
+        var events = record.followUp ?? []
+        if !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { events.append(FollowUpEvent(text: note)) }
+        if visited { record.arrivedAt = Date(); events.append(FollowUpEvent(text: "Visita realizada", isVisit: true)) }
+        record.followUp = Array(events.suffix(1000))
+        guard update(record) else { throw MoneyError.insufficientStock }
+    }
+    func setWeeklyGoals(_ value: WeeklyGoals) throws {
+        guard (1...100_000).contains(value.cards), (1...100_000).contains(value.visits), (1...1_000_000_000).contains(value.profitCents) else { throw MoneyError.invalidAmount }
+        remember("Cambiar objetivos"); money.weeklyGoals = value; persistMoney(); publishWidgets()
     }
     func recoveryBackup() throws -> BusinessBackup? {
         guard let data = UserDefaults.standard.data(forKey: "resenago.preRestore.\(userKey ?? "guest")") else { return nil }
@@ -730,7 +750,7 @@ struct RootView: View {
             if ProcessInfo.processInfo.arguments.contains("--verification-blur-auth") {
                 AuthView()
             } else if ProcessInfo.processInfo.arguments.contains("--verification-v5-route") {
-                NavigationStack { DailyRouteView() }
+                NavigationStack { WorkspaceRouteView() }
             } else if ProcessInfo.processInfo.arguments.contains("--verification-v5-backup") {
                 NavigationStack { BackupView() }
             } else if ProcessInfo.processInfo.arguments.contains("--verification-v5-profit") {
@@ -1608,6 +1628,7 @@ struct HistoryView: View {
 
     var body: some View {
         List {
+            NavigationLink { BusinessHubView() } label: { Label("Actividad y seguimiento", systemImage: "person.2") }
             if store.records.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "building.2.crop.circle").font(.system(size: 42)).foregroundStyle(.secondary)
@@ -1624,12 +1645,12 @@ struct HistoryView: View {
                             Text(record.place.name).font(.headline)
                             Text(record.place.address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             HStack {
-                                Text(record.status.displayName)
+                                Text(record.trackingStage.rawValue)
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(record.status == .completed ? .green : AppTheme.blue)
                                 Spacer()
-                                if record.earnings > 0 {
-                                    Text(record.earnings, format: .currency(code: "EUR"))
+                                if store.money.businessIncome(record.id) > 0 {
+                                    Text(Double(store.money.businessIncome(record.id)) / 100, format: .currency(code: "EUR"))
                                         .font(.subheadline.bold())
                                 }
                             }
@@ -1640,7 +1661,7 @@ struct HistoryView: View {
             }
         }
         .navigationTitle("Mis sitios")
-        .toolbar { ToolbarItem(placement: .primaryAction) { NavigationLink { DailyRouteView() } label: { Image(systemName: "point.topleft.down.to.point.bottomright.curvepath") }.accessibilityLabel("Ruta del día") } }
+        .toolbar { ToolbarItem(placement: .primaryAction) { NavigationLink { WorkspaceRouteView() } label: { Image(systemName: "point.topleft.down.to.point.bottomright.curvepath") }.accessibilityLabel("Ruta del día") } }
     }
 }
 
@@ -1658,6 +1679,8 @@ struct RecordDetailView: View {
             if let record {
                 ScrollView {
                     VStack(spacing: 16) {
+                        NavigationLink { QuickSaleView(initialBusinessID: recordID) } label: { Label("Registrar venta", systemImage: "plus.circle.fill").frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent)
+                        NavigationLink("Seguimiento e historial") { ClientTimelineView(recordID: recordID) }
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 5) {
@@ -1665,7 +1688,7 @@ struct RecordDetailView: View {
                                     Text(record.place.address).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text(record.status.displayName)
+                                Text(record.trackingStage.rawValue)
                                     .font(.caption.bold())
                                     .padding(.horizontal, 10).padding(.vertical, 6)
                                     .background(record.status == .completed ? Color.green.opacity(0.14) : AppTheme.softBlue)
@@ -1677,24 +1700,24 @@ struct RecordDetailView: View {
                                 Label(record.notes, systemImage: "note.text")
                                     .font(.subheadline)
                             }
-                            if record.cardsSold > 0 {
+                            if store.money.businessCards(record.id) > 0 {
                                 Divider()
-                                LabeledContent("Tarjetas vendidas", value: "\(record.cardsSold)")
+                                LabeledContent("Tarjetas vendidas", value: "\(store.money.businessCards(record.id))")
                             }
                             if record.cardsSold > 0 {
                                 LabeledContent("Ganancia por tarjeta") {
                                     Text(record.earningsPerCard, format: .currency(code: "EUR"))
                                 }
                             }
-                            if let profit = store.money.profitCents(record.id), record.cardsSold > 0 {
-                                LabeledContent("Beneficio de tarjetas") { Text(Double(profit) / 100, format: .currency(code: "EUR")).bold() }
-                                Text("Ingreso menos coste de las tarjetas vendidas. Los demás gastos se descuentan del saldo.").font(.caption).foregroundStyle(.secondary)
+                            if let profit = store.money.businessProfit(record.id), store.money.businessIncome(record.id) > 0 {
+                                LabeledContent("Beneficio de ventas") { Text(Double(profit) / 100, format: .currency(code: "EUR")).bold() }
+                                Text("Ingreso menos coste de los productos vendidos.").font(.caption).foregroundStyle(.secondary)
                             }
                             if let arrived = record.arrivedAt { Label("Llegada: " + arrived.formatted(date: .abbreviated, time: .shortened), systemImage: "checkmark.circle") }
-                            if record.earnings > 0 {
+                            if store.money.businessIncome(record.id) > 0 {
                                 Divider()
-                                LabeledContent("Ganancia total") {
-                                    Text(record.earnings, format: .currency(code: "EUR")).bold()
+                                LabeledContent("Ingresos totales") {
+                                    Text(Double(store.money.businessIncome(record.id)) / 100, format: .currency(code: "EUR")).bold()
                                 }
                             }
                         }

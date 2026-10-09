@@ -22,11 +22,15 @@ enum CloudBackupError: LocalizedError {
     }
 }
 @MainActor protocol CloudBackupTransport: AnyObject {
+    func loadCloudHistory(owner: String) async throws -> [CloudBackupRecord]
     func loadCloudBackup(owner: String) async throws -> CloudBackupRecord?
     func saveCloudBackup(_ value: BusinessBackup, expectedRevision: Int64?) async throws -> CloudBackupRecord
 }
+extension CloudBackupTransport {
+    func loadCloudHistory(owner: String) async throws -> [CloudBackupRecord] { [] }
+}
 extension BusinessBackup {
-    var hasContent: Bool { !records.isEmpty || !money.products.isEmpty || !money.transactions.isEmpty || !money.sales.isEmpty || photo != nil }
+    var hasContent: Bool { !records.isEmpty || !money.products.isEmpty || !money.transactions.isEmpty || !money.sales.isEmpty || photo != nil || money.weeklyGoals != nil || !(money.quickSales ?? []).isEmpty }
     func cloudFingerprint() throws -> String {
         var stable = self; stable.createdAt = Date(timeIntervalSince1970: 0)
         return SHA256.hash(data: try stable.encoded()).map { String(format: "%02x", $0) }.joined()
@@ -137,6 +141,36 @@ extension BusinessBackup {
             if generation == active { state = .pending; repeatPass = true }
         } catch {
             if generation == active { state = .failed(error.localizedDescription) }
+        }
+    }
+    func previousCopies() async throws -> [CloudBackupRecord] {
+        guard let owner, let transport else { throw CloudBackupError.unavailable }
+        let active = generation
+        let result = try await transport.loadCloudHistory(owner: owner)
+        try check(active); return result
+    }
+    func restorePrevious(_ copy: CloudBackupRecord) async throws {
+        guard !running, let owner, let transport, let read, let apply else { throw CloudBackupError.unavailable }
+        let active = generation; running = true; repeatPass = false; scheduled?.cancel()
+        defer { if generation == active { running = false; if repeatPass { requestSync() } } }
+        do {
+            let restored = try copy.payload.validated(for: owner)
+            let local = try read().validated(for: owner), hash = try local.cloudFingerprint()
+            defaults.set(try local.encoded(), forKey: "reviewNfcGo.cloud.recovery.local." + owner)
+            let current = try await transport.loadCloudBackup(owner: owner)
+            try check(active)
+            guard try read().cloudFingerprint() == hash else { throw CloudBackupError.conflict }
+            if let current { defaults.set(try current.payload.encoded(), forKey: "reviewNfcGo.cloud.recovery.remote." + owner) }
+            state = .pending
+            let saved = try await transport.saveCloudBackup(restored, expectedRevision: current?.revision)
+            try check(active)
+            guard try saved.payload.cloudFingerprint() == restored.cloudFingerprint() else { throw CloudBackupError.invalid }
+            guard try read().cloudFingerprint() == hash else { conflictCopy = saved; state = .conflict; return }
+            applying = true; defer { applying = false }
+            try apply(restored); remember(try restored.cloudFingerprint())
+        } catch {
+            if generation == active { state = .failed(error.localizedDescription) }
+            throw error
         }
     }
     private func check(_ active: UUID) throws {

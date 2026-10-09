@@ -74,6 +74,7 @@ struct MacRootView: View {
                 if !showsWorkspace { MacWelcomeView() }
                 else {
                     switch navigation.section ?? .dashboard {
+                    case .workspace: NavigationStack { BusinessHubView() }
                     case .dashboard: MacDashboardView()
                     case .businesses: MacBusinessesView()
                     case .visits: MacVisitsView()

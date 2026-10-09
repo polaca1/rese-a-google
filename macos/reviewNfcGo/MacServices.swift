@@ -5,10 +5,12 @@ import MapKit
 import UserNotifications
 
 enum MacSection: String, CaseIterable, Identifiable {
+    case workspace = "Actividad"
     case dashboard = "Resumen", businesses = "Negocios", visits = "Visitas", money = "Dinero", analytics = "Análisis", inventory = "Inventario", map = "Mapa"
     var id: String { rawValue }
     var symbol: String {
         switch self {
+        case .workspace: return "target"
         case .dashboard: return "square.grid.2x2"
         case .businesses: return "building.2"
         case .visits: return "calendar"

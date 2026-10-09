@@ -131,8 +131,8 @@ struct MacBusinessesView: View {
                     Table(rows, selection: $navigation.selectedBusiness, sortOrder: $sorting) {
                         TableColumn("Negocio", value: \.place.name).width(min: 145, ideal: 210)
                         TableColumn("Estado", value: \.status.rawValue) { Text($0.status.displayName) }.width(min: 100, ideal: 130)
-                        TableColumn("Tarjetas") { Text(String($0.cardsSold)).monospacedDigit() }.width(65)
-                        TableColumn("Ingreso") { Text(euro(MoneyLedger.cents($0.earnings) ?? 0)).monospacedDigit() }.width(95)
+                        TableColumn("Tarjetas") { Text(String(store.money.businessCards($0.id))).monospacedDigit() }.width(65)
+                        TableColumn("Ingreso") { Text(euro(store.money.businessIncome($0.id))).monospacedDigit() }.width(95)
                     }
                     .contextMenu(forSelectionType: UUID.self) { ids in
                         if let id = ids.first { Button("Editar negocio") { navigation.sheet = .business(id) } }
@@ -160,10 +160,10 @@ struct MacBusinessInspector: View {
                 Text(record.place.address).foregroundStyle(.secondary).textSelection(.enabled)
                 Button("Editar negocio") { navigation.sheet = .business(record.id) }.buttonStyle(.borderedProminent)
                 Divider()
-                LabeledContent("Estado", value: record.status.displayName)
-                LabeledContent("Tarjetas", value: String(record.cardsSold))
-                LabeledContent("Ingreso", value: euro(MoneyLedger.cents(record.earnings) ?? 0))
-                LabeledContent("Beneficio", value: store.money.profitCents(record.id).map(euro) ?? "Coste sin asignar")
+                LabeledContent("Estado", value: record.trackingStage.rawValue)
+                LabeledContent("Tarjetas", value: String(store.money.businessCards(record.id)))
+                LabeledContent("Ingreso", value: euro(store.money.businessIncome(record.id)))
+                LabeledContent("Beneficio", value: store.money.businessProfit(record.id).map(euro) ?? "Coste sin asignar")
                 if let visit = record.reminderDate {
                     VStack(alignment: .leading, spacing: 6) {
                         Label("Visita", systemImage: "calendar").font(.headline)

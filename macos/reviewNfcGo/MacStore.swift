@@ -35,7 +35,7 @@ enum DesktopError: LocalizedError {
         records.filter { $0.status != .completed && $0.arrivedAt == nil && $0.reminderDate != nil }
             .sorted { $0.reminderDate! < $1.reminderDate! }
     }
-    var soldCards: Int { money.sales.values.reduce(0) { $0 + $1.cards } }
+    var soldCards: Int { money.allCardsSold }
 
     init(fileURL: URL? = nil) {
         self.fileURL = fileURL ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -50,6 +50,24 @@ enum DesktopError: LocalizedError {
         guard data.count <= 25_000_000 else { throw BackupError.tooLarge }
         let header = try JSONDecoder().decode(BusinessBackup.self, from: data)
         return try BusinessBackup.decode(data, for: header.owner)
+    }
+    func registerQuickSale(recordID: UUID, items: [QuickSaleInput], payment: String) throws {
+        guard var value = backup, let index = value.records.firstIndex(where: { $0.id == recordID }) else { throw BackupError.invalid }
+        var record = value.records[index]
+        try value.money.registerSale(business: &record, items: items, payment: payment)
+        value.records[index] = record; try commit(value, title: "Registrar venta rápida")
+    }
+    func updateTracking(recordID: UUID, stage: ContactStage, note: String, visited: Bool) throws {
+        guard var record = records.first(where: { $0.id == recordID }) else { throw BackupError.invalid }
+        record.trackingStage = stage
+        var events = record.followUp ?? []
+        if !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { events.append(FollowUpEvent(text: note)) }
+        if visited { record.arrivedAt = Date(); events.append(FollowUpEvent(text: "Visita realizada", isVisit: true)) }
+        record.followUp = Array(events.suffix(1000)); try save(record)
+    }
+    func setWeeklyGoals(_ goals: WeeklyGoals) throws {
+        guard var value = backup else { throw BackupError.invalid }
+        value.money.weeklyGoals = goals; try commit(value, title: "Cambiar objetivos")
     }
     func createWorkspace(email: String) throws {
         let owner = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -99,6 +117,7 @@ enum DesktopError: LocalizedError {
         record.normalizeSales()
         guard value.money.canAssign(record) else { throw MoneyError.insufficientStock }
         let old = value.records.first { $0.id == record.id }
+        record.trackChanges(from: old)
         if record.reminderDate != old?.reminderDate || record.notificationDate != old?.notificationDate {
             if let visit = record.reminderDate {
                 guard visit > Date(), (record.notificationDate ?? visit) > Date(), (record.notificationDate ?? visit) <= visit else { throw DesktopError.invalidDate }

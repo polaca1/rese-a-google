@@ -275,17 +275,19 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         guard let saved = try await cloudRequest(owner: value.owner, value: value, expected: expectedRevision).first else { throw CloudBackupError.conflict }
         return saved
     }
-    private func cloudRequest(owner: String, value: BusinessBackup?, expected: Int64?) async throws -> [CloudBackupRecord] {
+    func loadCloudHistory(owner: String) async throws -> [CloudBackupRecord] { try await cloudRequest(owner: owner, value: nil, expected: nil, history: true) }
+    private func cloudRequest(owner: String, value: BusinessBackup?, expected: Int64?, history: Bool = false) async throws -> [CloudBackupRecord] {
         let generation = authorizationGeneration
         let user = try await validate()
         guard generation == authorizationGeneration, user.email == owner, provider == .supabase,
               let id = user.id, UUID(uuidString: id) != nil, let token = session?.token else { throw CloudBackupError.invalid }
         let origin = server
-        var url = URLComponents(string: server + "/rest/v1/reviewnfcgo_backups")!
+        var url = URLComponents(string: server + "/rest/v1/" + (history ? "reviewnfcgo_backup_history" : "reviewnfcgo_backups"))!
         url.queryItems = [URLQueryItem(name: "select", value: "user_id,revision,payload,updated_at")]
         if value == nil || expected != nil { url.queryItems!.append(URLQueryItem(name: "user_id", value: "eq." + id)) }
         if let expected { url.queryItems!.append(URLQueryItem(name: "revision", value: "eq.\(expected)")) }
-        if value == nil { url.queryItems!.append(URLQueryItem(name: "limit", value: "1")) }
+        if value == nil { url.queryItems!.append(URLQueryItem(name: "limit", value: history ? "3" : "1")) }
+        if history { url.queryItems!.append(URLQueryItem(name: "order", value: "revision.desc")) }
         var request = URLRequest(url: url.url!, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 45)
         request.httpMethod = value == nil ? "GET" : (expected == nil ? "POST" : "PATCH")
         request.setValue(publishableKey, forHTTPHeaderField: "apikey")
@@ -299,12 +301,12 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         }
         let (data, response) = try await urlSession.data(for: request)
         guard generation == authorizationGeneration, server == origin, session?.token == token else { throw CancellationError() }
-        guard let http = response as? HTTPURLResponse, data.count <= 26_000_000 else { throw CloudBackupError.invalid }
+        guard let http = response as? HTTPURLResponse, data.count <= (history ? 80_000_000 : 26_000_000) else { throw CloudBackupError.invalid }
         if http.statusCode == 409 { throw CloudBackupError.conflict }
         if [404, 403].contains(http.statusCode) { throw CloudBackupError.notConfigured }
         guard (200...299).contains(http.statusCode) else { throw CloudBackupError.unavailable }
         let rows = try JSONDecoder().decode([CloudBackupRecord].self, from: data)
-        guard rows.count <= 1 else { throw CloudBackupError.invalid }
+        guard rows.count <= (history ? 3 : 1) else { throw CloudBackupError.invalid }
         for row in rows {
             guard row.user_id.lowercased() == id.lowercased(), row.revision > 0 else { throw CloudBackupError.invalid }
             _ = try row.payload.validated(for: owner)

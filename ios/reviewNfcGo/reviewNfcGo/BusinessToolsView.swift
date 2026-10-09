@@ -26,7 +26,7 @@ struct BackupView: View {
     @State private var message: String?
     var body: some View {
         List {
-            Section("Datos en la nube") { CloudBackupStatusView() }
+            Section("Datos en la nube") { CloudBackupStatusView(); NavigationLink("Versiones anteriores") { CloudHistoryView() } }
             Section {
                 Button { export() } label: { Label("Guardar copia en Archivos", systemImage: "square.and.arrow.up") }
                 Button { importing = true } label: { Label("Restaurar una copia", systemImage: "arrow.clockwise") }

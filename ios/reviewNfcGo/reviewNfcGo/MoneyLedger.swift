@@ -48,6 +48,8 @@ struct MoneyTransaction: Identifiable, Codable, Equatable {
     var originalID: UUID? = nil
     /// Optional keeps old backups readable. Free receipts remain zero-value stock movements.
     var stockOrigin: InventoryAcquisition? = nil
+    var saleID: UUID? = nil
+    var costCents: Int64? = nil
     var amount: Double { Double(cents) / 100 }
     var typeTitle: String { stockOrigin?.title ?? kind.title }
 }
@@ -71,7 +73,40 @@ enum MoneyError: LocalizedError {
         }
     }
 }
+struct WeeklyGoals: Codable, Equatable {
+    var cards = 25
+    var visits = 10
+    var profitCents: Int64 = 10000
+}
+struct QuickSaleInput: Identifiable, Equatable {
+    var id: UUID { productID }
+    var productID: UUID
+    var quantity: Int
+    var unitPrice: Double
+}
+struct QuickSaleLine: Codable, Equatable {
+    var productID: UUID
+    var title: String
+    var isCard: Bool
+    var quantity: Int
+    var unitPriceCents: Int64
+    var costCents: Int64?
+    var incomeCents: Int64 { unitPriceCents * Int64(quantity) }
+}
+struct QuickSale: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var businessID: UUID
+    var date: Date
+    var items: [QuickSaleLine]
+    var paymentMethod: String
+    var voidedAt: Date? = nil
+    var incomeCents: Int64 { items.reduce(0) { $0 + $1.incomeCents } }
+    var costCents: Int64? { items.allSatisfy { $0.costCents != nil } ? items.reduce(0) { $0 + ($1.costCents ?? 0) } : nil }
+    var profitCents: Int64? { costCents.map { incomeCents - $0 } }
+}
 struct MoneyLedger: Codable, Equatable {
+    var quickSales: [QuickSale]? = nil
+    var weeklyGoals: WeeklyGoals? = nil
     var products: [InventoryProduct] = []
     var transactions: [MoneyTransaction] = []
     var sales: [String: SaleCheckpoint] = [:]
@@ -84,7 +119,7 @@ struct MoneyLedger: Codable, Equatable {
     var balanceCents: Int64 { transactions.reduce(0) { $0 + $1.cents } }
     var history: [MoneyTransaction] { transactions.sorted { $0.date > $1.date } }
     func purchased(_ id: UUID) -> Int { transactions.filter { $0.productID == id && ($0.kind == .expense || $0.kind == .refund || $0.stockOrigin != nil) }.reduce(0) { $0 + $1.quantity } }
-    func sold(_ id: UUID) -> Int { sales.values.filter { $0.productID == id }.reduce(0) { $0 + $1.cards } }
+    func sold(_ id: UUID) -> Int { sales.values.filter { $0.productID == id }.reduce(0) { $0 + $1.cards } + (quickSales ?? []).filter { $0.voidedAt == nil }.flatMap(\.items).filter { $0.productID == id }.reduce(0) { $0 + $1.quantity } }
     func stock(_ id: UUID) -> Int {
         transactions.filter { $0.productID == id && [.expense, .refund, .stockAdjustment].contains($0.kind) }.reduce(0) { $0 + $1.quantity } - sold(id)
     }
@@ -122,6 +157,7 @@ struct MoneyLedger: Codable, Equatable {
             let amount = Self.cents(record.earnings) ?? previous?.cents ?? 0
             let difference = amount - (previous?.cents ?? 0)
             let stockChanged = previous != nil && (previous!.cards != record.cardsSold || previous!.productID != record.inventoryProductID)
+            let firstNewTransaction = transactions.count
             if difference != 0 || stockChanged {
                 transactions.append(MoneyTransaction(date: previous == nil ? record.createdAt : now,
                     kind: previous == nil || (previous!.cents == 0 && difference > 0) ? .income : .incomeAdjustment, title: record.place.name,
@@ -139,6 +175,7 @@ struct MoneyLedger: Codable, Equatable {
                 } else { preciseCost = Double(record.cardsSold) * currentUnit }
             } else { preciseCost = nil }
             let cost = preciseCost.map { Int64($0.rounded()) }
+            if transactions.count > firstNewTransaction, let cost, let priorCost = previous?.costCents ?? (previous == nil ? 0 : nil) { transactions[transactions.count - 1].costCents = cost - priorCost }
             sales[key] = SaleCheckpoint(cents: amount, cards: record.cardsSold, productID: record.inventoryProductID, costCents: cost, preciseCostCents: preciseCost)
         }
     }
