@@ -18,7 +18,7 @@
           "buildVersion": "27",
           "date": "2026-10-09T13:24:24Z",
           "localizedDescription": "Corrección del retorno de Google: acepta los fragmentos auxiliares del navegador sin rechazar un código válido y mantiene la protección PKCE.\nGoogle y correo con contraseña comparten los datos de la misma cuenta verificada mediante la vinculación automática de Supabase. Al conectar Google desde Perfil se comprueba que se conserva la cuenta original.\nSe mantiene el guardado automático de negocios, visitas, inventario, dinero y foto. Comprueba «Guardado en la nube» antes de eliminar la app.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.4.1-build27.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.4.1-build27/reviewNfcGo-5.4.1-build27.ipa",
           "size": 6516746,
           "minOSVersion": "16.1"
         },
@@ -170,7 +170,7 @@
       "version": "5.4.1",
       "versionDate": "2026-10-09T13:24:24Z",
       "versionDescription": "Corrección del retorno de Google: acepta los fragmentos auxiliares del navegador sin rechazar un código válido y mantiene la protección PKCE.\nGoogle y correo con contraseña comparten los datos de la misma cuenta verificada mediante la vinculación automática de Supabase. Al conectar Google desde Perfil se comprueba que se conserva la cuenta original.\nSe mantiene el guardado automático de negocios, visitas, inventario, dinero y foto. Comprueba «Guardado en la nube» antes de eliminar la app.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.4.1-build27.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.4.1-build27/reviewNfcGo-5.4.1-build27.ipa",
       "size": 6516746,
       "appPermissions": {
         "entitlements": [
