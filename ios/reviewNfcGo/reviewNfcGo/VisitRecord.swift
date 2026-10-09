@@ -68,6 +68,8 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     var trackingStage: ContactStage {
         get { status == .completed ? .sold : status == .pending ? .returnLater : interested == true ? .interested : .pending }
         set {
+            // Tracking a completed deal does not invent a legacy card sale.
+            if newValue == .sold && cardsSold == 0 { hasQuickSales = true }
             interested = newValue == .interested
             status = newValue == .sold ? .completed : newValue == .returnLater ? .pending : .contacted
         }

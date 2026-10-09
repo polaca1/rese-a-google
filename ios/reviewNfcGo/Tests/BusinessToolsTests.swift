@@ -118,6 +118,8 @@ import Foundation
         var prospect = beforeCustomer
         prospect.trackingStage = .interested; prospect.notes = "Prefiere el viernes"; prospect.trackChanges(from: beforeCustomer, now: now)
         check(prospect.followUp?.count == 2 && prospect.trackingStage == .interested, "Stage and notes append dated history")
+        var tracked = beforeCustomer; tracked.trackingStage = .sold; tracked.normalizeSales()
+        check(tracked.cardsSold == 0 && tracked.earnings == 0, "Marking a client sold never invents money or a card")
         let roundTrip = try JSONDecoder().decode(VisitRecord.self, from: JSONEncoder().encode(prospect))
         check(roundTrip == prospect, "Follow-up survives serialization")
         print("Business tools: \(checks) checks passed")
