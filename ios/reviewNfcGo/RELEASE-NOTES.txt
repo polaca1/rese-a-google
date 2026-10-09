@@ -1,3 +1,10 @@
-Corrección del retorno de Google: acepta los fragmentos auxiliares del navegador sin rechazar un código válido y mantiene la protección PKCE.
-Google y correo con contraseña comparten los datos de la misma cuenta verificada mediante la vinculación automática de Supabase. Al conectar Google desde Perfil se comprueba que se conserva la cuenta original.
-Se mantiene el guardado automático de negocios, visitas, inventario, dinero y foto. Comprueba «Guardado en la nube» antes de eliminar la app.
+Actividad, ventas y objetivos sincronizados entre iPhone y Mac.
+
+• Ruta del día por horarios y cercanía, con recorridos por tramos en Google Maps.
+• Clientes con estados Pendiente, Interesado, Volver y Vendido; notas y visitas con fecha.
+• Venta rápida de tarjetas por color, stands y otros productos, con cantidad, precio y forma de pago.
+• Beneficio por venta y negocio, descontando el coste de los productos vendidos sin duplicar gastos.
+• Objetivos semanales de tarjetas, negocios visitados y beneficio, con gráfica diaria.
+• Recuperación de las tres versiones anteriores conservadas en la nube, con copia previa y control de conflictos.
+
+Los cambios se guardan automáticamente en tu cuenta. Actualiza sin borrar la app para conservar también los datos pendientes de sincronización.

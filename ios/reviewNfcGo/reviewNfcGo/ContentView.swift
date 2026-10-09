@@ -749,6 +749,16 @@ struct RootView: View {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--verification-blur-auth") {
                 AuthView()
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-suite-sale") {
+                NavigationStack { QuickSaleView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-suite-clients") {
+                NavigationStack { ClientFollowUpView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-suite-goals") {
+                NavigationStack { WeeklyGoalsView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-suite-profit") {
+                NavigationStack { SaleProfitView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-suite-history") {
+                NavigationStack { CloudHistoryView() }
             } else if ProcessInfo.processInfo.arguments.contains("--verification-v5-route") {
                 NavigationStack { WorkspaceRouteView() }
             } else if ProcessInfo.processInfo.arguments.contains("--verification-v5-backup") {

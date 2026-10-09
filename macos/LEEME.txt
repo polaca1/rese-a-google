@@ -31,3 +31,8 @@ Análisis nativo: periodos y comparaciones, gráficas de caja e ingresos/gastos,
 reparto de gastos, ranking de negocios, objetivo mensual, valor del stock e
 informes PDF y CSV del periodo seleccionado. Selecciona la gráfica para ver
 sus importes y pulsa un negocio para abrir su ficha.
+
+Actividad: ruta por horarios y cercanía, seguimiento de clientes con historial,
+ventas rápidas de tarjetas y stands, beneficio por producto y objetivos semanales.
+En Actividad → Recuperar versiones de la nube puedes recuperar una de las tres
+versiones anteriores. Actualiza también el iPhone para editar estos datos nuevos.

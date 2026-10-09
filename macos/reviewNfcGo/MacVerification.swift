@@ -319,10 +319,15 @@ import CryptoKit
         try await waitUntil { sync.state == .saved && transport.row?.payload.money.balanceCents == 2000 && transport.row?.payload.money.stock(product.id) == 7 }
         try store.setWeeklyGoals(WeeklyGoals(cards: 40, visits: 8, profitCents: 12000))
         try await waitUntil { transport.row?.payload.money.weeklyGoals?.cards == 40 && sync.state == .saved }
+        try store.registerQuickSale(recordID: sale.id, items: [QuickSaleInput(productID: product.id, quantity: 2, unitPrice: 10)], payment: "Bizum")
+        try await waitUntil { transport.row?.payload.money.activeQuickSales.count == 1 && sync.state == .saved }
+        try store.updateTracking(recordID: sale.id, stage: .sold, note: "Recibido", visited: true)
+        try await waitUntil { transport.row?.payload.records.first?.followUp?.contains(where: { $0.text == "Recibido" }) == true && sync.state == .saved }
         try store.delete(sale.id)
-        try await waitUntil { sync.state == .saved && transport.row?.payload.records.isEmpty == true && transport.row?.payload.money.balanceCents == 2000 }
+        try await waitUntil { sync.state == .saved && transport.row?.payload.records.isEmpty == true && transport.row?.payload.money.balanceCents == 4000 }
         return ["Añadir un producto sube inventario y gasto automáticamente sin pulsar sincronizar",
                 "Guardar una venta sube negocio, ingresos y stock automáticamente",
+                "Objetivos, venta rápida y seguimiento se sincronizan sin intervención",
                 "Eliminar un negocio sincroniza el cambio sin borrar su historial de ingresos"]
     }
     private static func verifyCloudTransport() async throws -> [String] {
@@ -348,6 +353,11 @@ import CryptoKit
             if request.url!.path == "/auth/v1/settings" { return (200, ["external": ["google": true]]) }
             if request.url!.path == "/auth/v1/signup" || request.url!.path == "/auth/v1/token" { return (200, ["access_token": "private-access", "refresh_token": "private-refresh", "expires_in": 3600, "user": user]) }
             if request.url!.path == "/auth/v1/user" { return (200, user) }
+            if request.url!.path == "/rest/v1/reviewnfcgo_backup_history" {
+                let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+                guard query.contains(URLQueryItem(name: "user_id", value: "eq." + id)), query.contains(URLQueryItem(name: "order", value: "revision.desc")), query.contains(URLQueryItem(name: "limit", value: "3")), request.value(forHTTPHeaderField: "Authorization") == "Bearer private-access" else { throw CloudBackupError.invalid }
+                return (200, try JSONSerialization.jsonObject(with: JSONEncoder().encode(row.map { [$0] } ?? [])))
+            }
             guard request.url!.path == "/rest/v1/reviewnfcgo_backups" else { throw CloudBackupError.invalid }
             verifiedHeaders = request.value(forHTTPHeaderField: "Authorization") == "Bearer private-access" && request.value(forHTTPHeaderField: "apikey") == key
             if forbidden { return (403, ["code": "42501"]) }
@@ -368,6 +378,8 @@ import CryptoKit
         var ledger = MoneyLedger(); ledger.synchronize([record])
         let backup = BusinessBackup(owner: email, records: [record], money: ledger)
         let first = try await auth.saveCloudBackup(backup, expectedRevision: nil)
+        let versions = try await auth.loadCloudHistory(owner: email)
+        try check(versions.count == 1 && versions[0].user_id == id, "REST consulta historial limitado y ordenado con la identidad autenticada")
         let restored = try await auth.loadCloudBackup(owner: email)
         try check(verifiedHeaders && first.user_id == id && restored?.payload.owner == email, "REST utiliza sesión privada e identidad de Supabase al guardar y recuperar")
         let googleUser = try await auth.authenticateWithGoogle(expectedEmail: email, openBrowser: { url in

@@ -58,6 +58,17 @@ import UIKit
             store.undoLastChange()
             try check(store.money.stock(manufactured.id) == 0 && store.money.purchased(manufactured.id) == 0 && store.money.balanceCents == balance,
                       "Deshacer fabricado conserva saldo y auditoría")
+            try store.receiveStock(title: manufactured.name, quantity: 3, productID: manufactured.id, newProduct: nil,
+                                   origin: .manufactured, date: Date(), notes: "Nuevo lote")
+            let businessID = store.records[0].id
+            try store.registerQuickSale(recordID: businessID, items: [QuickSaleInput(productID: manufactured.id, quantity: 1, unitPrice: 12)], payment: "Bizum")
+            try check(store.money.stock(manufactured.id) == 2 && store.money.businessIncome(businessID) == 1200 && store.money.businessProfit(businessID) == 1200, "Venta rápida de stand fabricado contabiliza beneficio y existencias")
+            try store.setWeeklyGoals(WeeklyGoals(cards: 30, visits: 12, profitCents: 15000))
+            try store.updateTracking(recordID: businessID, stage: .interested, note: "Quiere más stands", visited: true)
+            let suiteBackup = try store.backup(photo: photos.backupData)
+            _ = try BusinessBackup.decode(suiteBackup.encoded(), for: owner)
+            store.switchUser(owner)
+            try check(store.money.weeklyGoals?.cards == 30 && store.money.activeQuickSales.count == 1 && store.records[0].followUp?.contains(where: { $0.text == "Quiere más stands" }) == true, "Objetivos, venta e historial persisten y forman parte de la copia de nube")
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
         } catch { try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": error.localizedDescription], options: .prettyPrinted).write(to: output) }
         store.switchUser(original); photos.switchUser(original)

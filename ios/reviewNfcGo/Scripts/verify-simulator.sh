@@ -274,3 +274,11 @@ for task_screen in route backup profit; do
     sleep 3
     xcrun simctl io "$task_device" screenshot "$task_output_dir/v5-$task_screen.png"
 done
+
+# Exercise every new shared screen in a native iPhone host.
+for task_screen in sale clients goals profit history; do
+    xcrun simctl terminate "$task_device" "$task_bundle_id"
+    xcrun simctl launch "$task_device" "$task_bundle_id" "--verification-suite-$task_screen"
+    sleep 3
+    xcrun simctl io "$task_device" screenshot "$task_output_dir/suite-$task_screen.png"
+done

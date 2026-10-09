@@ -76,6 +76,9 @@ struct VisitRecord: Identifiable, Codable, Equatable {
         var events = followUp ?? []
         if let old, old.trackingStage != trackingStage { events.append(FollowUpEvent(date: now, text: "Estado: " + trackingStage.rawValue)) }
         if let old, old.notes != notes { events.append(FollowUpEvent(date: now, text: notes.isEmpty ? "Nota eliminada" : notes)) }
+        if let arrivedAt, arrivedAt != old?.arrivedAt, !events.contains(where: { $0.isVisit && abs($0.date.timeIntervalSince(arrivedAt)) < 1 }) {
+            events.append(FollowUpEvent(date: arrivedAt, text: "Visita realizada", isVisit: true))
+        }
         followUp = events.isEmpty ? nil : Array(events.suffix(1000))
     }
     static let maximumEarningsPerCard: Double = 50

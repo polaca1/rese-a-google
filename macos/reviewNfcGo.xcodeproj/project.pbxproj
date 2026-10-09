@@ -5,6 +5,8 @@
 	};
 	"objectVersion" = "56";
 	"objects" = {
+        EE0400000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../ios/reviewNfcGo/reviewNfcGo/BusinessWorkspaceViews.swift"; sourceTree = "SOURCE_ROOT"; };
+        EE0400000000000000000002 = {isa = PBXBuildFile; fileRef = EE0400000000000000000001; };
 
 		EE0200000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../ios/reviewNfcGo/reviewNfcGo/GoogleSignIn.swift"; sourceTree = "SOURCE_ROOT"; };
 		EE0300000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../ios/reviewNfcGo/reviewNfcGo/CloudBackup.swift"; sourceTree = "SOURCE_ROOT"; };
