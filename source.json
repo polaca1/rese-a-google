@@ -18,7 +18,7 @@
           "buildVersion": "29",
           "date": "2026-10-09T17:49:26Z",
           "localizedDescription": "El botón Escribir NFC abre Simply NFC en lugar de NFC Helper. Si no está instalada, se abre su página en App Store.\n\nEl enlace de reseña completo se conserva en el portapapeles y se envía al escritor. Si la dirección no aparece preparada, selecciona un registro URL y pega el enlace copiado.\n\nVuelve a escribir las tarjetas afectadas por el error anterior: actualizar la app no modifica lo que ya está grabado en ellas.\n\nSe mantienen las funciones de actividad y la sincronización automática de tu cuenta.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.5.1-build29.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.5.1-build29/reviewNfcGo-5.5.1-build29.ipa",
           "size": 6684225,
           "minOSVersion": "16.1"
         },
@@ -188,7 +188,7 @@
       "version": "5.5.1",
       "versionDate": "2026-10-09T17:49:26Z",
       "versionDescription": "El botón Escribir NFC abre Simply NFC en lugar de NFC Helper. Si no está instalada, se abre su página en App Store.\n\nEl enlace de reseña completo se conserva en el portapapeles y se envía al escritor. Si la dirección no aparece preparada, selecciona un registro URL y pega el enlace copiado.\n\nVuelve a escribir las tarjetas afectadas por el error anterior: actualizar la app no modifica lo que ya está grabado en ellas.\n\nSe mantienen las funciones de actividad y la sincronización automática de tu cuenta.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.5.1-build29.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.5.1-build29/reviewNfcGo-5.5.1-build29.ipa",
       "size": 6684225,
       "appPermissions": {
         "entitlements": [
