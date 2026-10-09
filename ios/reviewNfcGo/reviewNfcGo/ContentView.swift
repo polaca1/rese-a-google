@@ -680,14 +680,7 @@ enum ExternalNFCWriter {
         // Respaldo silencioso: si hiciera falta, el mismo enlace queda en el portapapeles.
         UIPasteboard.general.string = reviewURL
 
-        var components = URLComponents()
-        components.scheme = "nfchelper"
-        components.host = "write"
-        components.queryItems = [
-            URLQueryItem(name: "url", value: reviewURL)
-        ]
-
-        guard let writerURL = components.url else { return }
+        guard let writerURL = NFCWriterLink.handoff(for: reviewURL) else { return }
         UIApplication.shared.open(writerURL, options: [:]) { success in
             if !success {
                 UIApplication.shared.open(appStoreURL)
