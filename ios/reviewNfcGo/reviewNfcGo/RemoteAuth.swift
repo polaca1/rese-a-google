@@ -161,6 +161,13 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         guard settings.external?.google == true else {
             throw RemoteAuthError.rejected("El acceso con Google todavía no está disponible. Puedes entrar con tu correo.")
         }
+        // Supabase links a verified Google email to the existing user's UUID.
+        // When connecting from Profile, never replace that account with a different UUID.
+        var expectedUserID: String?
+        if let expectedEmail, session?.user.email == expectedEmail.lowercased() {
+            expectedUserID = try await validate().id
+            try checkAttempt()
+        }
         let flow = try GoogleOAuthRequest(origin: origin)
         let callback: URL
         if let openBrowser { callback = try await openBrowser(flow.authorizeURL) }
@@ -178,6 +185,10 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         if let expectedEmail, response.user.email != expectedEmail.lowercased() {
             revoke(response, address: origin, provider: .supabase, key: publishableKey)
             throw RemoteAuthError.rejected("Selecciona la cuenta de Google de \(expectedEmail). Para utilizar otra cuenta, cierra la sesión actual.")
+        }
+        if let expectedUserID, response.user.id?.lowercased() != expectedUserID.lowercased() {
+            revoke(response, address: origin, provider: .supabase, key: publishableKey)
+            throw RemoteAuthError.rejected("Google no se ha vinculado a tu cuenta actual. Hemos conservado tu sesión y tus datos. Entra con el mismo correo verificado.")
         }
         try saveSession(response)
         return response.user

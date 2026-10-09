@@ -52,15 +52,23 @@ struct GoogleOAuthRequest {
             throw RemoteAuthError.rejected("El acceso no corresponde a esta solicitud. Vuelve a intentarlo.")
         }
         let items = parts.queryItems ?? []
-        if items.contains(where: { $0.name == "error" }) {
-            if items.contains(where: { $0.name == "error" && $0.value == "access_denied" }) { throw CancellationError() }
+        // OAuth redirects may include a harmless trailing #, #_=_ or Supabase marker.
+        // Only the query's single code is exchanged, always bound to this attempt's PKCE verifier.
+        var fragment = URLComponents()
+        fragment.percentEncodedQuery = parts.percentEncodedFragment
+        let fragmentItems = fragment.queryItems ?? []
+        let allItems = items + fragmentItems
+        if allItems.contains(where: { $0.name == "error" }) {
+            if allItems.contains(where: { $0.name == "error" && $0.value == "access_denied" }) { throw CancellationError() }
             throw RemoteAuthError.rejected("Google no pudo completar el acceso. Inténtalo de nuevo.")
         }
-        guard parts.fragment == nil else { throw RemoteAuthError.rejected("El acceso no se ha completado. Vuelve a intentarlo.") }
+        guard !allItems.contains(where: { ["access_token", "refresh_token", "id_token"].contains($0.name) }),
+              !fragmentItems.contains(where: { $0.name == "code" }) else {
+            throw RemoteAuthError.rejected("Google devolvió un formato de acceso incompatible. Vuelve a iniciar el acceso desde la app.")
+        }
         let codes = items.filter { $0.name == "code" }
-        guard codes.count == 1, let code = codes.first?.value, !code.isEmpty, code.utf8.count <= 4096,
-              !items.contains(where: { ["access_token", "refresh_token"].contains($0.name) }) else {
-            throw RemoteAuthError.rejected("El acceso no se ha completado. Vuelve a intentarlo.")
+        guard codes.count == 1, let code = codes.first?.value, !code.isEmpty, code.utf8.count <= 4096 else {
+            throw RemoteAuthError.rejected("Google no devolvió un código de acceso válido. Vuelve a pulsar Continuar con Google.")
         }
         return code
     }

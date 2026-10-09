@@ -1,3 +1,3 @@
-Tus datos en la nube. Negocios, visitas, inventario, ingresos, gastos y foto se guardan automáticamente en tu cuenta y se recuperan al iniciar sesión después de reinstalar.
-Comprueba «Guardado en la nube» en Perfil. Sin conexión, los cambios quedan pendientes en el dispositivo. Los cambios simultáneos se resuelven conservando copias de recuperación.
-Compatible con la sincronización de reviewNfcGo para Mac 1.4.
+Corrección del retorno de Google: acepta los fragmentos auxiliares del navegador sin rechazar un código válido y mantiene la protección PKCE.
+Google y correo con contraseña comparten los datos de la misma cuenta verificada mediante la vinculación automática de Supabase. Al conectar Google desde Perfil se comprueba que se conserva la cuenta original.
+Se mantiene el guardado automático de negocios, visitas, inventario, dinero y foto. Comprueba «Guardado en la nube» antes de eliminar la app.

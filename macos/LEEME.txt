@@ -1,4 +1,4 @@
-reviewNfcGo para Mac 1.4
+reviewNfcGo para Mac 1.4.1
 Desarrollado por Pablo Cancho Flores
 
 Compatible con macOS Sonoma 14 y posteriores. Incluye Intel y Apple Silicon.

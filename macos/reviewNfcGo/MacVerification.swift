@@ -302,9 +302,11 @@ import CryptoKit
         let manifest: [String: Any] = ["schema": 1, "provider": "supabase", "serverURL": "https://abcdefghijklmnopqrst.supabase.co", "publishableKey": key]
         var row: CloudBackupRecord?
         var verifiedHeaders = false, verifiedCAS = false, stale = false, forbidden = false
+        var inserts = 0
         AuthVerificationProtocol.handler = { request in
             if request.url!.host == "raw.githubusercontent.com" { return (200, manifest) }
-            if request.url!.path == "/auth/v1/token" { return (200, ["access_token": "private-access", "refresh_token": "private-refresh", "expires_in": 3600, "user": user]) }
+            if request.url!.path == "/auth/v1/settings" { return (200, ["external": ["google": true]]) }
+            if request.url!.path == "/auth/v1/signup" || request.url!.path == "/auth/v1/token" { return (200, ["access_token": "private-access", "refresh_token": "private-refresh", "expires_in": 3600, "user": user]) }
             if request.url!.path == "/auth/v1/user" { return (200, user) }
             guard request.url!.path == "/rest/v1/reviewnfcgo_backups" else { throw CloudBackupError.invalid }
             verifiedHeaders = request.value(forHTTPHeaderField: "Authorization") == "Bearer private-access" && request.value(forHTTPHeaderField: "apikey") == key
@@ -316,15 +318,30 @@ import CryptoKit
                     verifiedCAS = query.contains(URLQueryItem(name: "user_id", value: "eq." + id)) && query.contains(URLQueryItem(name: "revision", value: "eq.1")) && incoming.revision == 2
                     if stale { return (200, []) }
                 }
+                if request.httpMethod == "POST" { inserts += 1 }
                 row = incoming
             }
             return (200, try JSONSerialization.jsonObject(with: JSONEncoder().encode(row.map { [$0] } ?? [])))
         }
-        _ = try await auth.authenticate(email: email, password: "Test-only-password")
-        let backup = BusinessBackup(owner: email, records: [], money: MoneyLedger())
+        _ = try await auth.authenticate(email: email, password: "Test-only-password", name: "Cloud account")
+        let record = VisitRecord(place: PlaceResult(id: "shared-business", name: "Negocio compartido", address: "Centro", latitude: 38, longitude: -6), earnings: 30, cardsSold: 3, unitEarnings: 10, status: .completed)
+        var ledger = MoneyLedger(); ledger.synchronize([record])
+        let backup = BusinessBackup(owner: email, records: [record], money: ledger)
         let first = try await auth.saveCloudBackup(backup, expectedRevision: nil)
         let restored = try await auth.loadCloudBackup(owner: email)
         try check(verifiedHeaders && first.user_id == id && restored?.payload.owner == email, "REST utiliza sesión privada e identidad de Supabase al guardar y recuperar")
+        let googleUser = try await auth.authenticateWithGoogle(expectedEmail: email, openBrowser: { url in
+            let query = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
+            let callback = query.first(where: { $0.name == "redirect_to" })!.value!
+            return URL(string: callback + "?code=one-use-code#_=_")!
+        })
+        let googleBackup = try await auth.loadCloudBackup(owner: email)
+        try check(googleUser.id == id && googleBackup?.payload.records == [record] && googleBackup?.payload.money.balanceCents == 3000 && inserts == 1,
+                  "Cuenta normal seguida de Google conserva UUID, negocios e ingresos sin duplicar la copia")
+        _ = try await auth.authenticate(email: email, password: "Test-only-password")
+        let passwordBackup = try await auth.loadCloudBackup(owner: email)
+        try check(passwordBackup?.payload.money == googleBackup?.payload.money && passwordBackup?.user_id == googleBackup?.user_id,
+                  "Volver a entrar con contraseña recupera los mismos datos que Google")
         _ = try await auth.saveCloudBackup(backup, expectedRevision: 1)
         try check(verifiedCAS, "REST actualiza solo la revisión esperada de la cuenta autenticada")
         stale = true
@@ -405,10 +422,13 @@ import CryptoKit
         var exchanged = false
         var googleEnabled = true
         var responseEmail = "pablo@example.com"
+        let accountID = UUID().uuidString
+        var responseID = accountID
         AuthVerificationProtocol.handler = { request in
             if request.url!.host == "raw.githubusercontent.com" { return (200, manifest) }
             if request.url!.path == "/auth/v1/settings" { return (200, ["external": ["google": googleEnabled]]) }
             if request.url!.path == "/auth/v1/logout" { return (200, [:]) }
+            if request.url!.path == "/auth/v1/user" { return (200, ["id": accountID, "email": "pablo@example.com"]) }
             let body = try JSONSerialization.jsonObject(with: AuthVerificationProtocol.bodyData(request)) as? [String: String]
             let verifier = body?["code_verifier"] ?? ""
             exchanged = request.url!.path == "/auth/v1/token" && request.url!.query == "grant_type=pkce"
@@ -416,7 +436,7 @@ import CryptoKit
                 && request.value(forHTTPHeaderField: "Authorization") == nil && body?["auth_code"] == "one-use-code"
                 && verifier.count == 43 && GoogleOAuthRequest.base64URL(Data(SHA256.hash(data: Data(verifier.utf8)))) == challenge
             return (200, ["access_token": "google-" + responseEmail, "refresh_token": "google-refresh", "expires_in": 3600,
-                          "user": ["email": responseEmail, "user_metadata": ["full_name": "Pablo Google"]]])
+                          "user": ["id": responseID, "email": responseEmail, "user_metadata": ["full_name": "Pablo Google"]]])
         }
         func successfulBrowser(_ url: URL) throws -> URL {
             let query = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
@@ -434,6 +454,13 @@ import CryptoKit
         let restored = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
         try check(restored.session?.token == auth.session?.token && restored.session?.refreshToken == "google-refresh",
                   "La sesión de Google se guarda en Keychain y se recupera al abrir la app")
+        for suffix in ["#", "#_=_", "#sb=", "#provider=google"] {
+            exchanged = false
+            let linked = try await auth.authenticateWithGoogle(expectedEmail: user.email, openBrowser: { url in
+                URL(string: try successfulBrowser(url).absoluteString + suffix)!
+            })
+            try check(exchanged && linked.id == accountID, "Google acepta callback válido con sufijo " + suffix + " y conserva la cuenta")
+        }
         let originalToken = auth.session?.token
         do {
             _ = try await auth.authenticateWithGoogle(openBrowser: { _ in throw CancellationError() })
@@ -447,6 +474,14 @@ import CryptoKit
         } catch RemoteAuthError.rejected(let message) {
             try check(auth.session?.token == originalToken && message.contains(user.email), "Elegir otro correo desde Perfil conserva la sesión y los datos de la cuenta actual")
         }
+        responseEmail = user.email; responseID = UUID().uuidString
+        do {
+            _ = try await auth.authenticateWithGoogle(expectedEmail: user.email, openBrowser: { try successfulBrowser($0) })
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.rejected {
+            try check(auth.session?.user.id == accountID && auth.session?.token == originalToken, "Mismo correo con UUID distinto no reemplaza la cuenta ni sus datos")
+        }
+        responseID = accountID
         googleEnabled = false
         var browserOpened = false
         do {
@@ -473,7 +508,10 @@ import CryptoKit
             ("Callback con destino ajeno rechazado", "reviewnfcgo://business/callback?code=test"),
             ("Tokens implícitos rechazados", flow.callback.absoluteString + "#access_token=unsafe"),
             ("Código repetido rechazado", flow.callback.absoluteString + "?code=a&code=b"),
-            ("Código vacío rechazado", flow.callback.absoluteString + "?code=")
+            ("Código vacío rechazado", flow.callback.absoluteString + "?code="),
+            ("Token junto al código rechazado", flow.callback.absoluteString + "?code=test#access_token=unsafe"),
+            ("Segundo código en fragmento rechazado", flow.callback.absoluteString + "?code=test#code=other"),
+            ("Token ID rechazado", flow.callback.absoluteString + "?code=test#id_token=unsafe")
         ] {
             do { _ = try flow.code(from: URL(string: url)!); throw DesktopError.invalidBusiness }
             catch RemoteAuthError.rejected { try check(true, label) }
