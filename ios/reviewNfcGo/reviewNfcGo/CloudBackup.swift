@@ -190,6 +190,9 @@ struct CloudBackupStatusView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label(cloud.message, systemImage: cloud.state == .saved ? "checkmark.icloud" : "icloud")
                 .foregroundStyle(cloud.state == .saved ? Color.green : Color.secondary)
+            if cloud.state != .signedOut {
+                Text("Los cambios se sincronizan automáticamente.").font(.caption).foregroundStyle(.secondary)
+            }
             if let saved = cloud.lastSaved, cloud.state == .saved {
                 Text("Última comprobación: " + saved.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
             }

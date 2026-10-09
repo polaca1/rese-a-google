@@ -19,6 +19,7 @@ import CryptoKit
             checks += try await verifyGoogleAccounts()
             checks += try await verifyCloudData()
             checks += try await verifyCloudTransport()
+            checks += try await verifyAutomaticCloudChanges()
             let owner = "pablo@example.invalid"
             try store.createWorkspace(email: owner)
             let card = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Azul")
@@ -284,6 +285,43 @@ import CryptoKit
             try check(calls == 1 && !invalid.configured && !invalid.signedIn, label)
         }
         return checks
+    }
+    private static func verifyAutomaticCloudChanges() async throws -> [String] {
+        let suite = "cloud-auto-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(suite)
+        let store = MacStore(fileURL: folder.appendingPathComponent("Workspace.json"))
+        let transport = CloudVerificationTransport()
+        let sync = CloudBackupController(defaults: defaults)
+        let owner = "automatic@example.com"
+        try store.createWorkspace(email: owner)
+        store.didChange = { [weak sync] in sync?.localChanged() }
+        sync.connect(owner: owner, transport: transport, read: { try MacStore.readBackup(store.exportData()) }, apply: { try store.importBackup($0) })
+        defer {
+            sync.connect(owner: nil, transport: transport, read: { throw BackupError.invalid }, apply: { _ in })
+            defaults.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: folder)
+        }
+        func waitUntil(_ condition: () -> Bool) async throws {
+            for _ in 0..<200 {
+                if condition() { return }
+                try await Task.sleep(for: .milliseconds(25))
+            }
+            throw NSError(domain: "AutomaticCloudChanges", code: 1, userInfo: [NSLocalizedDescriptionKey: "El cambio no se sincronizó automáticamente: " + sync.message])
+        }
+        try await waitUntil { sync.state == .empty }
+        let product = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Blanco")
+        try store.addExpense(title: product.displayName, amount: 10, quantity: 10, productID: product.id, newProduct: product,
+                             date: Date(), merchant: "Proveedor", method: "Tarjeta", url: "", notes: "")
+        try await waitUntil { sync.state == .saved && transport.row?.payload.money.products.count == 1 && transport.row?.payload.money.balanceCents == -1000 }
+        let sale = VisitRecord(place: PlaceResult(id: "automatic-sale", name: "Venta", address: "Centro", latitude: 38, longitude: -6),
+                               earnings: 30, cardsSold: 3, unitEarnings: 10, inventoryProductID: product.id, status: .completed)
+        try store.save(sale)
+        try await waitUntil { sync.state == .saved && transport.row?.payload.money.balanceCents == 2000 && transport.row?.payload.money.stock(product.id) == 7 }
+        try store.delete(sale.id)
+        try await waitUntil { sync.state == .saved && transport.row?.payload.records.isEmpty == true && transport.row?.payload.money.balanceCents == 2000 }
+        return ["Añadir un producto sube inventario y gasto automáticamente sin pulsar sincronizar",
+                "Guardar una venta sube negocio, ingresos y stock automáticamente",
+                "Eliminar un negocio sincroniza el cambio sin borrar su historial de ingresos"]
     }
     private static func verifyCloudTransport() async throws -> [String] {
         var checks: [String] = []
