@@ -14,6 +14,15 @@
       "tintColor": "1976EC",
       "versions": [
         {
+          "version": "5.5",
+          "buildVersion": "28",
+          "date": "2026-10-09T15:22:57Z",
+          "localizedDescription": "Actividad, ventas y objetivos sincronizados entre iPhone y Mac.\n\n• Ruta del día por horarios y cercanía, con recorridos por tramos en Google Maps.\n• Clientes con estados Pendiente, Interesado, Volver y Vendido; notas y visitas con fecha.\n• Venta rápida de tarjetas por color, stands y otros productos, con cantidad, precio y forma de pago.\n• Beneficio por venta y negocio, descontando el coste de los productos vendidos sin duplicar gastos.\n• Objetivos semanales de tarjetas, negocios visitados y beneficio, con gráfica diaria.\n• Recuperación de las tres versiones anteriores conservadas en la nube, con copia previa y control de conflictos.\n\nLos cambios se guardan automáticamente en tu cuenta. Actualiza sin borrar la app para conservar también los datos pendientes de sincronización.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.5-build28.ipa",
+          "size": 6682440,
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "5.4.1",
           "buildVersion": "27",
           "date": "2026-10-09T13:24:24Z",
@@ -167,11 +176,11 @@
           "minOSVersion": "16.1"
         }
       ],
-      "version": "5.4.1",
-      "versionDate": "2026-10-09T13:24:24Z",
-      "versionDescription": "Corrección del retorno de Google: acepta los fragmentos auxiliares del navegador sin rechazar un código válido y mantiene la protección PKCE.\nGoogle y correo con contraseña comparten los datos de la misma cuenta verificada mediante la vinculación automática de Supabase. Al conectar Google desde Perfil se comprueba que se conserva la cuenta original.\nSe mantiene el guardado automático de negocios, visitas, inventario, dinero y foto. Comprueba «Guardado en la nube» antes de eliminar la app.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-5.4.1-build27/reviewNfcGo-5.4.1-build27.ipa",
-      "size": 6516746,
+      "version": "5.5",
+      "versionDate": "2026-10-09T15:22:57Z",
+      "versionDescription": "Actividad, ventas y objetivos sincronizados entre iPhone y Mac.\n\n• Ruta del día por horarios y cercanía, con recorridos por tramos en Google Maps.\n• Clientes con estados Pendiente, Interesado, Volver y Vendido; notas y visitas con fecha.\n• Venta rápida de tarjetas por color, stands y otros productos, con cantidad, precio y forma de pago.\n• Beneficio por venta y negocio, descontando el coste de los productos vendidos sin duplicar gastos.\n• Objetivos semanales de tarjetas, negocios visitados y beneficio, con gráfica diaria.\n• Recuperación de las tres versiones anteriores conservadas en la nube, con copia previa y control de conflictos.\n\nLos cambios se guardan automáticamente en tu cuenta. Actualiza sin borrar la app para conservar también los datos pendientes de sincronización.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-5.5-build28.ipa",
+      "size": 6682440,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
@@ -199,6 +208,16 @@
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 5.5 (28)",
+      "identifier": "reviewnfcgo-5.5-build28",
+      "caption": "Actividad, ventas y objetivos sincronizados entre iPhone y Mac.",
+      "date": "2026-10-09T15:22:57Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-5.5-build28",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 5.4.1 (27)",
       "identifier": "reviewnfcgo-5.4.1-build27",
