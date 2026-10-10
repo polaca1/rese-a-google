@@ -922,10 +922,10 @@ struct MainTabView: View {
         TabView(selection: $selectedTab) {
             NavigationStack {
                 #if DEBUG
-                if ProcessInfo.processInfo.arguments.contains(where: { ["--verification-blur-home", "--verification-home-top", "--verification-map", "--verification-search"].contains($0) }) { HomeView() }
-                else { TodayWorkspaceView() }
+                if ProcessInfo.processInfo.arguments.contains("--verification-major-today") { TodayWorkspaceView() }
+                else { HomeView() }
                 #else
-                TodayWorkspaceView()
+                HomeView()
                 #endif
             }
                 .tabItem { Label("Inicio", systemImage: "location.fill") }.tag(0)
