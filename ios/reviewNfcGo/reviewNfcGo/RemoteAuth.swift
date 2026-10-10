@@ -179,7 +179,7 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         guard server == origin else { throw CancellationError() }
         let code = try flow.code(from: callback)
         let value: SupabaseSession = try await request("token", method: "POST", body: ["auth_code": code, "code_verifier": flow.verifier],
-                                                     authorized: false, query: "grant_type=pkce")
+                                                     authorized: false, query: "grant_type=pkce", timeout: 60, googleExchange: true)
         try checkAttempt()
         let response = try value.remoteSession()
         if let expectedEmail, response.user.email != expectedEmail.lowercased() {
@@ -193,6 +193,14 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         try saveSession(response)
         return response.user
     }
+    #if DEBUG
+    func verifyLiveGoogleService() async throws -> Bool {
+        try await resolveServer()
+        guard provider == .supabase else { return false }
+        let settings: SupabaseSettings = try await request("settings", method: "GET", authorized: false, timeout: 30)
+        return settings.external?.google == true
+    }
+    #endif
     private struct SupabaseSettings: Decodable {
         var external: External?
         struct External: Decodable { var google: Bool? }
@@ -262,8 +270,20 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
             guard let token = access_token, !token.isEmpty, let refresh = refresh_token, !refresh.isEmpty else {
                 throw RemoteAuthError.rejected("Comprueba tu correo para confirmar la cuenta antes de iniciar sesión.")
             }
-            guard let expiry = expires_at ?? expires_in.map({ Date().timeIntervalSince1970 + $0 }), expiry > Date().timeIntervalSince1970 else {
-                throw RemoteAuthError.unavailable
+            // A freshly received lifetime is independent of the device/server clock offset.
+            // Supabase still validates the JWT on every authenticated request.
+            let now = Date().timeIntervalSince1970
+            let expiry: Double
+            if let lifetime = expires_in {
+                guard lifetime.isFinite, lifetime > 0, lifetime <= 604_800 else {
+                    throw RemoteAuthError.rejected("La sesión ha caducado. Vuelve a iniciar sesión.")
+                }
+                expiry = now + lifetime
+            } else {
+                guard let absolute = expires_at, absolute.isFinite, absolute > now else {
+                    throw RemoteAuthError.rejected("No se pudo comprobar la sesión. Revisa la fecha y hora del equipo y vuelve a entrar.")
+                }
+                expiry = absolute
             }
             return RemoteSession(token: token, expiresAt: expiry, user: try user.remoteUser(), refreshToken: refresh)
         }
@@ -347,11 +367,11 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
     }
     private struct EmptyResponse: Decodable {}
     private func request<Response: Decodable>(_ path: String, method: String, body: [String: Any]? = nil, authorized: Bool,
-                                              query: String? = nil, boundToSession: Bool = false) async throws -> Response {
+                                              query: String? = nil, boundToSession: Bool = false, timeout: TimeInterval = 15, googleExchange: Bool = false) async throws -> Response {
         guard let base = URL(string: server), base.scheme == "https" else { throw RemoteAuthError.invalidURL }
         var components = URLComponents(url: base.appendingPathComponent(provider == .supabase ? "auth/v1" : "v1/auth").appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         components.query = query
-        var request = URLRequest(url: components.url!, timeoutInterval: 15)
+        var request = URLRequest(url: components.url!, timeoutInterval: timeout)
         request.httpMethod = method; request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body) }
         if provider == .supabase { request.setValue(publishableKey, forHTTPHeaderField: "apikey") }
@@ -361,7 +381,20 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         let sentToken = (authorized || boundToSession) ? session?.token : nil
         let response: (Data, URLResponse)
         do { response = try await urlSession.data(for: request) }
-        catch { if Task.isCancelled { throw CancellationError() }; throw RemoteAuthError.unavailable }
+        catch {
+            if Task.isCancelled { throw CancellationError() }
+            if googleExchange {
+                switch (error as? URLError)?.code {
+                case .timedOut:
+                    throw RemoteAuthError.rejected("El servicio ha tardado demasiado en completar el acceso con Google. Vuelve a intentarlo.")
+                case .serverCertificateHasBadDate, .serverCertificateNotYetValid:
+                    throw RemoteAuthError.rejected("Revisa la fecha y hora del equipo. No se pudo comprobar la conexión segura al completar el acceso.")
+                default:
+                    throw RemoteAuthError.rejected("Google ha terminado, pero no se pudo conectar con el servicio de cuentas para completar el acceso. Vuelve a intentarlo.")
+                }
+            }
+            throw RemoteAuthError.unavailable
+        }
         guard server == origin, provider == sentProvider, !(authorized || boundToSession) || session?.token == sentToken else { throw CancellationError() }
         guard let http = response.1 as? HTTPURLResponse, response.0.count <= 64_000 else { throw RemoteAuthError.unavailable }
         guard (200...299).contains(http.statusCode) else {

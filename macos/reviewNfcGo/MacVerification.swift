@@ -20,6 +20,12 @@ import PDFKit
             checks += try await verifyCentralAccounts()
             checks += try await verifySupabaseAccounts()
             checks += try await verifyGoogleAccounts()
+            let liveSuite = "reviewNfcGo.live-service." + UUID().uuidString
+            let liveDefaults = UserDefaults(suiteName: liveSuite)!
+            defer { liveDefaults.removePersistentDomain(forName: liveSuite) }
+            let liveAuth = RemoteAuthClient(defaults: liveDefaults, credentialService: liveSuite)
+            let googleReady = try await liveAuth.verifyLiveGoogleService()
+            try check(googleReady && !liveAuth.signedIn, "La app nativa conecta con la configuración y Google de Supabase reales sin crear cuentas")
             checks += try await verifyCloudData()
             checks += try await verifyCloudTransport()
             checks += try await verifyAutomaticCloudChanges()
@@ -526,6 +532,10 @@ import PDFKit
         var responseEmail = "pablo@example.com"
         let accountID = UUID().uuidString
         var responseID = accountID
+        var serverExpiry = Date().timeIntervalSince1970 - 7200
+        var lifetime = 3600.0
+        var exchangeFailure: URLError.Code?
+        var usedTimeout: TimeInterval = 0
         AuthVerificationProtocol.handler = { request in
             if request.url!.host == "raw.githubusercontent.com" { return (200, manifest) }
             if request.url!.path == "/auth/v1/settings" { return (200, ["external": ["google": googleEnabled]]) }
@@ -533,11 +543,13 @@ import PDFKit
             if request.url!.path == "/auth/v1/user" { return (200, ["id": accountID, "email": "pablo@example.com"]) }
             let body = try JSONSerialization.jsonObject(with: AuthVerificationProtocol.bodyData(request)) as? [String: String]
             let verifier = body?["code_verifier"] ?? ""
+            usedTimeout = request.timeoutInterval
+            if let exchangeFailure { throw URLError(exchangeFailure) }
             exchanged = request.url!.path == "/auth/v1/token" && request.url!.query == "grant_type=pkce"
                 && request.httpMethod == "POST" && request.value(forHTTPHeaderField: "apikey") == key
                 && request.value(forHTTPHeaderField: "Authorization") == nil && body?["auth_code"] == "one-use-code"
                 && verifier.count == 43 && GoogleOAuthRequest.base64URL(Data(SHA256.hash(data: Data(verifier.utf8)))) == challenge
-            return (200, ["access_token": "google-" + responseEmail, "refresh_token": "google-refresh", "expires_in": 3600,
+            return (200, ["access_token": "google-" + responseEmail, "refresh_token": "google-refresh", "expires_in": lifetime, "expires_at": serverExpiry,
                           "user": ["id": responseID, "email": responseEmail, "user_metadata": ["full_name": "Pablo Google"]]])
         }
         func successfulBrowser(_ url: URL) throws -> URL {
@@ -553,6 +565,25 @@ import PDFKit
         let user = try await auth.authenticateWithGoogle(openBrowser: { try successfulBrowser($0) })
         try check(exchanged && auth.signedIn && user.email == "pablo@example.com" && user.name == "Pablo Google",
                   "Google intercambia código con PKCE, clave pública y nombre del perfil verificado")
+        try check(auth.session!.expiresAt > Date().timeIntervalSince1970 + 3500 && usedTimeout == 60,
+                  "Google usa la duración válida aunque el reloj del equipo difiera del servidor y permite completar el intercambio")
+        let tokenBeforeInvalid = auth.session?.token
+        lifetime = 0; serverExpiry = Date().timeIntervalSince1970 + 86400
+        do {
+            _ = try await auth.authenticateWithGoogle(openBrowser: { try successfulBrowser($0) })
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.rejected { }
+        try check(auth.session?.token == tokenBeforeInvalid, "Una duración caducada no se acepta aunque la fecha absoluta sea futura")
+        lifetime = 3600
+        exchangeFailure = .timedOut
+        do {
+            _ = try await auth.authenticateWithGoogle(openBrowser: { try successfulBrowser($0) })
+            throw DesktopError.invalidBusiness
+        } catch RemoteAuthError.rejected(let message) {
+            try check(message.contains("tardado") && auth.session?.token == tokenBeforeInvalid,
+                      "Un timeout tras volver de Google explica el paso fallido y conserva la sesión anterior")
+        }
+        exchangeFailure = nil
         let restored = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
         try check(restored.session?.token == auth.session?.token && restored.session?.refreshToken == "google-refresh",
                   "La sesión de Google se guarda en Keychain y se recupera al abrir la app")

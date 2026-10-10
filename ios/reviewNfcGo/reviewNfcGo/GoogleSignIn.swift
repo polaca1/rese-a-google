@@ -88,13 +88,13 @@ struct GoogleOAuthRequest {
                         if let url { self?.finish(.success(url)) }
                         else if (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin {
                             self?.finish(.failure(CancellationError()))
-                        } else { self?.finish(.failure(RemoteAuthError.unavailable)) }
+                        } else { self?.finish(.failure(RemoteAuthError.rejected("No se pudo abrir o completar la ventana de Google. Vuelve a la app e inténtalo de nuevo."))) }
                     }
                 }
                 self.session = session
                 session.presentationContextProvider = self
                 session.prefersEphemeralWebBrowserSession = false
-                if !session.start() { finish(.failure(RemoteAuthError.unavailable)) }
+                if !session.start() { finish(.failure(RemoteAuthError.rejected("No se pudo abrir la ventana de Google. Mantén la app abierta y vuelve a intentarlo."))) }
             }
         } onCancel: {
             Task { @MainActor in self.cancel() }

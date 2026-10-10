@@ -197,8 +197,8 @@
 				"PRODUCT_NAME" = "reviewNfcGo";
 				"EXECUTABLE_NAME" = "reviewNfcGoMac";
 				"PRODUCT_BUNDLE_IDENTIFIER" = "com.pablo.reviewnfcgo.mac";
-				"MARKETING_VERSION" = "2.0";
-				"CURRENT_PROJECT_VERSION" = "9";
+				"MARKETING_VERSION" = "2.0.1";
+				"CURRENT_PROJECT_VERSION" = "10";
 				"INFOPLIST_FILE" = "reviewNfcGo/Info.plist";
 				"GENERATE_INFOPLIST_FILE" = "NO";
 				"CODE_SIGN_STYLE" = "Automatic";
@@ -230,8 +230,8 @@
 				"PRODUCT_NAME" = "reviewNfcGo";
 				"EXECUTABLE_NAME" = "reviewNfcGoMac";
 				"PRODUCT_BUNDLE_IDENTIFIER" = "com.pablo.reviewnfcgo.mac";
-				"MARKETING_VERSION" = "2.0";
-				"CURRENT_PROJECT_VERSION" = "9";
+				"MARKETING_VERSION" = "2.0.1";
+				"CURRENT_PROJECT_VERSION" = "10";
 				"INFOPLIST_FILE" = "reviewNfcGo/Info.plist";
 				"GENERATE_INFOPLIST_FILE" = "NO";
 				"CODE_SIGN_STYLE" = "Automatic";

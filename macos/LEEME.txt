@@ -1,4 +1,4 @@
-reviewNfcGo para Mac 2.0
+reviewNfcGo para Mac 2.0.1
 Desarrollado por Pablo Cancho Flores
 
 Compatible con macOS Sonoma 14 y posteriores. Incluye Intel y Apple Silicon.
@@ -40,3 +40,5 @@ versiones anteriores. Actualiza también el iPhone para editar estos datos nuevo
 La pantalla inicial está centrada en iniciar sesión con Google o correo y contraseña. Usa la misma cuenta que en el iPhone para recuperar los datos de la nube. Importar copias queda como una opción adicional en Ajustes.
 
 Nuevo: Hoy, contactos de clientes, presupuestos con descuento y PDF, conversión a venta con control de stock, mínimos por producto y comparación de meses y productos. Las tarjetas con destino actualizable necesitan activar el servicio una vez; consulta major6/LEEME.md.
+
+Acceso con Google: la sesión utiliza su duración para evitar rechazos por diferencias de reloj. El intercambio permite hasta 60 segundos y distingue errores de apertura y conexión.
