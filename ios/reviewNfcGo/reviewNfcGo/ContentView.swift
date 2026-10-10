@@ -987,6 +987,7 @@ struct MainTabView: View {
 // MARK: - Home
 
 struct HomeView: View {
+    var showsNavigation = false
     @EnvironmentObject var auth: AuthStore
     @EnvironmentObject var store: AppStore
     @StateObject private var finder = PlaceFinder()
@@ -1033,7 +1034,9 @@ struct HomeView: View {
             searchBar.padding(.horizontal, 16).padding(.vertical, 8)
         }
         .background(AppTheme.background)
-        .navigationBarHidden(true)
+        .navigationBarHidden(!showsNavigation)
+        .navigationTitle(showsNavigation ? "Buscar negocio" : "")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--verification-blur-home") || ProcessInfo.processInfo.arguments.contains("--verification-home-top") {

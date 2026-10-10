@@ -385,7 +385,7 @@ struct TodayWorkspaceView: View {
         List {
             Section {
                 #if os(iOS)
-                NavigationLink { HomeView() } label: { Label("Buscar negocio y escribir NFC", systemImage: "magnifyingglass") }
+                NavigationLink { HomeView(showsNavigation: true) } label: { Label("Buscar negocio y escribir NFC", systemImage: "magnifyingglass") }
                 #endif
                 HStack { Label("Ventas de hoy", systemImage: "eurosign.circle"); Spacer(); Text(suiteEuro(today.salesCents)).font(.title3.bold()) }
                 NavigationLink { QuickSaleView() } label: { Label("Registrar venta", systemImage: "plus.circle.fill") }
