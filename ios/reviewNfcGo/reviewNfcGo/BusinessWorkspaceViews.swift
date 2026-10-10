@@ -1,23 +1,32 @@
 import SwiftUI
 import Charts
 import CoreLocation
+import CoreText
+import UniformTypeIdentifiers
+#if os(iOS)
+import UIKit
+#endif
 
 #if os(iOS)
 typealias WorkspaceStore = AppStore
 #else
 typealias WorkspaceStore = MacStore
 #endif
-private func suiteEuro(_ cents: Int64) -> String { (Double(cents) / 100).formatted(.currency(code: "EUR")) }
+private func suiteEuro(_ cents: Int64) -> String { (Double(cents) / 100).formatted(.currency(code: "EUR").locale(Locale(identifier: "es_ES"))) }
 
 struct BusinessHubView: View {
     var body: some View {
         List {
             Section("Tu actividad") {
+                NavigationLink { TodayWorkspaceView() } label: { Label("Hoy", systemImage: "sun.max") }
+                NavigationLink { QuotesWorkspaceView() } label: { Label("Presupuestos", systemImage: "doc.text") }
+                NavigationLink { InventoryLevelsView() } label: { Label("Stock mínimo", systemImage: "shippingbox") }
                 NavigationLink { QuickSaleView() } label: { Label("Registrar venta", systemImage: "plus.circle.fill") }
                 NavigationLink { ClientFollowUpView() } label: { Label("Seguimiento de clientes", systemImage: "person.2") }
                 NavigationLink { WorkspaceRouteView() } label: { Label("Ruta del día", systemImage: "map") }
             }
             Section("Resultados") {
+                NavigationLink { MajorAnalyticsView() } label: { Label("Análisis del negocio", systemImage: "chart.bar.xaxis") }
                 NavigationLink { WeeklyGoalsView() } label: { Label("Objetivos semanales", systemImage: "target") }
                 NavigationLink { SaleProfitView() } label: { Label("Ventas y beneficio", systemImage: "chart.bar") }
             }
@@ -131,6 +140,14 @@ struct ClientTimelineView: View {
     var body: some View {
         List {
             if let record {
+                Section("Contacto") {
+                    if let name = record.contactName, !name.isEmpty { LabeledContent("Nombre", value: name) }
+                    if let email = record.contactEmail, !email.isEmpty { Text(email).textSelection(.enabled) }
+                    if let phone = record.contactPhone, !phone.isEmpty { Text(phone).textSelection(.enabled) }
+                    NavigationLink("Editar contacto") { ClientContactView(recordID: recordID) }
+                    NavigationLink("Presupuestos de este cliente") { QuotesWorkspaceView(businessID: recordID) }
+                    NavigationLink("Enlace de tarjeta actualizable") { EditableReviewLinkView(recordID: recordID) }
+                }
                 Section("Seguimiento") {
                     Picker("Estado", selection: $stage) { ForEach(ContactStage.allCases) { Text($0.rawValue).tag($0) } }
                     TextField("Añadir nota al historial", text: $note, axis: .vertical).lineLimit(3...8)
@@ -352,5 +369,374 @@ struct CloudHistoryView: View {
         do { copies = try await cloud.previousCopies() }
         catch { message = error.localizedDescription }
         loading = false
+    }
+}
+
+struct TodayWorkspaceView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @EnvironmentObject private var cloud: CloudBackupController
+    private var today: TodaySummary { TodaySummary(records: store.records, money: store.money) }
+    var body: some View {
+        List {
+            Section {
+                #if os(iOS)
+                NavigationLink { HomeView() } label: { Label("Buscar negocio y escribir NFC", systemImage: "magnifyingglass") }
+                #endif
+                HStack { Label("Ventas de hoy", systemImage: "eurosign.circle"); Spacer(); Text(suiteEuro(today.salesCents)).font(.title3.bold()) }
+                NavigationLink { QuickSaleView() } label: { Label("Registrar venta", systemImage: "plus.circle.fill") }
+                NavigationLink { QuotesWorkspaceView() } label: { Label("Presupuestos", systemImage: "doc.text") }
+            }
+            Section("Tu cuenta") { CloudBackupStatusView() }
+            Section("Objetivo de la semana") {
+                let goals = store.money.weeklyGoals ?? WeeklyGoals()
+                ProgressView(value: min(Double(today.weekly.cards), Double(goals.cards)), total: Double(goals.cards)) { Text("\(today.weekly.cards) de \(goals.cards) tarjetas") }
+                NavigationLink { WeeklyGoalsView() } label: { Label("Ver objetivos y beneficio", systemImage: "target") }
+            }
+            Section("Visitas de hoy") {
+                if today.visits.isEmpty { Text("No tienes visitas programadas para hoy.").foregroundStyle(.secondary) }
+                ForEach(today.visits) { record in
+                    NavigationLink { ClientTimelineView(recordID: record.id) } label: {
+                        VStack(alignment: .leading) { Text(record.place.name); if let date = record.reminderDate { Text(date, style: .time).foregroundStyle(.secondary) } }
+                    }
+                }
+                NavigationLink { WorkspaceRouteView() } label: { Label("Organizar ruta", systemImage: "map") }
+            }
+            Section("Clientes pendientes") {
+                if today.followUps.isEmpty { Text("El seguimiento está al día.").foregroundStyle(.secondary) }
+                ForEach(Array(today.followUps.prefix(10))) { record in
+                    NavigationLink { ClientTimelineView(recordID: record.id) } label: { VStack(alignment: .leading) { Text(record.place.name); Text(record.trackingStage.rawValue).font(.caption).foregroundStyle(.secondary) } }
+                }
+                NavigationLink { ClientFollowUpView() } label: { Label("Todos los clientes", systemImage: "person.2") }
+            }
+            if !store.money.lowStockProducts.isEmpty {
+                Section("Reponer inventario") {
+                    ForEach(store.money.lowStockProducts) { product in
+                        NavigationLink { StockMinimumView(productID: product.id) } label: {
+                            LabeledContent(product.displayName, value: "\(store.money.stock(product.id)) disponibles")
+                        }
+                    }
+                }
+            }
+            Section("Herramientas") {
+                NavigationLink { BusinessHubView() } label: { Label("Actividad y herramientas", systemImage: "square.grid.2x2") }
+                NavigationLink { MajorAnalyticsView() } label: { Label("Análisis del negocio", systemImage: "chart.bar.xaxis") }
+            }
+        }.navigationTitle("Hoy")
+    }
+}
+
+struct ClientContactView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    let recordID: UUID
+    @State private var name = ""
+    @State private var email = ""
+    @State private var phone = ""
+    @State private var error: String?
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        Form {
+            Section("Persona de contacto") {
+                TextField("Nombre", text: $name)
+                TextField("Correo electrónico", text: $email)
+                TextField("Teléfono", text: $phone)
+            }
+            Button("Guardar contacto") {
+                guard var record = store.records.first(where: { $0.id == recordID }) else { return }
+                record.contactName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                record.contactEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+                record.contactPhone = phone.trimmingCharacters(in: .whitespacesAndNewlines)
+                do { try store.saveClient(record); dismiss() } catch { self.error = error.localizedDescription }
+            }.buttonStyle(.borderedProminent)
+        }.navigationTitle("Contacto").onAppear {
+            guard let record = store.records.first(where: { $0.id == recordID }) else { return }
+            name = record.contactName ?? ""; email = record.contactEmail ?? ""; phone = record.contactPhone ?? ""
+        }.alert("No se pudo guardar", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Aceptar") { error = nil } } message: { Text(error ?? "") }
+    }
+}
+
+struct QuotesWorkspaceView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    var businessID: UUID? = nil
+    var body: some View {
+        List {
+            NavigationLink { QuoteEditorView(initialBusinessID: businessID) } label: { Label("Crear presupuesto", systemImage: "plus.circle") }
+            ForEach((store.money.quotations ?? []).filter { businessID == nil || $0.businessID == businessID }.sorted { $0.createdAt > $1.createdAt }) { quote in
+                NavigationLink { QuoteDetailView(quoteID: quote.id) } label: {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(quote.businessName).font(.headline)
+                        HStack { Text(quote.number + " · " + quote.status.rawValue); Spacer(); Text(suiteEuro(quote.totalCents)) }.font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if (store.money.quotations ?? []).isEmpty { Text("Prepara una propuesta y compártela en PDF. Convertirla en venta descontará las unidades del inventario.").foregroundStyle(.secondary) }
+        }.navigationTitle("Presupuestos")
+    }
+}
+struct QuoteEditorView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @Environment(\.dismiss) private var dismiss
+    var initialBusinessID: UUID? = nil
+    @State private var businessID: UUID?
+    @State private var productID: UUID?
+    @State private var quantity = 1
+    @State private var price = "10"
+    @State private var discount = 0
+    @State private var validity = 30
+    @State private var notes = ""
+    @State private var items: [QuoteLine] = []
+    @State private var error: String?
+    private var subtotal: Int64 { items.reduce(0) { $0 + $1.totalCents } }
+    var body: some View {
+        Form {
+            Section("Cliente") {
+                Picker("Negocio", selection: $businessID) { Text("Seleccionar").tag(nil as UUID?); ForEach(store.records) { Text($0.place.name).tag(Optional($0.id)) } }
+            }
+            Section("Productos") {
+                Picker("Producto", selection: $productID) { Text("Seleccionar").tag(nil as UUID?); ForEach(store.money.products.filter { p in !items.contains { $0.productID == p.id } }) { Text($0.displayName).tag(Optional($0.id)) } }
+                Stepper("Cantidad: \(quantity)", value: $quantity, in: 1...100_000)
+                TextField("Precio por unidad (€)", text: $price)
+                Button("Añadir producto") {
+                    guard let product = store.money.products.first(where: { $0.id == productID }), let value = SaleAmountFormatting.parse(price), let cents = MoneyLedger.cents(value), cents >= 0 else { error = "Selecciona un producto e introduce un precio válido."; return }
+                    items.append(QuoteLine(productID: product.id, title: product.displayName, quantity: quantity, unitPriceCents: cents)); productID = nil; quantity = 1
+                }.disabled(productID == nil || items.count >= 20)
+                ForEach(items) { item in
+                    HStack { Text("\(item.quantity) × \(item.title)"); Spacer(); Text(suiteEuro(item.totalCents)); Button(role: .destructive) { items.removeAll { $0.id == item.id } } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless).accessibilityLabel("Quitar producto") }
+                }
+                Text("El presupuesto no reserva stock. Se comprobarán las existencias al convertirlo en venta.").font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Condiciones") {
+                Stepper("Descuento: \(discount)%", value: $discount, in: 0...100)
+                Stepper("Validez: \(validity) días", value: $validity, in: 1...365)
+                TextField("Notas y condiciones", text: $notes, axis: .vertical)
+                LabeledContent("Total", value: suiteEuro(subtotal - (subtotal * Int64(discount) + 50) / 100))
+                Button("Guardar presupuesto") {
+                    guard let record = store.records.first(where: { $0.id == businessID }) else { return }
+                    let now = Date()
+                    let quote = BusinessQuote(businessID: record.id, businessName: record.place.name, createdAt: now, expiresAt: Calendar.current.date(byAdding: .day, value: validity, to: now)!, items: items, discountPercent: discount, notes: notes)
+                    do { try store.saveQuote(quote); dismiss() } catch { self.error = error.localizedDescription }
+                }.buttonStyle(.borderedProminent).disabled(businessID == nil || items.isEmpty)
+            }
+        }.navigationTitle("Nuevo presupuesto").onAppear { businessID = initialBusinessID }
+            .alert("No se pudo guardar", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Aceptar") { error = nil } } message: { Text(error ?? "") }
+    }
+}
+struct QuoteDetailView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    let quoteID: UUID
+    @State private var payment = "Transferencia"
+    @State private var error: String?
+    @State private var pdfURL: URL?
+    @State private var confirm = false
+    private var quote: BusinessQuote? { store.money.quotations?.first { $0.id == quoteID } }
+    var body: some View {
+        List {
+            if let quote {
+                Section(quote.businessName) {
+                    LabeledContent("Presupuesto", value: quote.number)
+                    LabeledContent("Estado", value: quote.status.rawValue)
+                    LabeledContent("Válido hasta", value: quote.expiresAt.formatted(date: .abbreviated, time: .omitted))
+                    ForEach(quote.items) { line in LabeledContent("\(line.quantity) × \(line.title)", value: suiteEuro(line.totalCents)) }
+                    LabeledContent("Descuento", value: "\(quote.discountPercent)% · \(suiteEuro(quote.discountCents))")
+                    LabeledContent("Total", value: suiteEuro(quote.totalCents))
+                    if !quote.notes.isEmpty { Text(quote.notes) }
+                }
+                Section("Compartir") {
+                    Button("Preparar PDF", systemImage: "doc.richtext") {
+                        do { pdfURL = try QuotePDF.create(quote, owner: storeOwner) } catch { self.error = error.localizedDescription }
+                    }
+                    if let pdfURL { ShareLink("Compartir presupuesto PDF", item: pdfURL) }
+                    if quote.saleID == nil {
+                        Button("Marcar como enviado") { var next = quote; next.status = .sent; save(next) }
+                        Button("Marcar como rechazado") { var next = quote; next.status = .declined; save(next) }
+                    }
+                }
+                if quote.saleID == nil && quote.status != .declined {
+                    Section("Aceptar y registrar venta") {
+                        Picker("Forma de pago", selection: $payment) { ForEach(["Efectivo", "Tarjeta", "Bizum", "Transferencia", "Otro"], id: \.self) { Text($0) } }
+                        Button("Convertir en venta") { confirm = true }.buttonStyle(.borderedProminent).disabled(quote.expiresAt < Date() || quote.totalCents <= 0)
+                        Text("Registra \(suiteEuro(quote.totalCents)) de ingreso y descuenta las unidades del inventario.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }.navigationTitle("Presupuesto")
+            .confirmationDialog("¿Registrar esta venta?", isPresented: $confirm, titleVisibility: .visible) { Button("Registrar venta") { do { try store.convertQuote(quoteID, payment: payment) } catch { self.error = error.localizedDescription } } }
+            .alert("No se pudo completar", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Aceptar") { error = nil } } message: { Text(error ?? "") }
+    }
+    private var storeOwner: String {
+        #if os(iOS)
+        return RemoteAuthClient.shared.session?.user.email ?? ""
+        #else
+        return store.owner ?? ""
+        #endif
+    }
+    private func save(_ value: BusinessQuote) { do { try store.saveQuote(value) } catch { error = error.localizedDescription } }
+}
+
+struct StockMinimumView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    let productID: UUID
+    @State private var minimum = 5
+    @State private var error: String?
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        Form {
+            if let product = store.money.products.first(where: { $0.id == productID }) {
+                LabeledContent("Producto", value: product.displayName)
+                LabeledContent("Disponibles", value: "\(store.money.stock(productID))")
+                Stepper("Avisar con \(minimum) unidades o menos", value: $minimum, in: 0...100_000)
+                Button("Guardar mínimo") { do { try store.setMinimumStock(productID, quantity: minimum); dismiss() } catch { self.error = error.localizedDescription } }.buttonStyle(.borderedProminent)
+                Text("Las unidades fabricadas siguen registrándose como entradas de inventario de cero euros.").foregroundStyle(.secondary)
+            }
+        }.navigationTitle("Stock mínimo").onAppear { minimum = store.money.products.first { $0.id == productID }?.minimumStock ?? 5 }
+            .alert("No se pudo guardar", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Aceptar") { error = nil } } message: { Text(error ?? "") }
+    }
+}
+
+struct MajorAnalyticsView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @State private var month = Date()
+    private var current: DateInterval { Calendar.current.dateInterval(of: .month, for: month)! }
+    private var previous: DateInterval { Calendar.current.dateInterval(of: .month, for: Calendar.current.date(byAdding: .month, value: -1, to: month)!)! }
+    private func entries(_ range: DateInterval) -> [MoneyTransaction] { store.money.transactions.filter { $0.date >= range.start && $0.date < range.end } }
+    private func income(_ range: DateInterval) -> Int64 { entries(range).filter { $0.kind.isIncome }.reduce(0) { $0 + $1.cents } }
+    private func expense(_ range: DateInterval) -> Int64 { -entries(range).filter { $0.kind == .expense || $0.kind == .refund }.reduce(0) { $0 + $1.cents } }
+    var body: some View {
+        List {
+            Section("Comparar meses") {
+                DatePicker("Mes", selection: $month, displayedComponents: .date)
+                LabeledContent("Ingresos de este mes", value: suiteEuro(income(current)))
+                LabeledContent("Ingresos del mes anterior", value: suiteEuro(income(previous)))
+                LabeledContent("Variación de ingresos", value: suiteEuro(income(current) - income(previous)))
+                Chart {
+                    BarMark(x: .value("Mes", previous.start, unit: .month), y: .value("Euros", Double(income(previous)) / 100)).foregroundStyle(by: .value("Tipo", "Ingresos"))
+                    BarMark(x: .value("Mes", current.start, unit: .month), y: .value("Euros", Double(income(current)) / 100)).foregroundStyle(by: .value("Tipo", "Ingresos"))
+                    BarMark(x: .value("Mes", previous.start, unit: .month), y: .value("Euros", Double(expense(previous)) / 100)).foregroundStyle(by: .value("Tipo", "Gastos"))
+                    BarMark(x: .value("Mes", current.start, unit: .month), y: .value("Euros", Double(expense(current)) / 100)).foregroundStyle(by: .value("Tipo", "Gastos"))
+                }.frame(height: 220)
+                LabeledContent("Flujo neto del mes", value: suiteEuro(income(current) - expense(current)))
+            }
+            Section("Resultados por producto · histórico") {
+                ForEach(store.money.productPerformance) { result in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(result.product.displayName).font(.headline)
+                        Text("\(result.quantity) vendidos · Ingresos \(suiteEuro(result.revenue))")
+                        Text(result.profit.map { "Beneficio: " + suiteEuro($0) } ?? "Coste pendiente de registrar").foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Section("Clientes por beneficio · histórico") {
+                ForEach(store.records.sorted { (store.money.businessProfit($0.id) ?? Int64.min) > (store.money.businessProfit($1.id) ?? Int64.min) }) { record in
+                    NavigationLink { ClientTimelineView(recordID: record.id) } label: { LabeledContent(record.place.name, value: store.money.businessProfit(record.id).map(suiteEuro) ?? "Coste pendiente") }
+                }
+            }
+            #if os(macOS)
+            Section("Exportar") {
+                Button("Exportar operaciones para Excel (CSV)") { MacFiles.export(store: store, csv: true) }
+            }
+            #endif
+        }.navigationTitle("Análisis del negocio")
+    }
+}
+
+struct InventoryLevelsView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    var body: some View {
+        List {
+            ForEach(store.money.products) { product in
+                NavigationLink { StockMinimumView(productID: product.id) } label: {
+                    VStack(alignment: .leading) {
+                        Text(product.displayName)
+                        Text("Disponibles: \(store.money.stock(product.id)) · Mínimo: \(product.minimumStock ?? 5)").font(.caption).foregroundStyle(store.money.stock(product.id) <= (product.minimumStock ?? 5) ? Color.orange : Color.secondary)
+                    }
+                }
+            }
+            if store.money.products.isEmpty { Text("Añade productos al inventario para configurar sus avisos.").foregroundStyle(.secondary) }
+        }.navigationTitle("Stock mínimo")
+    }
+}
+@MainActor enum QuotePDF {
+    static func create(_ quote: BusinessQuote, owner: String) throws -> URL {
+        try quote.validate()
+        let lines = quote.items.map { "\($0.quantity) × \($0.title)\nPrecio unidad: \(suiteEuro($0.unitPriceCents))    Importe: \(suiteEuro($0.totalCents))" }.joined(separator: "\n\n")
+        let text = "PRESUPUESTO \(quote.number)\nreviewNfcGo · \(owner)\n\nCliente: \(quote.businessName)\nFecha: \(quote.createdAt.formatted(date: .abbreviated, time: .omitted))\nVálido hasta: \(quote.expiresAt.formatted(date: .abbreviated, time: .omitted))\n\n\(lines)\n\nSubtotal: \(suiteEuro(quote.subtotalCents))\nDescuento: \(quote.discountPercent)% (\(suiteEuro(quote.discountCents)))\nTOTAL: \(suiteEuro(quote.totalCents))\n\n\(quote.notes)\n\nPresupuesto comercial. No es una factura ni un justificante de pago."
+        let font = CTFontCreateWithName("Helvetica" as CFString, 12, nil)
+        let attributes: [NSAttributedString.Key: Any] = [NSAttributedString.Key(kCTFontAttributeName as String): font]
+        let content = NSAttributedString(string: text, attributes: attributes)
+        let framesetter = CTFramesetterCreateWithAttributedString(content as CFAttributedString)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(quote.number + "-" + UUID().uuidString + ".pdf")
+        var page = CGRect(x: 0, y: 0, width: 595, height: 842)
+        guard let context = CGContext(url as CFURL, mediaBox: &page, nil) else { throw CocoaError(.fileWriteUnknown) }
+        var offset = 0
+        while offset < content.length {
+            context.beginPDFPage(nil)
+            let path = CGPath(rect: CGRect(x: 40, y: 50, width: 515, height: 742), transform: nil)
+            let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: offset, length: 0), path, nil)
+            CTFrameDraw(frame, context)
+            let visible = CTFrameGetVisibleStringRange(frame)
+            context.endPDFPage()
+            guard visible.length > 0 else { context.closePDF(); throw CocoaError(.fileWriteUnknown) }
+            offset += visible.length
+        }
+        context.closePDF()
+        return url
+    }
+}
+
+struct EditableReviewLinkView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    let recordID: UUID
+    @State private var target = ""
+    @State private var active = true
+    @State private var busy = false
+    @State private var message: String?
+    private var record: VisitRecord? { store.records.first { $0.id == recordID } }
+    var body: some View {
+        Form {
+            if let record {
+                Section("Destino de la tarjeta") {
+                    TextField("Dirección HTTPS", text: $target, axis: .vertical).lineLimit(2...5)
+                    Toggle("Tarjeta activa", isOn: $active)
+                    Button(record.reviewLinkID == nil ? "Crear enlace" : "Guardar nuevo destino") { publish() }
+                        .buttonStyle(.borderedProminent).disabled(busy || !ReviewLinkAddress.validTarget(target))
+                    if busy { ProgressView() }
+                    if let message { Text(message).foregroundStyle(.secondary) }
+                }
+                if let id = record.reviewLinkID {
+                    Section("Escribir una sola vez") {
+                        Text(ReviewLinkAddress.permanent(id)).font(.caption).textSelection(.enabled)
+                        #if os(iOS)
+                        Button("Escribir NFC") { ExternalNFCWriter.write(reviewURL: ReviewLinkAddress.permanent(id)) }.buttonStyle(.borderedProminent)
+                        Button("Copiar enlace de tarjeta") { UIPasteboard.general.string = ReviewLinkAddress.permanent(id) }
+                        #else
+                        Button("Copiar enlace de tarjeta") { MacFiles.copy(ReviewLinkAddress.permanent(id)) }
+                        #endif
+                        Link("Probar tarjeta", destination: URL(string: ReviewLinkAddress.permanent(id))!)
+                        Text("Cambia el destino desde aquí sin volver a escribir la tarjeta. Las tarjetas que ya contienen un enlace directo a Google deben regrabarse una vez.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Section {
+                    Text("El destino es accesible para quien tenga el enlace de la tarjeta. Tus datos de cuenta siguen privados. Para abrirlo y cambiarlo se necesita conexión.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }.navigationTitle("Tarjeta actualizable").onAppear {
+            target = record?.reviewLinkTarget ?? record?.place.reviewURL ?? ""; active = record?.reviewLinkActive ?? true
+        }
+    }
+    private func publish() {
+        guard let initial = record else { return }
+        let owner = RemoteAuthClient.shared.session?.user.id
+        let id = initial.reviewLinkID ?? UUID()
+        let destination = target, enabled = active
+        busy = true; message = nil
+        Task { @MainActor in
+            defer { busy = false }
+            do {
+                try await RemoteAuthClient.shared.publishReviewLink(id: id, target: destination, active: enabled)
+                guard owner == RemoteAuthClient.shared.session?.user.id, var current = record else { throw CancellationError() }
+                current.reviewLinkID = id; current.reviewLinkTarget = destination; current.reviewLinkActive = enabled
+                try store.saveClient(current); message = "Destino guardado. La tarjeta abrirá este enlace."
+            } catch is CancellationError { message = "El acceso ha cambiado. Vuelve a intentarlo." }
+            catch { message = error.localizedDescription }
+        }
     }
 }

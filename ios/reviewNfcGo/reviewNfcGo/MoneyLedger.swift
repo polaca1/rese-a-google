@@ -15,6 +15,7 @@ struct InventoryProduct: Identifiable, Codable, Equatable {
     var color = ""
     var purchaseURL = ""
     var imageURL = ""
+    var minimumStock: Int? = nil
     var displayName: String { color.isEmpty ? name : "\(name) · \(color)" }
 }
 enum MoneyKind: String, Codable {
@@ -100,11 +101,48 @@ struct QuickSale: Identifiable, Codable, Equatable {
     var items: [QuickSaleLine]
     var paymentMethod: String
     var voidedAt: Date? = nil
-    var incomeCents: Int64 { items.reduce(0) { $0 + $1.incomeCents } }
+    var discountCents: Int64? = nil
+    var incomeCents: Int64 { items.reduce(0) { $0 + $1.incomeCents } - (discountCents ?? 0) }
     var costCents: Int64? { items.allSatisfy { $0.costCents != nil } ? items.reduce(0) { $0 + ($1.costCents ?? 0) } : nil }
     var profitCents: Int64? { costCents.map { incomeCents - $0 } }
 }
+enum QuoteStatus: String, Codable, CaseIterable, Identifiable {
+    case draft = "Borrador", sent = "Enviado", declined = "Rechazado", converted = "Vendido"
+    var id: String { rawValue }
+}
+struct QuoteLine: Codable, Equatable, Identifiable {
+    var productID: UUID
+    var title: String
+    var quantity: Int
+    var unitPriceCents: Int64
+    var id: UUID { productID }
+    var totalCents: Int64 { Int64(quantity) * unitPriceCents }
+}
+struct BusinessQuote: Codable, Equatable, Identifiable {
+    var id = UUID()
+    var businessID: UUID
+    var businessName: String
+    var createdAt = Date()
+    var expiresAt: Date
+    var items: [QuoteLine]
+    var discountPercent = 0
+    var notes = ""
+    var status = QuoteStatus.draft
+    var saleID: UUID? = nil
+    var number: String { "P-" + String(id.uuidString.prefix(8)) }
+    var subtotalCents: Int64 { items.reduce(0) { $0 + $1.totalCents } }
+    var discountCents: Int64 { (subtotalCents * Int64(discountPercent) + 50) / 100 }
+    var totalCents: Int64 { subtotalCents - discountCents }
+    func validate() throws {
+        guard (0...100).contains(discountPercent), !items.isEmpty, items.count <= 20,
+              Set(items.map(\.productID)).count == items.count, businessName.count <= 500, notes.count <= 10000,
+              expiresAt >= createdAt, items.allSatisfy({ (1...100_000).contains($0.quantity) && (0...1_000_000_000).contains($0.unitPriceCents) && $0.title.count <= 1000 }) else { throw MoneyError.invalidProduct }
+        guard (1...1_000_000_000).contains(subtotalCents), totalCents >= 0 else { throw MoneyError.invalidAmount }
+        guard (status == .converted) == (saleID != nil) else { throw MoneyError.invalidProduct }
+    }
+}
 struct MoneyLedger: Codable, Equatable {
+    var quotations: [BusinessQuote]? = nil
     var quickSales: [QuickSale]? = nil
     var weeklyGoals: WeeklyGoals? = nil
     var products: [InventoryProduct] = []

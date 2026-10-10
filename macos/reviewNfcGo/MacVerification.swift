@@ -2,6 +2,7 @@
 import SwiftUI
 import AppKit
 import CryptoKit
+import PDFKit
 
 @MainActor enum MacVerification {
     static func run(store: MacStore, navigation: MacNavigation, output: URL) async {
@@ -14,6 +15,8 @@ import CryptoKit
                 try JSONSerialization.data(withJSONObject: ["checks": checks], options: [.prettyPrinted, .sortedKeys])
                     .write(to: output.appendingPathComponent("verification-progress.json"))
             }
+            try await Task.sleep(for: .milliseconds(500))
+            try capture(name: "mac-login", output: output)
             checks += try await verifyCentralAccounts()
             checks += try await verifySupabaseAccounts()
             checks += try await verifyGoogleAccounts()
@@ -106,6 +109,25 @@ import CryptoKit
             try check(emptyReport.totals.result == 0 && emptyReport.categories.isEmpty && emptyReport.businesses.isEmpty && emptyReport.points.count == 2, "Análisis vacío sin datos simulados ni divisiones por cero")
             let yearReport = FinanceReport(money: analytical, records: [], start: calendar.date(byAdding: .year, value: -1, to: day)!, end: next, calendar: calendar)
             try check(yearReport.granularity == .month && yearReport.points.count <= 14 && yearReport.points.last?.balance == 5800, "Periodos largos agrupan meses sin perder el saldo")
+            var quoteClient = VisitRecord(place: PlaceResult(id: "quote-client", name: "Cliente de presupuesto", address: "", latitude: 38.88, longitude: -6.97))
+            quoteClient.contactName = "María"; quoteClient.contactPhone = "+34 600 000 000"
+            try store.save(quoteClient)
+            let quoteNow = Date()
+            let quote = BusinessQuote(businessID: quoteClient.id, businessName: quoteClient.place.name, createdAt: quoteNow, expiresAt: quoteNow.addingTimeInterval(86400),
+                items: [QuoteLine(productID: card.id, title: card.displayName, quantity: 2, unitPriceCents: 999)], discountPercent: 10, notes: String(repeating: "Condiciones de entrega\n", count: 200))
+            try store.saveQuote(quote)
+            let quotePDF = try QuotePDF.create(quote, owner: owner)
+            guard let document = PDFDocument(url: quotePDF) else { throw DesktopError.invalidBusiness }
+            try check(document.pageCount > 1 && document.string?.contains("PRESUPUESTO") == true && document.string?.contains("17,98") == true, "Presupuesto PDF paginado incluye cliente, descuento y total real")
+            try Data(contentsOf: quotePDF).write(to: output.appendingPathComponent("presupuesto-verificado.pdf"))
+            let oldBalance = store.money.balanceCents, oldStock = store.money.stock(card.id)
+            try store.convertQuote(quote.id, payment: "Transferencia")
+            try check(store.money.balanceCents == oldBalance + 1798 && store.money.stock(card.id) == oldStock - 2, "Mac convierte presupuesto en venta con stock y descuento exactos")
+            let afterQuote = store.money
+            do { try store.convertQuote(quote.id, payment: "Transferencia"); throw DesktopError.invalidBusiness } catch MoneyError.alreadyReversed {}
+            try check(store.money == afterQuote, "Mac bloquea doble conversión de presupuesto")
+            let majorReloaded = MacStore(fileURL: store.fileURL)
+            try check(majorReloaded.records.first { $0.id == quoteClient.id }?.contactName == "María" && majorReloaded.money.quotations?.first?.saleID != nil, "Mac conserva contacto y presupuesto al volver a abrir")
             // Screenshots always use an isolated workspace. Normal launches never seed sample data.
             var sample = try MacStore.readBackup(store.exportData())
             sample.records.append(VisitRecord(place: PlaceResult(id: "local-papeleria", name: "Papelería Central", address: "Av. de Europa, Badajoz", latitude: 38.882, longitude: -6.966),

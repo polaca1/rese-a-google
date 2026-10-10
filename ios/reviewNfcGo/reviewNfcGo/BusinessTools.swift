@@ -30,6 +30,12 @@ struct BusinessBackup: Codable {
         if let goals = money.weeklyGoals { guard (1...100_000).contains(goals.cards), (1...100_000).contains(goals.visits), (1...1_000_000_000).contains(goals.profitCents) else { throw BackupError.invalid } }
         let quick = money.quickSales ?? []
         guard quick.count <= 100_000, Set(quick.map(\.id)).count == quick.count else { throw BackupError.invalid }
+        let quotes = money.quotations ?? []
+        guard quotes.count <= 10000, Set(quotes.map(\.id)).count == quotes.count else { throw BackupError.invalid }
+        for quote in quotes {
+            try quote.validate()
+            if let saleID = quote.saleID { guard quick.contains(where: { $0.id == saleID && $0.businessID == quote.businessID && $0.incomeCents == quote.totalCents }) else { throw BackupError.invalid } }
+        }
         let products = Set(money.products.map(\.id))
         for sale in quick {
             guard !sale.items.isEmpty, sale.items.count <= 20, Set(sale.items.map(\.productID)).count == sale.items.count, sale.paymentMethod.count <= 100 else { throw BackupError.invalid }
@@ -37,9 +43,12 @@ struct BusinessBackup: Codable {
                 guard products.contains(item.productID), (1...100_000).contains(item.quantity), (0...1_000_000_000).contains(item.unitPriceCents), item.title.count <= 1000,
                       item.costCents.map({ (0...100_000_000_000_000).contains($0) }) ?? true else { throw BackupError.invalid }
             }
+            guard (sale.discountCents ?? 0) >= 0, (sale.discountCents ?? 0) < sale.items.reduce(0, { $0 + $1.incomeCents }) else { throw BackupError.invalid }
             guard (1...1_000_000_000).contains(sale.incomeCents), money.transactions.contains(where: { $0.saleID == sale.id && $0.kind == .income && $0.cents == sale.incomeCents }) else { throw BackupError.invalid }
         }
         for record in records {
+            guard (record.contactName?.count ?? 0) <= 500, (record.contactEmail?.count ?? 0) <= 254, (record.contactPhone?.count ?? 0) <= 100,
+                  record.reviewLinkTarget.map({ ReviewLinkAddress.validTarget($0) }) ?? true else { throw BackupError.invalid }
             guard (record.followUp?.count ?? 0) <= 1000, (record.followUp ?? []).allSatisfy({ $0.text.count <= 100_000 }) else { throw BackupError.invalid }
             guard (-90...90).contains(record.place.latitude), (-180...180).contains(record.place.longitude),
                   !record.place.id.isEmpty, record.place.name.count <= 500, record.notes.count <= 100_000,
@@ -71,7 +80,7 @@ struct BusinessBackup: Codable {
         for sale in money.sales.values { if let id = sale.productID { stock[id, default: 0] -= sale.cards } }
         for sale in quick where sale.voidedAt == nil { for item in sale.items { stock[item.productID, default: 0] -= item.quantity } }
         for product in money.products {
-            guard stock[product.id, default: 0] >= 0, product.name.count <= 500, product.color.count <= 100 else { throw BackupError.invalid }
+            guard (0...100_000).contains(product.minimumStock ?? 5), stock[product.id, default: 0] >= 0, product.name.count <= 500, product.color.count <= 100 else { throw BackupError.invalid }
         }
         // A stale checkpoint would create a second income when the copy is restored.
         for record in records {
@@ -132,10 +141,11 @@ extension MoneyLedger {
         guard let sale = sales[businessID.uuidString], let cost = sale.costCents else { return nil }
         return sale.cents - cost
     }
-    var lowStockProducts: [InventoryProduct] { products.filter { $0.kind == .nfcCard && stock($0.id) <= 5 } }
+    var lowStockProducts: [InventoryProduct] { products.filter { stock($0.id) <= ($0.minimumStock ?? 5) } }
     /// Restore the state while retaining a compensating movement for every undone operation.
     mutating func undo(to previous: MoneyLedger, records: [VisitRecord], now: Date = Date()) {
         weeklyGoals = previous.weeklyGoals
+        quotations = previous.quotations
         let oldQuickIDs = Set((previous.quickSales ?? []).map(\.id))
         var quick = quickSales ?? []
         for index in quick.indices where !oldQuickIDs.contains(quick[index].id) && quick[index].voidedAt == nil {
@@ -189,7 +199,7 @@ extension MoneyLedger {
         guard legacy == nil || legacy?.cards == 0 || legacy?.costCents != nil else { return nil }
         return (legacy?.cents ?? 0) - (legacy?.costCents ?? 0) + extra.reduce(0) { $0 + ($1.profitCents ?? 0) }
     }
-    mutating func registerSale(business: inout VisitRecord, items: [QuickSaleInput], payment: String, now: Date = Date()) throws {
+    mutating func registerSale(business: inout VisitRecord, items: [QuickSaleInput], payment: String, now: Date = Date(), discount: Int64 = 0) throws {
         guard !items.isEmpty, items.count <= 20, Set(items.map(\.productID)).count == items.count,
               !payment.isEmpty, payment.count <= 100 else { throw MoneyError.invalidProduct }
         var lines: [QuickSaleLine] = []
@@ -200,8 +210,8 @@ extension MoneyLedger {
             let cost = averageCostCents(product.id).map { Int64(($0 * Double(item.quantity)).rounded()) }
             lines.append(QuickSaleLine(productID: product.id, title: product.displayName, isCard: product.kind == .nfcCard, quantity: item.quantity, unitPriceCents: cents, costCents: cost))
         }
-        let sale = QuickSale(businessID: business.id, date: now, items: lines, paymentMethod: payment)
-        guard lines.filter(\.isCard).reduce(0, { $0 + $1.quantity }) <= 100_000, sale.incomeCents > 0, sale.incomeCents <= 1_000_000_000 else { throw MoneyError.invalidAmount }
+        let sale = QuickSale(businessID: business.id, date: now, items: lines, paymentMethod: payment, discountCents: discount == 0 ? nil : discount)
+        guard discount >= 0, discount < lines.reduce(0, { $0 + $1.incomeCents }), lines.filter(\.isCard).reduce(0, { $0 + $1.quantity }) <= 100_000, sale.incomeCents > 0, sale.incomeCents <= 1_000_000_000 else { throw MoneyError.invalidAmount }
         quickSales = (quickSales ?? []) + [sale]
         transactions.append(MoneyTransaction(date: now, kind: .income, title: business.place.name, cents: sale.incomeCents,
             businessID: business.id, quantity: lines.filter(\.isCard).reduce(0) { $0 + $1.quantity }, paymentMethod: payment,
@@ -244,5 +254,78 @@ extension DailyRoute {
                           URLQueryItem(name: "travelmode", value: walking ? "walking" : "driving")]
         if stops.count > 1 { url.queryItems!.append(URLQueryItem(name: "waypoints", value: stops.dropLast().map(coordinates).joined(separator: "|"))) }
         return url.url
+    }
+}
+
+
+enum ReviewLinkAddress {
+    static func validTarget(_ text: String) -> Bool {
+        guard text.count <= 2048, !text.contains(where: { $0.isWhitespace || $0.isNewline }),
+              let u = URLComponents(string: text), u.scheme == "https", let host = u.host, !host.isEmpty,
+              u.user == nil, u.password == nil, u.port == nil else { return false }
+        return true
+    }
+    static func permanent(_ id: UUID) -> String {
+        "https://polaca1.github.io/rese-a-google/link.html?id=" + id.uuidString.lowercased()
+    }
+}
+extension MoneyLedger {
+    mutating func saveQuote(_ quote: BusinessQuote) throws {
+        try quote.validate()
+        var values = quotations ?? []
+        if let i = values.firstIndex(where: { $0.id == quote.id }) {
+            guard values[i].saleID == nil else { throw MoneyError.alreadyReversed }
+            values[i] = quote
+        } else { guard values.count < 10000 else { throw MoneyError.invalidProduct }; values.append(quote) }
+        quotations = values
+    }
+    mutating func convertQuote(_ quoteID: UUID, business: inout VisitRecord, payment: String, now: Date = Date()) throws {
+        guard var values = quotations, let i = values.firstIndex(where: { $0.id == quoteID }),
+              values[i].saleID == nil, values[i].status != .declined, values[i].businessID == business.id else { throw MoneyError.alreadyReversed }
+        let quote = values[i]; try quote.validate()
+        guard quote.expiresAt >= now else { throw MoneyError.invalidProduct }
+        try registerSale(business: &business, items: quote.items.map { QuickSaleInput(productID: $0.productID, quantity: $0.quantity, unitPrice: Double($0.unitPriceCents) / 100) }, payment: payment, now: now, discount: quote.discountCents)
+        values[i].status = .converted; values[i].saleID = quickSales!.last!.id
+        quotations = values
+    }
+}
+struct TodaySummary {
+    let salesCents: Int64
+    let visits: [VisitRecord]
+    let followUps: [VisitRecord]
+    let weekly: WeeklyProgress
+    init(records: [VisitRecord], money: MoneyLedger, date: Date = Date(), calendar: Calendar = .current) {
+        salesCents = money.transactions.filter { $0.kind.isIncome && calendar.isDate($0.date, inSameDayAs: date) }.reduce(0) { $0 + $1.cents }
+        visits = records.filter { $0.arrivedAt == nil && $0.reminderDate.map { calendar.isDate($0, inSameDayAs: date) } == true }.sorted { $0.reminderDate! < $1.reminderDate! }
+        followUps = records.filter { $0.trackingStage == .interested || ($0.trackingStage == .returnLater && ($0.reminderDate ?? .distantFuture) < date) }.sorted { ($0.reminderDate ?? $0.createdAt) < ($1.reminderDate ?? $1.createdAt) }
+        weekly = WeeklyProgress(records: records, money: money, date: date, calendar: calendar)
+    }
+}
+struct ProductPerformance: Identifiable {
+    let product: InventoryProduct
+    let quantity: Int
+    let revenue: Int64
+    let profit: Int64?
+    var id: UUID { product.id }
+}
+extension MoneyLedger {
+    var productPerformance: [ProductPerformance] {
+        products.map { product in
+            let sales = activeQuickSales.flatMap { sale in sale.items.filter { $0.productID == product.id }.map { (sale, $0) } }
+            let legacy = self.sales.values.filter { $0.productID == product.id }
+            let revenue = sales.reduce(Int64(0)) { total, value in
+                let sale = value.0, line = value.1
+                let gross = max(1, sale.items.reduce(Int64(0)) { $0 + $1.incomeCents })
+                let earlier = sale.items.prefix { $0.productID != line.productID }.reduce(Int64(0)) { $0 + $1.incomeCents }
+                let discount = sale.discountCents ?? 0
+                // Cumulative allocation retains every cent when the sale has multiple lines.
+                let before = (earlier * discount + gross / 2) / gross
+                let after = ((earlier + line.incomeCents) * discount + gross / 2) / gross
+                return total + line.incomeCents - (after - before)
+            } + legacy.reduce(0) { $0 + $1.cents }
+            let known = sales.allSatisfy { $0.1.costCents != nil } && legacy.allSatisfy { $0.costCents != nil }
+            let cost = sales.reduce(Int64(0)) { $0 + ($1.1.costCents ?? 0) } + legacy.reduce(0) { $0 + ($1.costCents ?? 0) }
+            return ProductPerformance(product: product, quantity: sold(product.id), revenue: revenue, profit: known ? revenue - cost : nil)
+        }.sorted { $0.revenue > $1.revenue }
     }
 }

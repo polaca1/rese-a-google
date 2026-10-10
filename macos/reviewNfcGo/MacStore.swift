@@ -6,7 +6,7 @@ enum DesktopError: LocalizedError {
     case invalidProfile, invalidBusiness, invalidDate, missingBusiness, damagedStore, noUndo
     var errorDescription: String? {
         switch self {
-        case .invalidProfile: return "Introduce el correo de tu cuenta de iPhone para poder intercambiar copias."
+        case .invalidProfile: return "Inicia sesión para acceder a los datos de tu cuenta."
         case .invalidBusiness: return "Añade un nombre y unas coordenadas válidas al negocio."
         case .invalidDate: return "La visita debe ser futura y el aviso no puede ser posterior a ella."
         case .missingBusiness: return "La ficha de este negocio ya no está disponible. El movimiento se conserva en el historial."
@@ -69,6 +69,20 @@ enum DesktopError: LocalizedError {
         guard var value = backup else { throw BackupError.invalid }
         value.money.weeklyGoals = goals; try commit(value, title: "Cambiar objetivos")
     }
+    func saveQuote(_ quote: BusinessQuote) throws {
+        guard var value = backup, records.contains(where: { $0.id == quote.businessID }) else { throw BackupError.invalid }
+        try value.money.saveQuote(quote); try commit(value, title: "Guardar presupuesto")
+    }
+    func convertQuote(_ id: UUID, payment: String) throws {
+        guard var value = backup, let quote = value.money.quotations?.first(where: { $0.id == id }), let i = value.records.firstIndex(where: { $0.id == quote.businessID }) else { throw BackupError.invalid }
+        var record = value.records[i]; try value.money.convertQuote(id, business: &record, payment: payment)
+        value.records[i] = record; try commit(value, title: "Convertir presupuesto en venta")
+    }
+    func setMinimumStock(_ id: UUID, quantity: Int) throws {
+        guard var value = backup, (0...100_000).contains(quantity), let i = value.money.products.firstIndex(where: { $0.id == id }) else { throw MoneyError.invalidProduct }
+        value.money.products[i].minimumStock = quantity; try commit(value, title: "Cambiar stock mínimo")
+    }
+    func saveClient(_ record: VisitRecord) throws { try save(record) }
     func createWorkspace(email: String) throws {
         let owner = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard owner.contains("@"), owner.count <= 254, backup == nil, !damaged else { throw DesktopError.invalidProfile }

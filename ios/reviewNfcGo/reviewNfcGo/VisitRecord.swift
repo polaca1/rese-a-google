@@ -62,6 +62,12 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     /// Momento en el que el usuario quiere recibir el aviso. Si es nil, se avisa a la hora de la visita.
     var notificationDate: Date? = nil
 
+    var contactName: String? = nil
+    var contactEmail: String? = nil
+    var contactPhone: String? = nil
+    var reviewLinkID: UUID? = nil
+    var reviewLinkTarget: String? = nil
+    var reviewLinkActive: Bool? = nil
     var interested: Bool? = nil
     var followUp: [FollowUpEvent]? = nil
     var hasQuickSales: Bool? = nil
@@ -102,6 +108,7 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case contactName, contactEmail, contactPhone, reviewLinkID, reviewLinkTarget, reviewLinkActive
         case interested, followUp, hasQuickSales
         case id, place, createdAt, earnings, cardsSold, unitEarnings, inventoryProductID, arrivedAt, notes, status, reminderDate, notificationDate
     }
@@ -128,6 +135,12 @@ extension VisitRecord {
         unitEarnings = try values.decodeIfPresent(Double.self, forKey: .unitEarnings)
         inventoryProductID = try values.decodeIfPresent(UUID.self, forKey: .inventoryProductID)
         arrivedAt = try values.decodeIfPresent(Date.self, forKey: .arrivedAt)
+        contactName = try values.decodeIfPresent(String.self, forKey: .contactName)
+        contactEmail = try values.decodeIfPresent(String.self, forKey: .contactEmail)
+        contactPhone = try values.decodeIfPresent(String.self, forKey: .contactPhone)
+        reviewLinkID = try values.decodeIfPresent(UUID.self, forKey: .reviewLinkID)
+        reviewLinkTarget = try values.decodeIfPresent(String.self, forKey: .reviewLinkTarget)
+        reviewLinkActive = try values.decodeIfPresent(Bool.self, forKey: .reviewLinkActive)
         interested = try values.decodeIfPresent(Bool.self, forKey: .interested)
         followUp = try values.decodeIfPresent([FollowUpEvent].self, forKey: .followUp)
         hasQuickSales = try values.decodeIfPresent(Bool.self, forKey: .hasQuickSales)

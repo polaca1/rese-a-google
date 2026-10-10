@@ -313,6 +313,38 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         }
         return rows
     }
+    func publishReviewLink(id: UUID, target: String, active: Bool) async throws {
+        guard ReviewLinkAddress.validTarget(target) else { throw RemoteAuthError.invalidURL }
+        var page = URLRequest(url: URL(string: "https://polaca1.github.io/rese-a-google/link.html")!, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 12)
+        page.httpMethod = "GET"
+        let (pageData, pageResponse) = try await urlSession.data(for: page)
+        guard (pageResponse as? HTTPURLResponse)?.statusCode == 200, pageData.count <= 20000,
+              String(data: pageData, encoding: .utf8)?.contains("reviewnfcgo_link_destination") == true else {
+            throw RemoteAuthError.rejected("El servicio de tarjetas actualizables todavía no está disponible. Puedes seguir usando los enlaces directos a Google.")
+        }
+        let generation = authorizationGeneration
+        let user = try await validate()
+        guard generation == authorizationGeneration, provider == .supabase, let userID = user.id, let token = session?.token else { throw RemoteAuthError.unavailable }
+        let origin = server
+        var url = URLComponents(string: origin + "/rest/v1/reviewnfcgo_links")!
+        url.queryItems = [URLQueryItem(name: "on_conflict", value: "id")]
+        var request = URLRequest(url: url.url!, timeoutInterval: 20)
+        request.httpMethod = "POST"
+        request.setValue(publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("resolution=merge-duplicates,return=representation", forHTTPHeaderField: "Prefer")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["id": id.uuidString.lowercased(), "user_id": userID, "target_url": target, "active": active])
+        let (data, response) = try await urlSession.data(for: request)
+        guard generation == authorizationGeneration, server == origin, session?.token == token else { throw CancellationError() }
+        guard let response = response as? HTTPURLResponse else { throw RemoteAuthError.unavailable }
+        if [403, 404].contains(response.statusCode) { throw RemoteAuthError.rejected("El servicio de tarjetas actualizables todavía no está activado. Puedes seguir usando los enlaces directos a Google.") }
+        guard (200...299).contains(response.statusCode), data.count <= 10000,
+              let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]], rows.count == 1,
+              (rows[0]["id"] as? String)?.lowercased() == id.uuidString.lowercased(),
+              (rows[0]["user_id"] as? String)?.lowercased() == userID.lowercased(),
+              rows[0]["target_url"] as? String == target, rows[0]["active"] as? Bool == active else { throw RemoteAuthError.unavailable }
+    }
     private struct EmptyResponse: Decodable {}
     private func request<Response: Decodable>(_ path: String, method: String, body: [String: Any]? = nil, authorized: Bool,
                                               query: String? = nil, boundToSession: Bool = false) async throws -> Response {

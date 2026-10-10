@@ -30,7 +30,7 @@ extension CloudBackupTransport {
     func loadCloudHistory(owner: String) async throws -> [CloudBackupRecord] { [] }
 }
 extension BusinessBackup {
-    var hasContent: Bool { !records.isEmpty || !money.products.isEmpty || !money.transactions.isEmpty || !money.sales.isEmpty || photo != nil || money.weeklyGoals != nil || !(money.quickSales ?? []).isEmpty }
+    var hasContent: Bool { !records.isEmpty || !money.products.isEmpty || !money.transactions.isEmpty || !money.sales.isEmpty || photo != nil || money.weeklyGoals != nil || !(money.quickSales ?? []).isEmpty || !(money.quotations ?? []).isEmpty }
     func cloudFingerprint() throws -> String {
         var stable = self; stable.createdAt = Date(timeIntervalSince1970: 0)
         return SHA256.hash(data: try stable.encoded()).map { String(format: "%02x", $0) }.joined()
@@ -66,7 +66,7 @@ extension BusinessBackup {
         case .signedOut: return "Inicia sesión para guardar tus datos en la nube."
         case .checking: return "Comprobando tus datos en la nube…"
         case .empty: return "Nube conectada. Tus próximos cambios se guardarán automáticamente."
-        case .pending: return "Cambios pendientes de guardar en la nube…"
+        case .pending: return "Cambios guardados en este dispositivo, pendientes de subir…"
         case .saved: return "Guardado en la nube"
         case .conflict: return CloudBackupError.conflict.localizedDescription
         case .failed(let message): return message
@@ -225,7 +225,9 @@ struct CloudBackupStatusView: View {
             Label(cloud.message, systemImage: cloud.state == .saved ? "checkmark.icloud" : "icloud")
                 .foregroundStyle(cloud.state == .saved ? Color.green : Color.secondary)
             if cloud.state != .signedOut {
-                Text("Los cambios se sincronizan automáticamente.").font(.caption).foregroundStyle(.secondary)
+                Text(cloud.state == .pending || { if case .failed = cloud.state { return true }; return false }()
+                     ? "Puedes seguir trabajando. Los cambios se subirán automáticamente al recuperar la conexión."
+                     : "Los cambios se sincronizan automáticamente.").font(.caption).foregroundStyle(.secondary)
             }
             if let saved = cloud.lastSaved, cloud.state == .saved {
                 Text("Última comprobación: " + saved.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)

@@ -29,7 +29,7 @@ import AppKit
                 Button("Nuevo negocio") { navigation.sheet = .business(nil) }.keyboardShortcut("n").disabled(store.owner == nil)
                 Button("Registrar gasto") { navigation.sheet = .expense }.keyboardShortcut("n", modifiers: [.command, .shift]).disabled(store.owner == nil)
                 Divider()
-                Button("Importar copia del iPhone…") { MacFiles.chooseImport(store: store, navigation: navigation) }.keyboardShortcut("o")
+                Button("Importar copia de seguridad…") { MacFiles.chooseImport(store: store, navigation: navigation) }.keyboardShortcut("o")
                 Button("Exportar copia…") { MacFiles.export(store: store) }.keyboardShortcut("s", modifiers: [.command, .shift]).disabled(store.owner == nil)
                 Button("Exportar operaciones CSV…") { MacFiles.export(store: store, csv: true) }.keyboardShortcut("e", modifiers: [.command, .shift]).disabled(store.owner == nil)
             }
@@ -60,9 +60,12 @@ struct MacRootView: View {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--verify-desktop") { return store.owner != nil }
         #endif
-        return store.owner != nil && auth.session != nil
+        return store.owner != nil && auth.signedIn
     }
     var body: some View {
+        Group {
+            if !showsWorkspace { MacWelcomeView() }
+            else {
         NavigationSplitView {
             List(selection: $navigation.section) {
                 Section("reviewNfcGo") {
@@ -75,8 +78,8 @@ struct MacRootView: View {
                 else {
                     switch navigation.section ?? .dashboard {
                     case .workspace: NavigationStack { BusinessHubView() }
-                    case .dashboard: MacDashboardView()
-                    case .businesses: MacBusinessesView()
+                    case .dashboard: NavigationStack { MacDashboardView() }
+                    case .businesses: NavigationStack { MacBusinessesView() }
                     case .visits: MacVisitsView()
                     case .money: MacMoneyView()
                     case .analytics: MacAnalyticsView()
@@ -97,6 +100,8 @@ struct MacRootView: View {
                         Button("Registrar gasto", systemImage: "eurosign.circle") { navigation.sheet = .expense }
                     } label: { Label("Añadir", systemImage: "plus") }.disabled(store.owner == nil).help("Añadir negocio o gasto")
                 }
+            }
+        }
             }
         }
         .onAppear { configureCloud() }
@@ -154,18 +159,16 @@ struct MacWelcomeView: View {
     @EnvironmentObject private var store: MacStore
     @EnvironmentObject private var navigation: MacNavigation
     var body: some View {
-        VStack(spacing: 20) {
+        ScrollView { VStack(spacing: 20) {
             Image("BrandMark").resizable().scaledToFit().frame(width: 92, height: 92).accessibilityHidden(true)
-            Text("Tu negocio, también en el Mac").font(.largeTitle.bold())
+            Text("Inicia sesión en reviewNfcGo").font(.largeTitle.bold())
             Text("Organiza tus visitas, tarjetas NFC e ingresos desde una sola ventana.")
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
-            Form { MacAccountSection() }.formStyle(.grouped).frame(width: 440, height: 280)
-            Button("Importar copia del iPhone…") { MacFiles.chooseImport(store: store, navigation: navigation) }
-                .buttonStyle(.borderedProminent).controlSize(.large)
+            Form { MacAccountSection() }.formStyle(.grouped).frame(maxWidth: 480).fixedSize(horizontal: false, vertical: true)
             Text("Inicia sesión con la misma cuenta del iPhone para recuperar tus datos automáticamente.")
                 .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 440)
 
-        }.padding(36).frame(maxWidth: .infinity, maxHeight: .infinity)
+        }.padding(36).frame(maxWidth: .infinity) }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -243,6 +246,7 @@ struct MacAccountSection: View {
                     catch { message = error.localizedDescription }
                 }
             } label: { GoogleSignInLabel() }
+            .buttonStyle(.borderedProminent).controlSize(.large)
             .disabled(busy)
             if busy { ProgressView().controlSize(.small) }
             if let message { Text(message).foregroundStyle(.secondary) }

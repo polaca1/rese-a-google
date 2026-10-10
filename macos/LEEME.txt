@@ -1,4 +1,4 @@
-reviewNfcGo para Mac 1.5
+reviewNfcGo para Mac 2.0
 Desarrollado por Pablo Cancho Flores
 
 Compatible con macOS Sonoma 14 y posteriores. Incluye Intel y Apple Silicon.
@@ -36,3 +36,7 @@ Actividad: ruta por horarios y cercanía, seguimiento de clientes con historial,
 ventas rápidas de tarjetas y stands, beneficio por producto y objetivos semanales.
 En Actividad → Recuperar versiones de la nube puedes recuperar una de las tres
 versiones anteriores. Actualiza también el iPhone para editar estos datos nuevos.
+
+La pantalla inicial está centrada en iniciar sesión con Google o correo y contraseña. Usa la misma cuenta que en el iPhone para recuperar los datos de la nube. Importar copias queda como una opción adicional en Ajustes.
+
+Nuevo: Hoy, contactos de clientes, presupuestos con descuento y PDF, conversión a venta con control de stock, mínimos por producto y comparación de meses y productos. Las tarjetas con destino actualizable necesitan activar el servicio una vez; consulta major6/LEEME.md.

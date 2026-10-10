@@ -19,6 +19,11 @@ struct MacDashboardView: View {
                     metric("Gastos", value: euro(store.money.expenseCents), symbol: "arrow.up.right")
                     metric("Tarjetas vendidas", value: String(store.soldCards), symbol: "creditcard")
                 }
+                HStack {
+                    NavigationLink { TodayWorkspaceView() } label: { Label("Hoy y próximos pasos", systemImage: "sun.max") }
+                    NavigationLink { QuotesWorkspaceView() } label: { Label("Presupuestos", systemImage: "doc.text") }
+                    NavigationLink { MajorAnalyticsView() } label: { Label("Comparar meses y productos", systemImage: "chart.bar") }
+                }
                 MacCard(title: "Ingresos y gastos · últimos 14 días") {
                     if store.money.transactions.isEmpty {
                         Text("Registra tu primera venta o compra para ver la evolución.").foregroundStyle(.secondary).frame(height: 170)
@@ -158,6 +163,7 @@ struct MacBusinessInspector: View {
                 Label("Ficha del negocio", systemImage: "building.2").foregroundStyle(.secondary)
                 Text(record.place.name).font(.title2.bold()).textSelection(.enabled)
                 Text(record.place.address).foregroundStyle(.secondary).textSelection(.enabled)
+                NavigationLink("Contacto e historial del cliente") { ClientTimelineView(recordID: record.id) }
                 Button("Editar negocio") { navigation.sheet = .business(record.id) }.buttonStyle(.borderedProminent)
                 Divider()
                 LabeledContent("Estado", value: record.trackingStage.rawValue)

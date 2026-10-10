@@ -122,6 +122,39 @@ import Foundation
         check(tracked.cardsSold == 0 && tracked.earnings == 0, "Marking a client sold never invents money or a card")
         let roundTrip = try JSONDecoder().decode(VisitRecord.self, from: JSONEncoder().encode(prospect))
         check(roundTrip == prospect, "Follow-up survives serialization")
+        var quoteMoney = beforeQuick
+        var quoteClient = beforeCustomer
+        let quote = BusinessQuote(businessID: quoteClient.id, businessName: quoteClient.place.name, createdAt: now, expiresAt: now.addingTimeInterval(86400),
+            items: [QuoteLine(productID: card.id, title: card.displayName, quantity: 2, unitPriceCents: 999)], discountPercent: 10)
+        try quoteMoney.saveQuote(quote)
+        check(quote.totalCents == 1798 && quoteMoney.stock(card.id) == beforeQuick.stock(card.id), "Quote rounds discount in cents without reserving inventory")
+        let beforeConversion = quoteMoney
+        try quoteMoney.convertQuote(quote.id, business: &quoteClient, payment: "Transferencia", now: now)
+        check(quoteMoney.incomeCents - beforeConversion.incomeCents == 1798 && quoteMoney.stock(card.id) == beforeQuick.stock(card.id) - 2, "Conversion uses exact discounted total and consumes stock once")
+        let converted = quoteMoney
+        do { try quoteMoney.convertQuote(quote.id, business: &quoteClient, payment: "Transferencia", now: now); preconditionFailure("Quote converted twice") } catch { checks += 1 }
+        check(quoteMoney == converted, "Duplicate conversion leaves stock and money unchanged")
+        let restoredQuote = try BusinessBackup.decode(BusinessBackup(owner: backup.owner, records: [quoteClient], money: quoteMoney).encoded(), for: backup.owner)
+        check(restoredQuote.money.quotations?.first?.totalCents == 1798 && restoredQuote.money == quoteMoney, "Quotes and discounted sales persist through cloud backup format")
+        quoteMoney.undo(to: beforeConversion, records: [beforeCustomer], now: now)
+        check(quoteMoney.stock(card.id) == beforeQuick.stock(card.id) && quoteMoney.quotations?.first?.saleID == nil, "Undo conversion returns stock and reopens quote while preserving audit")
+        _ = try BusinessBackup(owner: backup.owner, records: [beforeCustomer], money: quoteMoney).validated(for: backup.owner)
+        var expired = quote; expired.id = UUID(); expired.expiresAt = now.addingTimeInterval(10)
+        try quoteMoney.saveQuote(expired)
+        let priorExpired = quoteMoney
+        do { try quoteMoney.convertQuote(expired.id, business: &quoteClient, payment: "Tarjeta", now: now.addingTimeInterval(20)); preconditionFailure("Expired quote sold") } catch { checks += 1 }
+        check(quoteMoney == priorExpired, "Expired quote cannot silently change sales")
+        var contact = beforeCustomer
+        contact.contactName = "María"; contact.contactEmail = "maria@example.com"; contact.contactPhone = "+34 600 000 000"
+        contact.reviewLinkID = UUID(); contact.reviewLinkTarget = "https://example.com/review?x=1&y=2"; contact.reviewLinkActive = false
+        let contactRoundTrip = try JSONDecoder().decode(VisitRecord.self, from: JSONEncoder().encode(contact))
+        check(contactRoundTrip == contact, "Contacts and permanent NFC links survive backup and restore")
+        check(!ReviewLinkAddress.validTarget("https://user:pass@example.com") && !ReviewLinkAddress.validTarget("javascript:alert(1)") && ReviewLinkAddress.validTarget(contact.reviewLinkTarget!), "Editable link rejects credentials and non HTTPS schemes")
+        var levels = beforeQuick
+        levels.products[0].minimumStock = 20
+        check(levels.lowStockProducts.contains { $0.id == card.id }, "Custom product minimum triggers replenishment")
+        let today = TodaySummary(records: [early, prospect], money: converted, date: now, calendar: calendar)
+        check(today.visits.contains { $0.id == early.id } && today.followUps.contains { $0.id == prospect.id }, "Today combines actual appointments and interested clients")
         print("Business tools: \(checks) checks passed")
     }
 }

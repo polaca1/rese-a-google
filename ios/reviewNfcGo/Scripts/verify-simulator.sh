@@ -282,3 +282,10 @@ for task_screen in sale clients goals profit history; do
     sleep 3
     xcrun simctl io "$task_device" screenshot "$task_output_dir/suite-$task_screen.png"
 done
+
+# The production default now opens Today; also capture its quote entry point.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-major-today
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/major6-today.png"

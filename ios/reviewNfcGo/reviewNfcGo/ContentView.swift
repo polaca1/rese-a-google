@@ -421,6 +421,24 @@ final class AppStore: ObservableObject {
         guard (1...100_000).contains(value.cards), (1...100_000).contains(value.visits), (1...1_000_000_000).contains(value.profitCents) else { throw MoneyError.invalidAmount }
         remember("Cambiar objetivos"); money.weeklyGoals = value; persistMoney(); publishWidgets()
     }
+    func saveQuote(_ quote: BusinessQuote) throws {
+        guard records.contains(where: { $0.id == quote.businessID }) else { throw BackupError.invalid }
+        var next = money; try next.saveQuote(quote)
+        remember("Guardar presupuesto"); money = next; persistMoney(); publishWidgets()
+    }
+    func convertQuote(_ id: UUID, payment: String) throws {
+        guard let quote = money.quotations?.first(where: { $0.id == id }), let i = records.firstIndex(where: { $0.id == quote.businessID }) else { throw BackupError.invalid }
+        var next = money; var record = records[i]
+        try next.convertQuote(id, business: &record, payment: payment)
+        remember("Convertir presupuesto en venta"); money = next; records[i] = record; save()
+    }
+    func setMinimumStock(_ id: UUID, quantity: Int) throws {
+        guard (0...100_000).contains(quantity), let i = money.products.firstIndex(where: { $0.id == id }) else { throw MoneyError.invalidProduct }
+        remember("Cambiar stock mínimo"); money.products[i].minimumStock = quantity; persistMoney(); publishWidgets()
+    }
+    func saveClient(_ record: VisitRecord) throws {
+        guard update(record) else { throw MoneyError.insufficientStock }
+    }
     func recoveryBackup() throws -> BusinessBackup? {
         guard let data = UserDefaults.standard.data(forKey: "resenago.preRestore.\(userKey ?? "guest")") else { return nil }
         return try BusinessBackup.decode(data, for: userKey)
@@ -902,7 +920,14 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack { HomeView() }
+            NavigationStack {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--verification-blur-home") || ProcessInfo.processInfo.arguments.contains("--verification-home-top") { HomeView() }
+                else { TodayWorkspaceView() }
+                #else
+                TodayWorkspaceView()
+                #endif
+            }
                 .tabItem { Label("Inicio", systemImage: "location.fill") }.tag(0)
             NavigationStack(path: $businessPath) {
                 HistoryView()
