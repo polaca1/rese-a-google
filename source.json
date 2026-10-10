@@ -18,7 +18,7 @@
           "buildVersion": "31",
           "date": "2026-10-10T22:12:30Z",
           "localizedDescription": "reviewNfcGo 6.0.1: vuelve el Inicio de siempre.\n\nLa pantalla principal vuelve a mostrar el mapa, la búsqueda de negocios y la escritura NFC. El saludo permanece al principio y desaparece al desplazarte.\n\nHoy sigue disponible en Actividad y herramientas. Se conservan clientes, presupuestos PDF, stock mínimo, análisis, tarjetas actualizables y sincronización en la nube.\n\nActualiza sin borrar la app para conservar los cambios pendientes de sincronizar.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-6.0.1-build31.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.1-build31/reviewNfcGo-6.0.1-build31.ipa",
           "size": 6860708,
           "minOSVersion": "16.1"
         },
@@ -206,7 +206,7 @@
       "version": "6.0.1",
       "versionDate": "2026-10-10T22:12:30Z",
       "versionDescription": "reviewNfcGo 6.0.1: vuelve el Inicio de siempre.\n\nLa pantalla principal vuelve a mostrar el mapa, la búsqueda de negocios y la escritura NFC. El saludo permanece al principio y desaparece al desplazarte.\n\nHoy sigue disponible en Actividad y herramientas. Se conservan clientes, presupuestos PDF, stock mínimo, análisis, tarjetas actualizables y sincronización en la nube.\n\nActualiza sin borrar la app para conservar los cambios pendientes de sincronizar.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-6.0.1-build31.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.1-build31/reviewNfcGo-6.0.1-build31.ipa",
       "size": 6860708,
       "appPermissions": {
         "entitlements": [
