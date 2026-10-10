@@ -63,7 +63,7 @@ struct SaleCheckpoint: Codable, Equatable {
     var preciseCostCents: Double? = nil
 }
 enum MoneyError: LocalizedError {
-    case invalidAmount, invalidQuantity, insufficientStock, invalidProduct, alreadyReversed
+    case invalidAmount, invalidQuantity, insufficientStock, invalidProduct, alreadyReversed, invalidQuote, expiredQuote, quoteAlreadySold
     var errorDescription: String? {
         switch self {
         case .invalidAmount: return "Introduce un importe válido entre 0,01 € y 10.000.000 €."
@@ -71,6 +71,9 @@ enum MoneyError: LocalizedError {
         case .insufficientStock: return "No hay suficientes unidades de ese producto. Registra la compra o revisa las tarjetas asignadas."
         case .invalidProduct: return "Añade el nombre del producto y el color de las tarjetas NFC."
         case .alreadyReversed: return "Este gasto ya tiene una devolución registrada."
+        case .invalidQuote: return "Revisa los productos, cantidades y condiciones del presupuesto."
+        case .expiredQuote: return "Este presupuesto ha caducado. Crea uno nuevo antes de registrar la venta."
+        case .quoteAlreadySold: return "Este presupuesto ya se ha convertido en venta o ya no admite cambios."
         }
     }
 }

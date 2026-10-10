@@ -274,16 +274,16 @@ extension MoneyLedger {
         try quote.validate()
         var values = quotations ?? []
         if let i = values.firstIndex(where: { $0.id == quote.id }) {
-            guard values[i].saleID == nil else { throw MoneyError.alreadyReversed }
+            guard values[i].saleID == nil else { throw MoneyError.quoteAlreadySold }
             values[i] = quote
         } else { guard values.count < 10000 else { throw MoneyError.invalidProduct }; values.append(quote) }
         quotations = values
     }
     mutating func convertQuote(_ quoteID: UUID, business: inout VisitRecord, payment: String, now: Date = Date()) throws {
         guard var values = quotations, let i = values.firstIndex(where: { $0.id == quoteID }),
-              values[i].saleID == nil, values[i].status != .declined, values[i].businessID == business.id else { throw MoneyError.alreadyReversed }
+              values[i].saleID == nil, values[i].status != .declined, values[i].businessID == business.id else { throw MoneyError.quoteAlreadySold }
         let quote = values[i]; try quote.validate()
-        guard quote.expiresAt >= now else { throw MoneyError.invalidProduct }
+        guard quote.expiresAt >= now else { throw MoneyError.expiredQuote }
         try registerSale(business: &business, items: quote.items.map { QuickSaleInput(productID: $0.productID, quantity: $0.quantity, unitPrice: Double($0.unitPriceCents) / 100) }, payment: payment, now: now, discount: quote.discountCents)
         values[i].status = .converted; values[i].saleID = quickSales!.last!.id
         quotations = values

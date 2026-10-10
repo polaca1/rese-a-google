@@ -153,6 +153,11 @@ struct ClientTimelineView: View {
                     TextField("Añadir nota al historial", text: $note, axis: .vertical).lineLimit(3...8)
                     Button("Guardar seguimiento") { save(visited: false) }
                     Button("Registrar visita realizada") { save(visited: true) }
+                    #if os(iOS)
+                    NavigationLink("Programar próxima visita") { QuickReminderView(place: record.place) }
+                    #else
+                    NavigationLink("Programar próxima visita") { MacBusinessEditor(record: record) }
+                    #endif
                     if let date = record.reminderDate { LabeledContent("Próxima visita", value: date.formatted(date: .abbreviated, time: .shortened)) }
                 }
                 Section("Ventas") {
@@ -569,7 +574,7 @@ struct QuoteDetailView: View {
         return store.owner ?? ""
         #endif
     }
-    private func save(_ value: BusinessQuote) { do { try store.saveQuote(value) } catch { error = error.localizedDescription } }
+    private func save(_ value: BusinessQuote) { do { try store.saveQuote(value) } catch { self.error = error.localizedDescription } }
 }
 
 struct StockMinimumView: View {

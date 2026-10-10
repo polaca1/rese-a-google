@@ -124,7 +124,7 @@ import PDFKit
             try store.convertQuote(quote.id, payment: "Transferencia")
             try check(store.money.balanceCents == oldBalance + 1798 && store.money.stock(card.id) == oldStock - 2, "Mac convierte presupuesto en venta con stock y descuento exactos")
             let afterQuote = store.money
-            do { try store.convertQuote(quote.id, payment: "Transferencia"); throw DesktopError.invalidBusiness } catch MoneyError.alreadyReversed {}
+            do { try store.convertQuote(quote.id, payment: "Transferencia"); throw DesktopError.invalidBusiness } catch MoneyError.quoteAlreadySold {}
             try check(store.money == afterQuote, "Mac bloquea doble conversión de presupuesto")
             let majorReloaded = MacStore(fileURL: store.fileURL)
             try check(majorReloaded.records.first { $0.id == quoteClient.id }?.contactName == "María" && majorReloaded.money.quotations?.first?.saleID != nil, "Mac conserva contacto y presupuesto al volver a abrir")
