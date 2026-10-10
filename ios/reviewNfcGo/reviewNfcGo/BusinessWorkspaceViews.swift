@@ -70,7 +70,7 @@ struct QuickSaleView: View {
                     }
                 }
                 Stepper("Cantidad: \(quantity)", value: $quantity, in: 1...100_000)
-                TextField("Precio por unidad (€)", text: $price)
+                LabeledContent("Precio por unidad (€)") { TextField("0,00", text: $price).multilineTextAlignment(.trailing) }
                 Button("Añadir a la venta") { addItem() }.disabled(productID == nil || items.count >= 20)
                 ForEach(items) { item in
                     HStack {
@@ -100,7 +100,7 @@ struct QuickSaleView: View {
             .alert("No se pudo guardar", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Aceptar") { error = nil } } message: { Text(error ?? "") }
     }
     private func addItem() {
-        guard let productID, let amount = Double(price.replacingOccurrences(of: ",", with: ".")), let cents = MoneyLedger.cents(amount), cents >= 0 else { error = "Introduce un precio válido."; return }
+        guard let productID, let amount = SaleAmountFormatting.parse(price), let cents = MoneyLedger.cents(amount), cents >= 0 else { error = "Introduce un precio válido."; return }
         guard quantity <= store.money.stock(productID) else { error = MoneyError.insufficientStock.localizedDescription; return }
         guard !items.contains(where: { $0.productID == productID }) else { return }
         items.append(QuickSaleInput(productID: productID, quantity: quantity, unitPrice: amount)); self.productID = nil; quantity = 1
@@ -499,7 +499,7 @@ struct QuoteEditorView: View {
             Section("Productos") {
                 Picker("Producto", selection: $productID) { Text("Seleccionar").tag(nil as UUID?); ForEach(store.money.products.filter { p in !items.contains { $0.productID == p.id } }) { Text($0.displayName).tag(Optional($0.id)) } }
                 Stepper("Cantidad: \(quantity)", value: $quantity, in: 1...100_000)
-                TextField("Precio por unidad (€)", text: $price)
+                LabeledContent("Precio por unidad (€)") { TextField("0,00", text: $price).multilineTextAlignment(.trailing) }
                 Button("Añadir producto") {
                     guard let product = store.money.products.first(where: { $0.id == productID }), let value = SaleAmountFormatting.parse(price), let cents = MoneyLedger.cents(value), cents >= 0 else { error = "Selecciona un producto e introduce un precio válido."; return }
                     items.append(QuoteLine(productID: product.id, title: product.displayName, quantity: quantity, unitPriceCents: cents)); productID = nil; quantity = 1

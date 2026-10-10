@@ -29,6 +29,7 @@ enum DesktopError: LocalizedError {
     let fileURL: URL
     var recoveryURL: URL { fileURL.deletingLastPathComponent().appendingPathComponent("Antes-de-importar.json") }
     var owner: String? { backup?.owner }
+    var hasWorkspace: Bool { backup != nil }
     var records: [VisitRecord] { backup?.records ?? [] }
     var money: MoneyLedger { backup?.money ?? MoneyLedger() }
     var upcoming: [VisitRecord] {
@@ -93,10 +94,17 @@ enum DesktopError: LocalizedError {
         let hash = SHA256.hash(data: Data(backup.owner.utf8)).map { String(format: "%02x", $0) }.joined()
         let cached = fileURL.deletingLastPathComponent().appendingPathComponent("Account-" + hash + ".json")
         try backup.encoded().write(to: cached, options: .atomic)
+        if FileManager.default.fileExists(atPath: fileURL.path) { try FileManager.default.removeItem(at: fileURL) }
         self.backup = nil; undoStates = []; undoTitle = nil
     }
     func activateAccount(_ email: String) throws {
-        guard !damaged else { throw DesktopError.damagedStore }
+        let email = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard email.contains("@"), email.count <= 254 else { throw DesktopError.invalidProfile }
+        if damaged {
+            let preserved = fileURL.deletingLastPathComponent().appendingPathComponent("Recuperacion-" + UUID().uuidString + ".json")
+            try FileManager.default.copyItem(at: fileURL, to: preserved)
+            errorMessage = nil
+        }
         guard owner != email else { return }
         func cache(_ owner: String) -> URL {
             let hash = SHA256.hash(data: Data(owner.utf8)).map { String(format: "%02x", $0) }.joined()

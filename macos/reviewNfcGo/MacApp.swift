@@ -56,18 +56,19 @@ struct MacRootView: View {
     @EnvironmentObject private var store: MacStore
     @EnvironmentObject private var navigation: MacNavigation
     @EnvironmentObject private var notifications: MacNotifications
-    private var showsWorkspace: Bool {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--verify-desktop") { return store.owner != nil }
-        #endif
-        return store.owner != nil && auth.signedIn
-    }
+    private var showsWorkspace: Bool { store.hasWorkspace }
     var body: some View {
         Group {
             if !showsWorkspace { MacWelcomeView() }
             else {
         NavigationSplitView {
             List(selection: $navigation.section) {
+                if !auth.signedIn {
+                    Section("Copia local") {
+                        Text("Inicia sesión en Ajustes para guardar tus cambios en la nube.").font(.caption).foregroundStyle(.secondary)
+                        SettingsLink { Text("Iniciar sesión") }
+                    }
+                }
                 Section("reviewNfcGo") {
                     ForEach(MacSection.allCases) { section in Label(section.rawValue, systemImage: section.symbol).tag(section) }
                 }
@@ -105,7 +106,13 @@ struct MacRootView: View {
             }
         }
         .onAppear { configureCloud() }
-        .onChange(of: auth.session?.user.email) { _, _ in configureCloud() }
+        .onChange(of: auth.session?.user.email) { previous, current in
+            if previous != nil && current == nil {
+                store.didChange = nil
+                store.run { try store.deactivateAccount() }
+            }
+            configureCloud()
+        }
         .onChange(of: scenePhase) { _, _ in cloud.requestSync(immediate: true) }
         .sheet(item: $navigation.sheet) { sheet in
             switch sheet {
@@ -120,7 +127,15 @@ struct MacRootView: View {
         } message: { Text(store.errorMessage ?? "") }
         .confirmationDialog("Importar copia", isPresented: Binding(get: { navigation.importCandidate != nil }, set: { if !$0 { navigation.importCandidate = nil } }), titleVisibility: .visible) {
             Button("Importar y sustituir datos") {
-                if let value = navigation.importCandidate { store.run { try store.importBackup(value) } }
+                if let value = navigation.importCandidate {
+                    store.run {
+                        if let email = auth.session?.user.email, email.lowercased() != value.owner.lowercased() {
+                            throw BackupError.invalid
+                        }
+                        try store.importBackup(value)
+                        navigation.section = .dashboard
+                    }
+                }
                 navigation.importCandidate = nil; navigation.selectedBusiness = nil
             }
             Button("Cancelar", role: .cancel) { navigation.importCandidate = nil }
@@ -145,7 +160,7 @@ struct MacRootView: View {
         if ProcessInfo.processInfo.arguments.contains("--verify-desktop") { return }
         #endif
         cloud.connect(owner: nil, transport: auth, read: { guard let value = store.backup else { throw BackupError.invalid }; return value }, apply: { _ in })
-        guard let email = auth.session?.user.email else { store.run { try store.deactivateAccount() }; return }
+        guard let email = auth.session?.user.email, auth.signedIn else { store.didChange = nil; return }
         do { try store.activateAccount(email) } catch { store.errorMessage = error.localizedDescription; return }
         store.didChange = { [weak cloud] in cloud?.localChanged() }
         cloud.connect(owner: email, transport: auth, read: {
