@@ -9,11 +9,11 @@
       "developerName": "Pablo Cancho Flores",
       "localizedDescription": "Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Versión de escritorio para macOS 14 disponible en la release.",
       "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/icon.png",
-      "version": "6.0.1",
-      "versionDate": "2026-10-10T22:12:30Z",
-      "versionDescription": "reviewNfcGo 6.0.1: vuelve el Inicio de siempre.\n\nLa pantalla principal vuelve a mostrar el mapa, la búsqueda de negocios y la escritura NFC. El saludo permanece al principio y desaparece al desplazarte.\n\nHoy sigue disponible en Actividad y herramientas. Se conservan clientes, presupuestos PDF, stock mínimo, análisis, tarjetas actualizables y sincronización en la nube.\n\nActualiza sin borrar la app para conservar los cambios pendientes de sincronizar.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.1-build31/reviewNfcGo-6.0.1-build31.ipa",
-      "size": 6860708,
+      "version": "6.0.2",
+      "versionDate": "2026-10-11T09:48:27Z",
+      "versionDescription": "reviewNfcGo 6.0.2: organización, acceso y protección de tus datos.\n\nEl acceso admite autocompletado, avanzar entre campos y entrar desde el teclado. Los errores de correo o contraseña se explican antes de enviar la solicitud. Se incluye la corrección de sesión de Google cuando el reloj del dispositivo difiere del servidor.\n\nSe simplifica Perfil: desaparecen las opciones de desarrollador, nube y copias de seguridad. El guardado es automático. Solo se informa de errores o cambios incompatibles entre dispositivos; cerrar sesión avisa si el guardado aún no ha terminado. Se mantiene el Inicio con el mapa, la búsqueda y Escribir NFC como acción principal.\n\nSe han separado pantallas, datos y servicios para facilitar el mantenimiento. Las versiones de distribución comprueban automáticamente que no incluyen modos de prueba, que la versión de los widgets coincide y que incluyen la información de privacidad.\n\nActualiza sin borrar la app para conservar los cambios pendientes de sincronizar.",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.2-build32/reviewNfcGo-6.0.2-build32.ipa",
+      "size": 6832257,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
