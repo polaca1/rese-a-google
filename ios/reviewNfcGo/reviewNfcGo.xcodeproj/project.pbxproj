@@ -5,6 +5,30 @@
 	};
 	objectVersion = 56;
 	objects = {
+		6EA8B59143C42BEEB6D5776D = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CloudStatusView.swift"; sourceTree = "<group>"; };
+		1FEB5EB7D6685FF0BB201815 = {isa = PBXBuildFile; fileRef = 6EA8B59143C42BEEB6D5776D; };
+		FB941DEB7A9993429BED3409 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthStore.swift"; sourceTree = "<group>"; };
+		078A6A0867910D7B7DE7BAAA = {isa = PBXBuildFile; fileRef = FB941DEB7A9993429BED3409; };
+		B2998ADDAAB915BB29647C30 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore.swift"; sourceTree = "<group>"; };
+		313E54C5F2B9EEA147267139 = {isa = PBXBuildFile; fileRef = B2998ADDAAB915BB29647C30; };
+		05795880573F59F6EC7E78F6 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlacesService.swift"; sourceTree = "<group>"; };
+		590A89DCFD67BB542887A506 = {isa = PBXBuildFile; fileRef = 05795880573F59F6EC7E78F6; };
+		797DD01F90C8E922ADB5F745 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ExternalActions.swift"; sourceTree = "<group>"; };
+		61D2437C69393E802729680D = {isa = PBXBuildFile; fileRef = 797DD01F90C8E922ADB5F745; };
+		95626A44070DB054BA84252F = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthView.swift"; sourceTree = "<group>"; };
+		3E4D6A665E8F6EBDF11ACE8A = {isa = PBXBuildFile; fileRef = 95626A44070DB054BA84252F; };
+		48C5443EFE47B864D80400AD = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HomeView.swift"; sourceTree = "<group>"; };
+		A987D58B3403F0E60112B8ED = {isa = PBXBuildFile; fileRef = 48C5443EFE47B864D80400AD; };
+		08566230CAAC3DCE7ED5C830 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReminderViews.swift"; sourceTree = "<group>"; };
+		01EF4A9E15EC5F64727FC25A = {isa = PBXBuildFile; fileRef = 08566230CAAC3DCE7ED5C830; };
+		50268B94BC826D034E3508E8 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NativeMapView.swift"; sourceTree = "<group>"; };
+		495105DB7DF0955661745127 = {isa = PBXBuildFile; fileRef = 50268B94BC826D034E3508E8; };
+		8FAF9FBA49249D9C7F45ED05 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RecordViews.swift"; sourceTree = "<group>"; };
+		317205F38D359D1BB1F77E57 = {isa = PBXBuildFile; fileRef = 8FAF9FBA49249D9C7F45ED05; };
+		7447876A14B57C8360FEC7A4 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProfileView.swift"; sourceTree = "<group>"; };
+		42DEF5509DBE9009545DE066 = {isa = PBXBuildFile; fileRef = 7447876A14B57C8360FEC7A4; };
+		D05A8274F55144938F57D376 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppAppearance.swift"; sourceTree = "<group>"; };
+		C9195BD29DE911EA531CC114 = {isa = PBXBuildFile; fileRef = D05A8274F55144938F57D376; };
 		EE0400000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BusinessWorkspaceViews.swift"; sourceTree = "<group>"; };
 		EE0400000000000000000002 = {isa = PBXBuildFile; fileRef = EE0400000000000000000001; };
 
@@ -138,6 +162,19 @@
 		A40000000000000000000002 /* reviewNfcGo */ = {
 			isa = PBXGroup;
 			children = (
+				6EA8B59143C42BEEB6D5776D,
+
+				FB941DEB7A9993429BED3409,
+				B2998ADDAAB915BB29647C30,
+				05795880573F59F6EC7E78F6,
+				797DD01F90C8E922ADB5F745,
+				95626A44070DB054BA84252F,
+				48C5443EFE47B864D80400AD,
+				08566230CAAC3DCE7ED5C830,
+				50268B94BC826D034E3508E8,
+				8FAF9FBA49249D9C7F45ED05,
+				7447876A14B57C8360FEC7A4,
+				D05A8274F55144938F57D376,
 				B13F70F2186BCCDB73EDBFED,
 				EE0100000000000000000001,
 				EE0200000000000000000001,
@@ -305,6 +342,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1FEB5EB7D6685FF0BB201815,
+
+				078A6A0867910D7B7DE7BAAA,
+				313E54C5F2B9EEA147267139,
+				590A89DCFD67BB542887A506,
+				61D2437C69393E802729680D,
+				3E4D6A665E8F6EBDF11ACE8A,
+				A987D58B3403F0E60112B8ED,
+				01EF4A9E15EC5F64727FC25A,
+				495105DB7DF0955661745127,
+				317205F38D359D1BB1F77E57,
+				42DEF5509DBE9009545DE066,
+				C9195BD29DE911EA531CC114,
 				CFCF2893C4323A7B3FDF1CBA,
 				EE0100000000000000000002,
 				EE0200000000000000000002,
@@ -401,7 +451,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = reviewNfcGo/Info.plist;
@@ -419,7 +469,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 6.0.1;
+				MARKETING_VERSION = 6.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -436,7 +486,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = reviewNfcGo/Info.plist;
@@ -454,7 +504,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 6.0.1;
+				MARKETING_VERSION = 6.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -469,7 +519,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = reviewNfcGoLiveActivity/Info.plist;
@@ -477,7 +527,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET_EXTENSION";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks");
-				MARKETING_VERSION = 6.0.1;
+				MARKETING_VERSION = 6.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -490,7 +540,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = reviewNfcGoLiveActivity/Info.plist;
@@ -498,7 +548,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET_EXTENSION";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks");
-				MARKETING_VERSION = 6.0.1;
+				MARKETING_VERSION = 6.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pablo.resenagoogle.20261004.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

@@ -119,6 +119,18 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         lastResolution = Date()
     }
     func authenticate(email: String, password: String, name: String? = nil) async throws -> RemoteUser {
+        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard cleanEmail.utf8.count <= 254,
+              cleanEmail.range(of: #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#, options: .regularExpression) != nil,
+              !password.isEmpty, password.utf8.count <= 1024 else {
+            throw RemoteAuthError.rejected("Introduce un correo válido y tu contraseña.")
+        }
+        if let name {
+            guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  (8...128).contains(password.count) else {
+                throw RemoteAuthError.rejected("Introduce tu nombre y una contraseña de entre 8 y 128 caracteres.")
+            }
+        }
         invalidateAuthorization()
         let generation = authorizationGeneration
         try await resolveServer()

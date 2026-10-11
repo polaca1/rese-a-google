@@ -1,8 +1,6 @@
 import Foundation
 import Combine
 import CryptoKit
-import SwiftUI
-import UniformTypeIdentifiers
 
 struct CloudBackupRecord: Codable {
     let user_id: String
@@ -70,6 +68,19 @@ extension BusinessBackup {
         case .saved: return "Guardado en la nube"
         case .conflict: return CloudBackupError.conflict.localizedDescription
         case .failed(let message): return message
+        }
+    }
+    /// Closing the session disconnects automatic sync; warn whenever a save isn't confirmed.
+    var hasSaveProblem: Bool {
+        switch state {
+        case .conflict, .failed: return true
+        default: return false
+        }
+    }
+    var shouldConfirmSignOut: Bool {
+        switch state {
+        case .checking, .pending, .conflict, .failed: return true
+        case .signedOut, .empty, .saved: return false
         }
     }
     func connect(owner: String?, transport: CloudBackupTransport, read: @escaping () throws -> BusinessBackup,
@@ -212,56 +223,4 @@ extension BusinessBackup {
             }
         }
     }
-}
-
-struct CloudBackupStatusView: View {
-    @EnvironmentObject private var cloud: CloudBackupController
-    @State private var resolving = false
-    @State private var exporting = false
-    @State private var exportError: String?
-    @State private var recovery = CloudRecoveryDocument()
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(cloud.message, systemImage: cloud.state == .saved ? "checkmark.icloud" : "icloud")
-                .foregroundStyle(cloud.state == .saved ? Color.green : Color.secondary)
-            if cloud.state != .signedOut {
-                Text(cloud.state == .pending || { if case .failed = cloud.state { return true }; return false }()
-                     ? "Puedes seguir trabajando. Los cambios se subirán automáticamente al recuperar la conexión."
-                     : "Los cambios se sincronizan automáticamente.").font(.caption).foregroundStyle(.secondary)
-            }
-            if let saved = cloud.lastSaved, cloud.state == .saved {
-                Text("Última comprobación: " + saved.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-            }
-            if cloud.state == .conflict {
-                Button("Revisar las dos copias") { resolving = true }
-            } else if cloud.state != .signedOut {
-                Button("Sincronizar ahora") { cloud.requestSync(immediate: true) }
-            }
-            if cloud.recoveryData(remote: false) != nil || cloud.recoveryData(remote: true) != nil {
-            Menu("Copias anteriores al conflicto") {
-            if let data = cloud.recoveryData(remote: false) {
-                Button("Exportar copia local anterior al conflicto") { recovery = CloudRecoveryDocument(data: data); exporting = true }
-            }
-            if let data = cloud.recoveryData(remote: true) {
-                Button("Exportar copia de nube anterior al conflicto") { recovery = CloudRecoveryDocument(data: data); exporting = true }
-            }
-        }
-            }
-        }
-        .fileExporter(isPresented: $exporting, document: recovery, contentType: .json, defaultFilename: "reviewNfcGo-recuperacion") { result in if case .failure(let error) = result { exportError = error.localizedDescription } }
-        .alert("No se pudo exportar", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) { Button("Aceptar") { exportError = nil } } message: { Text(exportError ?? "") }
-        .confirmationDialog("Hay cambios en dos dispositivos", isPresented: $resolving, titleVisibility: .visible) {
-            Button("Usar la copia de la nube") { Task { await cloud.resolve(useCloud: true) } }
-            Button("Guardar la copia de este dispositivo") { Task { await cloud.resolve(useCloud: false) } }
-            Button("Cancelar", role: .cancel) { }
-        } message: { Text("Se conservará una copia de recuperación de las dos versiones en este dispositivo antes de sustituir los datos.") }
-    }
-}
-
-private struct CloudRecoveryDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.json] }
-    var data = Data()
-    init(data: Data = Data()) { self.data = data }
-    init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }

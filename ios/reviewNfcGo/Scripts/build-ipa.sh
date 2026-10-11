@@ -4,7 +4,7 @@ task_project_dir=$(cd -- "$(dirname -- "$0")/.." && pwd)
 task_output_dir=${1:-"$task_project_dir/build"}
 mkdir -p "$task_output_dir"
 task_output_dir=$(cd -- "$task_output_dir" && pwd)
-task_project_root=$(git -C "$task_project_dir" rev-parse --show-toplevel)
+task_project_root=$(cd -- "$task_project_dir/../.." && pwd)
 source "$task_project_dir/Scripts/load-places-key.sh"
 
 if ! command -v xcodebuild >/dev/null; then
@@ -49,6 +49,7 @@ task_app="$task_output_dir/DerivedData/Build/Products/Release-iphoneos/reviewNfc
 test -f "$task_app/reviewNfcGo"
 test -f "$task_app/PlugIns/reviewNfcGoLiveActivity.appex/reviewNfcGoLiveActivity"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$task_app/Info.plist")" = 'reviewnfcgo'
+python3 "$task_project_root/scripts/check-production-package.py" "$task_app" --platform ios
 
 # Embed only an ad-hoc entitlement template, so AltStore can discover and provision
 # the shared App Group. AltStore replaces this signature with the user's identity.
@@ -59,7 +60,7 @@ codesign --force --sign - --entitlements "$task_project_dir/reviewNfcGo/reviewNf
 task_package_dir=$(mktemp -d)
 mkdir -p "$task_package_dir/Payload"
 ditto "$task_app" "$task_package_dir/Payload/reviewNfcGo.app"
-task_ipa="$task_output_dir/reviewNfcGo-6.0.1-AltStore.ipa"
+task_ipa="$task_output_dir/reviewNfcGo-6.0.2-AltStore.ipa"
 rm -f "$task_ipa"
 (cd "$task_package_dir" && /usr/bin/zip -qry "$task_ipa" Payload)
 rm -rf "$task_package_dir"

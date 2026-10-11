@@ -29,8 +29,6 @@ import AppKit
                 Button("Nuevo negocio") { navigation.sheet = .business(nil) }.keyboardShortcut("n").disabled(store.owner == nil)
                 Button("Registrar gasto") { navigation.sheet = .expense }.keyboardShortcut("n", modifiers: [.command, .shift]).disabled(store.owner == nil)
                 Divider()
-                Button("Importar copia de seguridad…") { MacFiles.chooseImport(store: store, navigation: navigation) }.keyboardShortcut("o")
-                Button("Exportar copia…") { MacFiles.export(store: store) }.keyboardShortcut("s", modifiers: [.command, .shift]).disabled(store.owner == nil)
                 Button("Exportar operaciones CSV…") { MacFiles.export(store: store, csv: true) }.keyboardShortcut("e", modifiers: [.command, .shift]).disabled(store.owner == nil)
             }
             CommandGroup(replacing: .undoRedo) {
@@ -64,8 +62,8 @@ struct MacRootView: View {
         NavigationSplitView {
             List(selection: $navigation.section) {
                 if !auth.signedIn {
-                    Section("Copia local") {
-                        Text("Inicia sesión en Ajustes para guardar tus cambios en la nube.").font(.caption).foregroundStyle(.secondary)
+                    Section("Cuenta") {
+                        Text("Inicia sesión en Ajustes para continuar con tu cuenta.").font(.caption).foregroundStyle(.secondary)
                         SettingsLink { Text("Iniciar sesión") }
                     }
                 }
@@ -92,10 +90,6 @@ struct MacRootView: View {
             .navigationTitle(navigation.section?.rawValue ?? "Resumen")
             .toolbar {
                 ToolbarItemGroup {
-                    Button { MacFiles.chooseImport(store: store, navigation: navigation) } label: { Label("Importar copia", systemImage: "square.and.arrow.down") }
-                        .help("Importar copia del iPhone (⌘O)")
-                    Button { MacFiles.export(store: store) } label: { Label("Exportar copia", systemImage: "square.and.arrow.up") }
-                        .disabled(store.owner == nil).help("Exportar copia (⇧⌘S)")
                     Menu {
                         Button("Nuevo negocio", systemImage: "building.2") { navigation.sheet = .business(nil) }
                         Button("Registrar gasto", systemImage: "eurosign.circle") { navigation.sheet = .expense }
@@ -125,6 +119,7 @@ struct MacRootView: View {
         .alert("No se ha podido completar", isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
             Button("Cerrar", role: .cancel) { store.errorMessage = nil }
         } message: { Text(store.errorMessage ?? "") }
+        #if DEBUG
         .confirmationDialog("Importar copia", isPresented: Binding(get: { navigation.importCandidate != nil }, set: { if !$0 { navigation.importCandidate = nil } }), titleVisibility: .visible) {
             Button("Importar y sustituir datos") {
                 if let value = navigation.importCandidate {
@@ -144,6 +139,7 @@ struct MacRootView: View {
                 Text("Cuenta: \(value.owner)\n\(value.records.count) negocios y \(value.money.transactions.count) operaciones. Sustituirá los datos actuales del Mac; se conservará una copia anterior para recuperarlos.")
             }
         }
+        #endif
         .onAppear { notifications.didOpen = { id in navigation.openBusiness(id, store: store) } }
         .onReceive(store.$backup) { value in notifications.replace(value?.records ?? []) }
         .task {
@@ -188,37 +184,29 @@ struct MacWelcomeView: View {
 }
 
 struct MacSettingsView: View {
+    @EnvironmentObject private var cloud: CloudBackupController
     @EnvironmentObject private var store: MacStore
     @EnvironmentObject private var navigation: MacNavigation
     @EnvironmentObject private var notifications: MacNotifications
     var body: some View {
         Form {
             MacAccountSection()
-            Section("Datos en la nube") { CloudBackupStatusView() }
-            Section("Cuenta y datos") {
-                LabeledContent("Cuenta", value: store.owner ?? "Sin configurar")
-                Text("Tus datos se sincronizan entre iPhone y Mac. También puedes exportar una copia adicional. Importar sustituye los datos de la cuenta.")
-                    .font(.callout).foregroundStyle(.secondary)
-                Button("Importar copia…") { MacFiles.chooseImport(store: store, navigation: navigation) }
-                Button("Exportar copia…") { MacFiles.export(store: store) }.disabled(store.owner == nil)
-                Button("Recuperar copia anterior…") {
-                    store.run { navigation.importCandidate = try MacStore.readBackup(Data(contentsOf: store.recoveryURL)) }
-                }.disabled(!FileManager.default.fileExists(atPath: store.recoveryURL.path))
-            }
+            if cloud.hasSaveProblem { Section { CloudBackupStatusView() } }
             Section("Avisos en este Mac") {
                 Toggle("Recordatorios de visitas", isOn: Binding(get: { notifications.enabled }, set: { value in Task { await notifications.setEnabled(value, records: store.records) } }))
                 if let message = notifications.message { Text(message).foregroundStyle(.secondary) }
             }
             Section {
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.4")
-                LabeledContent("Desarrollado por", value: "Pablo Cancho Flores")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0.2")
             }
         }.formStyle(.grouped).padding().frame(width: 560, height: 680)
+
     }
 }
 
 struct MacAccountSection: View {
     @EnvironmentObject private var store: MacStore
+    @EnvironmentObject private var cloud: CloudBackupController
     @ObservedObject private var auth = RemoteAuthClient.shared
     @State private var name = ""
     @State private var email = ""
@@ -226,16 +214,20 @@ struct MacAccountSection: View {
     @State private var registering = false
     @State private var busy = false
     @State private var message: String?
+    @State private var confirmingSignOut = false
     var body: some View {
         Section("Cuenta") {
             if let session = auth.session, auth.signedIn {
                 LabeledContent("Sesión", value: session.user.email)
-                Button("Cerrar sesión") { auth.logout() }.disabled(busy)
+                Button("Cerrar sesión") {
+                    if cloud.shouldConfirmSignOut { confirmingSignOut = true }
+                    else { auth.logout() }
+                }.disabled(busy)
             } else {
                 Toggle("Crear cuenta", isOn: $registering).disabled(busy)
-                if registering { TextField("Nombre", text: $name) }
-                TextField("Correo", text: $email)
-                SecureField("Contraseña", text: $password)
+                if registering { TextField("Nombre", text: $name).textContentType(.name).disabled(busy) }
+                TextField("Correo", text: $email).textContentType(.username).disabled(busy)
+                SecureField("Contraseña", text: $password).textContentType(registering ? .newPassword : .password).disabled(busy)
                 Button(registering ? "Crear cuenta" : "Iniciar sesión") {
                     busy = true; message = nil
                     Task {
@@ -246,7 +238,7 @@ struct MacAccountSection: View {
 
                         } catch { message = error.localizedDescription }
                     }
-                }.disabled(busy || email.isEmpty || password.isEmpty)
+                }.disabled(busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (registering && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
             }
             Button {
                 let expectedEmail = auth.signedIn ? auth.session?.user.email : nil
@@ -265,9 +257,15 @@ struct MacAccountSection: View {
             .disabled(busy)
             if busy { ProgressView().controlSize(.small) }
             if let message { Text(message).foregroundStyle(.secondary) }
-            Text("Tus negocios, visitas, inventario y dinero se sincronizan con tu cuenta. Comprueba el estado del guardado antes de cerrar la app.")
-                .font(.callout).foregroundStyle(.secondary)
         }.onAppear { email = store.owner ?? "" }
+        .onChange(of: registering) { _, _ in password = ""; message = nil }
+        .confirmationDialog("Tus últimos cambios aún se están guardando", isPresented: $confirmingSignOut, titleVisibility: .visible) {
+            Button("Guardar y seguir aquí") { cloud.requestSync(immediate: true) }
+            Button("Cerrar sesión igualmente", role: .destructive) { auth.logout() }
+            Button("Cancelar", role: .cancel) { }
+        } message: {
+            Text("Espera a que termine el guardado antes de cerrar sesión. Tus cambios siguen en este Mac.")
+        }
     }
 }
 

@@ -4,6 +4,7 @@ import MapKit
 import UserNotifications
 import CryptoKit
 
+#if DEBUG
 struct BackupDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }
     var data: Data
@@ -91,6 +92,8 @@ struct BackupView: View {
         catch { self.error = error.localizedDescription }
     }
 }
+
+#endif
 
 struct DailyRouteView: View {
     @EnvironmentObject private var store: AppStore

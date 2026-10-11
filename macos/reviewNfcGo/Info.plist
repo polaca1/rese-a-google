@@ -40,7 +40,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Desarrollado por Pablo Cancho Flores</string>
+	<string>reviewNfcGo</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Ordenar las visitas del día desde tu ubicación.</string>
 	<key>NSLocationUsageDescription</key>

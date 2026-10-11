@@ -1,7 +1,9 @@
-reviewNfcGo 6.0.1: vuelve el Inicio de siempre.
+reviewNfcGo 6.0.2: organización, acceso y protección de tus datos.
 
-La pantalla principal vuelve a mostrar el mapa, la búsqueda de negocios y la escritura NFC. El saludo permanece al principio y desaparece al desplazarte.
+El acceso admite autocompletado, avanzar entre campos y entrar desde el teclado. Los errores de correo o contraseña se explican antes de enviar la solicitud. Se incluye la corrección de sesión de Google cuando el reloj del dispositivo difiere del servidor.
 
-Hoy sigue disponible en Actividad y herramientas. Se conservan clientes, presupuestos PDF, stock mínimo, análisis, tarjetas actualizables y sincronización en la nube.
+Se simplifica Perfil: desaparecen las opciones de desarrollador, nube y copias de seguridad. El guardado es automático. Solo se informa de errores o cambios incompatibles entre dispositivos; cerrar sesión avisa si el guardado aún no ha terminado. Se mantiene el Inicio con el mapa, la búsqueda y Escribir NFC como acción principal.
+
+Se han separado pantallas, datos y servicios para facilitar el mantenimiento. Las versiones de distribución comprueban automáticamente que no incluyen modos de prueba, que la versión de los widgets coincide y que incluyen la información de privacidad.
 
 Actualiza sin borrar la app para conservar los cambios pendientes de sincronizar.

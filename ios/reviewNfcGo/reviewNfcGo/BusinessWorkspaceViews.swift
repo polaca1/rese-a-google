@@ -30,9 +30,6 @@ struct BusinessHubView: View {
                 NavigationLink { WeeklyGoalsView() } label: { Label("Objetivos semanales", systemImage: "target") }
                 NavigationLink { SaleProfitView() } label: { Label("Ventas y beneficio", systemImage: "chart.bar") }
             }
-            Section("Tu cuenta") {
-                NavigationLink { CloudHistoryView() } label: { Label("Recuperar versiones de la nube", systemImage: "clock.arrow.circlepath") }
-            }
         }.navigationTitle("Actividad")
     }
 }
@@ -331,6 +328,7 @@ struct WorkspaceRouteView: View {
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) { message = "No se pudo obtener la ubicación. Vuelve a intentarlo." }
 }
 
+#if DEBUG
 struct CloudHistoryView: View {
     @EnvironmentObject private var cloud: CloudBackupController
     @State private var copies: [CloudBackupRecord] = []
@@ -377,6 +375,8 @@ struct CloudHistoryView: View {
     }
 }
 
+#endif
+
 struct TodayWorkspaceView: View {
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var cloud: CloudBackupController
@@ -391,7 +391,7 @@ struct TodayWorkspaceView: View {
                 NavigationLink { QuickSaleView() } label: { Label("Registrar venta", systemImage: "plus.circle.fill") }
                 NavigationLink { QuotesWorkspaceView() } label: { Label("Presupuestos", systemImage: "doc.text") }
             }
-            Section("Tu cuenta") { CloudBackupStatusView() }
+            if cloud.hasSaveProblem { Section { CloudBackupStatusView() } }
             Section("Objetivo de la semana") {
                 let goals = store.money.weeklyGoals ?? WeeklyGoals()
                 ProgressView(value: min(Double(today.weekly.cards), Double(goals.cards)), total: Double(goals.cards)) { Text("\(today.weekly.cards) de \(goals.cards) tarjetas") }

@@ -1,3 +1,7 @@
+# Versión actual
+
+La versión actual usa Supabase y guardado automático. Consulta [la documentación vigente](../../README.md) y [la organización del proyecto](../../docs/ARCHITECTURE.md). Lo que sigue es un historial de versiones anteriores y no describe la configuración actual.
+
 # reviewNfcGo 4.0 — Dinero, inventario NFC y Liquid Glass
 
 - Botones nativos `.glass` y `.glassProminent`, controles segmentados, navegación y pestañas de iOS 26.

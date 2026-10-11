@@ -469,6 +469,7 @@ import PDFKit
         sync.connect(owner: owner, transport: transport, read: { local }, apply: { local = $0 }, automatic: false)
         await sync.synchronize()
         try check(sync.state == .saved && transport.row?.payload.money.balanceCents == 2000, "Guardar negocio sube ingresos y datos a la nube")
+        try check(!sync.hasSaveProblem && !sync.shouldConfirmSignOut, "Guardado normal no muestra paneles ni advertencias de nube")
         defaults.removePersistentDomain(forName: suite)
         local = BusinessBackup(owner: owner, records: [], money: MoneyLedger())
         let reinstall = CloudBackupController(defaults: defaults)
@@ -486,9 +487,11 @@ import PDFKit
         local.records[0].notes = "Sin conexión"
         await reinstall.synchronize()
         try check(local.records[0].notes == "Sin conexión" && transport.writes == 1, "Sin conexión conserva cambios locales pendientes")
+        try check(reinstall.hasSaveProblem && reinstall.shouldConfirmSignOut, "Un error de guardado se muestra y avisa antes de cerrar sesión")
         transport.offline = false
         await reinstall.synchronize()
         try check(reinstall.state == .saved && transport.row?.payload.records[0].notes == "Sin conexión", "Recuperar conexión sube los cambios pendientes")
+        try check(!reinstall.hasSaveProblem && !reinstall.shouldConfirmSignOut, "Recuperar conexión retira el aviso sin intervención")
         let historical = CloudBackupRecord(user_id: "test", revision: 1, payload: original)
         let revisionBeforeRestore = transport.row!.revision
         try await reinstall.restorePrevious(historical)

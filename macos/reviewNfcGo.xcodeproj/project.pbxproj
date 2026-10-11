@@ -5,6 +5,10 @@
 	};
 	"objectVersion" = "56";
 	"objects" = {
+		74C5BA48D3F543ED2DBCCA3B = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../ios/reviewNfcGo/reviewNfcGo/CloudStatusView.swift"; sourceTree = "SOURCE_ROOT"; };
+		17EBBDAE0F56F681ACE1EE8E = {isa = PBXBuildFile; fileRef = 74C5BA48D3F543ED2DBCCA3B; };
+		3F08AA2492D2B0EBE0CE73DF = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "../ios/reviewNfcGo/reviewNfcGo/PrivacyInfo.xcprivacy"; sourceTree = "SOURCE_ROOT"; };
+		D6C54C0429F78808DF958773 = {isa = PBXBuildFile; fileRef = 3F08AA2492D2B0EBE0CE73DF; };
         EE0400000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../ios/reviewNfcGo/reviewNfcGo/BusinessWorkspaceViews.swift"; sourceTree = "SOURCE_ROOT"; };
         EE0400000000000000000002 = {isa = PBXBuildFile; fileRef = EE0400000000000000000001; };
 
@@ -156,7 +160,7 @@
 		};
 		"AD936FCBED631FA67E05C3EA" = {
 			"isa" = "PBXGroup";
-			"children" = (
+			"children" = ( 74C5BA48D3F543ED2DBCCA3B,  3F08AA2492D2B0EBE0CE73DF,
 				635F6C1356F76B13B8C1F694,
 				EE0200000000000000000001,
 				EE0300000000000000000001,
@@ -168,6 +172,7 @@
 			"isa" = "PBXSourcesBuildPhase";
 			"buildActionMask" = "2147483647";
 			"files" = (
+				17EBBDAE0F56F681ACE1EE8E,
 				72676ED01C299B7176D16E99,
 				EE0200000000000000000002,
 				EE0300000000000000000002,
@@ -178,7 +183,7 @@
 		"41D311A605520FC7B8B9A980" = {
 			"isa" = "PBXResourcesBuildPhase";
 			"buildActionMask" = "2147483647";
-			"files" = ( "EEF6CA6E4E8CFF3CDFA458CD", "806DC998D0D4175C525F018F" , );
+			"files" = ( D6C54C0429F78808DF958773, "EEF6CA6E4E8CFF3CDFA458CD", "806DC998D0D4175C525F018F" , );
 			"runOnlyForDeploymentPostprocessing" = "0";
 		};
 		"E2AA269EB967A8853A258BFA" = {
@@ -197,8 +202,8 @@
 				"PRODUCT_NAME" = "reviewNfcGo";
 				"EXECUTABLE_NAME" = "reviewNfcGoMac";
 				"PRODUCT_BUNDLE_IDENTIFIER" = "com.pablo.reviewnfcgo.mac";
-				"MARKETING_VERSION" = "2.0.1";
-				"CURRENT_PROJECT_VERSION" = "10";
+				"MARKETING_VERSION" = "2.0.2";
+				"CURRENT_PROJECT_VERSION" = "11";
 				"INFOPLIST_FILE" = "reviewNfcGo/Info.plist";
 				"GENERATE_INFOPLIST_FILE" = "NO";
 				"CODE_SIGN_STYLE" = "Automatic";
@@ -230,8 +235,8 @@
 				"PRODUCT_NAME" = "reviewNfcGo";
 				"EXECUTABLE_NAME" = "reviewNfcGoMac";
 				"PRODUCT_BUNDLE_IDENTIFIER" = "com.pablo.reviewnfcgo.mac";
-				"MARKETING_VERSION" = "2.0.1";
-				"CURRENT_PROJECT_VERSION" = "10";
+				"MARKETING_VERSION" = "2.0.2";
+				"CURRENT_PROJECT_VERSION" = "11";
 				"INFOPLIST_FILE" = "reviewNfcGo/Info.plist";
 				"GENERATE_INFOPLIST_FILE" = "NO";
 				"CODE_SIGN_STYLE" = "Automatic";
