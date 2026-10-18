@@ -239,6 +239,10 @@ struct MacAccountSection: View {
                         } catch { message = error.localizedDescription }
                     }
                 }.disabled(busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (registering && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                if !registering {
+                    Link("¿Olvidaste tu contraseña?", destination: URL(string: "https://polaca1.github.io/rese-a-google/reset-password.html")!)
+                        .disabled(busy)
+                }
             }
             Button {
                 let expectedEmail = auth.signedIn ? auth.session?.user.email : nil

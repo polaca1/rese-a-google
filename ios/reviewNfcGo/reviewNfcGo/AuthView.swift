@@ -63,6 +63,11 @@ struct AuthView: View {
                     .appPrimaryButton()
                     .disabled(!canSubmit)
 
+                    if !createMode {
+                        Link("¿Olvidaste tu contraseña?", destination: URL(string: "https://polaca1.github.io/rese-a-google/reset-password.html")!)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+
                     Button {
                         Task { await auth.authenticateWithGoogle() }
                     } label: {
