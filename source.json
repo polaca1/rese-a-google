@@ -18,7 +18,7 @@
           "buildVersion": "33",
           "date": "2026-10-18T22:36:57Z",
           "localizedDescription": "reviewNfcGo 6.0.3: una cuenta para Google y correo.\n\nSi empezaste con Google, abre Perfil → Crear o cambiar contraseña para entrar también con tu correo. Se mantiene la misma cuenta y los mismos datos. Si empezaste con correo verificado, puedes usar Google con ese mismo correo sin duplicar tu cuenta.\n\nSe añade «¿Olvidaste tu contraseña?» en iPhone y Mac, con recuperación por correo. No se necesita borrar la app ni crear una cuenta nueva.\n\nActualiza sin borrar la app para conservar cualquier cambio pendiente.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-6.0.3-build33.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.3-build33/reviewNfcGo-6.0.3-build33.ipa",
           "size": 6860656,
           "minOSVersion": "16.1"
         },
@@ -224,7 +224,7 @@
       "version": "6.0.3",
       "versionDate": "2026-10-18T22:36:57Z",
       "versionDescription": "reviewNfcGo 6.0.3: una cuenta para Google y correo.\n\nSi empezaste con Google, abre Perfil → Crear o cambiar contraseña para entrar también con tu correo. Se mantiene la misma cuenta y los mismos datos. Si empezaste con correo verificado, puedes usar Google con ese mismo correo sin duplicar tu cuenta.\n\nSe añade «¿Olvidaste tu contraseña?» en iPhone y Mac, con recuperación por correo. No se necesita borrar la app ni crear una cuenta nueva.\n\nActualiza sin borrar la app para conservar cualquier cambio pendiente.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-6.0.3-build33.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.3-build33/reviewNfcGo-6.0.3-build33.ipa",
       "size": 6860656,
       "appPermissions": {
         "entitlements": [
