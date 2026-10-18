@@ -562,7 +562,8 @@ import PDFKit
             return URL(string: query.first(where: { $0.name == "redirect_to" })!.value! + "?code=google-code")!
         })
         let record = VisitRecord(place: PlaceResult(id: "google-business", name: "Negocio de Google", address: "Centro", latitude: 38, longitude: -6))
-        let backup = BusinessBackup(owner: email, records: [record], money: MoneyLedger())
+        var ledger = MoneyLedger(); ledger.synchronize([record])
+        let backup = BusinessBackup(owner: email, records: [record], money: ledger)
         _ = try await auth.saveCloudBackup(backup, expectedRevision: nil)
         do { try await auth.updatePassword("short"); throw DesktopError.invalidBusiness } catch RemoteAuthError.rejected { }
         try check(passwordUpdates == 0, "Una contraseña corta no modifica la cuenta de Google")
