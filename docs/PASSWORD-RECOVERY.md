@@ -28,3 +28,15 @@ El servicio recibe `POST /auth/v1/recover?redirect_to=…`. Solo la persona que 
 `node --test server/cloud/password-reset/tests/reset-password.test.cjs`
 
 Las pruebas usan navegador y red simulada: no envían correos ni cambian contraseñas reales.
+
+## Google y correo: una sola cuenta
+
+Supabase vincula automáticamente el acceso OAuth de Google al usuario del mismo correo verificado. No se hace ninguna unión local de datos por coincidir un texto de correo, ni se usa la API administrativa para unir UUID diferentes.
+
+Si el usuario empezó con Google, `RemoteAuthClient.updatePassword` valida la sesión y llama a `PUT /auth/v1/user` con su JWT. No utiliza signup ni modifica el correo. La respuesta debe conservar UUID y correo; la sesión y la copia privada permanecen en la misma cuenta. Puede continuar con Google o entrar con el correo y la nueva contraseña de reviewNfcGo.
+
+Crear otra cuenta con el correo de Google no añade una contraseña: Supabase puede devolver un usuario ofuscado por privacidad. La app indica que se debe entrar con Google y elegir la contraseña desde Perfil.
+
+Verificación nativa: correo → Google → correo conserva UUID y datos; Google → añadir contraseña → reinstalación → correo recupera los datos del mismo UUID. Se cubren contraseñas inválidas, sesión ausente, reautenticación y respuesta con UUID ajeno. Son transportes simulados; una sesión Google real requiere comprobación en el dispositivo del propietario.
+
+Referencia: https://supabase.com/docs/guides/auth/auth-identity-linking.

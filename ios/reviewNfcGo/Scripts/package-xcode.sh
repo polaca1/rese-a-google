@@ -17,5 +17,5 @@ for path in [root/'ios/reviewNfcGo/reviewNfcGo/Info.plist',root/'macos/reviewNfc
 config=root/'config.js'
 if config.exists():config.write_text(re.sub(r'AIza[0-9A-Za-z_-]+','',config.read_text()))
 PYDATA
-(cd "$task_package_dir" && /usr/bin/zip -qry "$task_output_dir/reviewNfcGo-6.0.2-Xcode.zip" reviewNfcGo)
+(cd "$task_package_dir" && /usr/bin/zip -qry "$task_output_dir/reviewNfcGo-6.0.3-Xcode.zip" reviewNfcGo)
 echo 'Proyecto completo de Xcode preparado sin claves de Google Places.'

@@ -146,6 +146,9 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         if provider == .supabase {
             let value: SupabaseSession = try await request(name == nil ? "token" : "signup", method: "POST", body: body,
                                                         authorized: false, query: name == nil ? "grant_type=password" : nil)
+            if name != nil && value.access_token?.isEmpty != false {
+                throw RemoteAuthError.rejected("Revisa tu correo para confirmar una cuenta nueva. Si ya usabas Google con este correo, entra con Google y elige «Crear o cambiar contraseña» en tu perfil; no necesitas crear otra cuenta.")
+            }
             response = try value.remoteSession()
         } else {
             response = try await request(name == nil ? "login" : "register", method: "POST", body: body, authorized: false)
@@ -204,6 +207,25 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
         }
         try saveSession(response)
         return response.user
+    }
+    /// Add email/password access to the authenticated Google user, never register a second user.
+    func updatePassword(_ password: String) async throws {
+        guard (8...128).contains(password.count) else {
+            throw RemoteAuthError.rejected("La contraseña debe tener entre 8 y 128 caracteres.")
+        }
+        let generation = authorizationGeneration
+        let user = try await validate()
+        guard generation == authorizationGeneration, provider == .supabase,
+              let id = user.id, UUID(uuidString: id) != nil else {
+            throw RemoteAuthError.rejected("Vuelve a iniciar sesión para cambiar la contraseña.")
+        }
+        let updated: SupabaseUser = try await request("user", method: "PUT", body: ["password": password], authorized: true)
+        guard generation == authorizationGeneration,
+              updated.id?.lowercased() == id.lowercased(),
+              updated.email?.lowercased() == user.email else {
+            throw RemoteAuthError.rejected("No se pudo confirmar el cambio en tu cuenta. Vuelve a iniciar sesión.")
+        }
+        // The authenticated UUID, refresh token and cloud data are retained.
     }
     #if DEBUG
     func verifyLiveGoogleService() async throws -> Bool {
@@ -420,6 +442,9 @@ private final class AuthRedirectPolicy: NSObject, URLSessionTaskDelegate {
                 case "email_not_confirmed": message = "Comprueba tu correo para confirmar la cuenta."
                 case "user_already_exists": message = "Ya existe una cuenta con ese correo."
                 case "signup_disabled": message = "El registro todavía no está disponible."
+                case "same_password": message = "Elige una contraseña diferente de la anterior."
+                case "weak_password": message = "Elige una contraseña más segura, con letras, números y símbolos."
+                case "reauthentication_needed", "reauthentication_not_valid": message = "Por seguridad, vuelve a iniciar sesión antes de cambiar la contraseña. También puedes usar «¿Olvidaste tu contraseña?»."
                 default: message = http.statusCode == 429 ? "Demasiados intentos. Espera unos minutos." : "No se pudo completar el acceso. Revisa tus datos o inténtalo más tarde."
                 }
                 throw RemoteAuthError.rejected(message)

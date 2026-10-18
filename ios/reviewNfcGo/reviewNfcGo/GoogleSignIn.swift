@@ -124,10 +124,11 @@ struct GoogleOAuthRequest {
 }
 
 struct GoogleSignInLabel: View {
+    var title = "Continuar con Google"
     var body: some View {
         HStack(spacing: 12) {
             Image("GoogleLogo").resizable().scaledToFit().frame(width: 20, height: 20).accessibilityHidden(true)
-            Text("Continuar con Google").foregroundStyle(.primary)
+            Text(title).foregroundStyle(.primary)
         }
     }
 }

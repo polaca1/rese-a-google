@@ -20,6 +20,7 @@ import PDFKit
             checks += try await verifyCentralAccounts()
             checks += try await verifySupabaseAccounts()
             checks += try await verifyGoogleAccounts()
+            checks += try await verifyGooglePasswordAccess()
             let liveSuite = "reviewNfcGo.live-service." + UUID().uuidString
             let liveDefaults = UserDefaults(suiteName: liveSuite)!
             defer { liveDefaults.removePersistentDomain(forName: liveSuite) }
@@ -508,6 +509,85 @@ import PDFKit
         try check(local.owner == owner && local.records.count == 1 && reinstall.state != .saved, "Una respuesta de otra cuenta nunca sustituye los datos")
         var dated = original; dated.createdAt = Date().addingTimeInterval(100)
         try check(try original.cloudFingerprint() == dated.cloudFingerprint(), "La fecha de exportación no provoca conflictos falsos")
+        return checks
+    }
+    private static func verifyGooglePasswordAccess() async throws -> [String] {
+        var checks: [String] = []
+        func check(_ value: Bool, _ label: String) throws {
+            guard value else { throw NSError(domain: "GooglePasswordAccess", code: 1, userInfo: [NSLocalizedDescriptionKey: label]) }
+            checks.append(label)
+        }
+        let suite = "google-password-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [AuthVerificationProtocol.self]
+        let network = URLSession(configuration: configuration)
+        let auth = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        defer { auth.clearSession(); defaults.removePersistentDomain(forName: suite); AuthVerificationProtocol.handler = nil; network.invalidateAndCancel() }
+        let id = UUID().uuidString.lowercased(), email = "google-first@example.com"
+        let key = "sb_publishable_verification0123456789"
+        let user: [String: Any] = ["id": id, "email": email]
+        var row: CloudBackupRecord?
+        var passwordAdded = false, checkedUpdate = false, wrongIdentity = false
+        var passwordUpdates = 0, signups = 0
+        var updateError: String?
+        AuthVerificationProtocol.handler = { request in
+            let path = request.url!.path
+            if request.url!.host == "raw.githubusercontent.com" { return (200, ["schema": 1, "provider": "supabase", "serverURL": "https://abcdefghijklmnopqrst.supabase.co", "publishableKey": key]) }
+            if path == "/auth/v1/settings" { return (200, ["external": ["google": true]]) }
+            if path == "/auth/v1/signup" { signups += 1; throw DesktopError.invalidBusiness }
+            if path == "/auth/v1/token" {
+                if request.url!.query == "grant_type=password" && !passwordAdded { return (400, ["error_code": "invalid_credentials"]) }
+                return (200, ["access_token": "same-account-access", "refresh_token": "same-account-refresh", "expires_in": 3600, "user": user])
+            }
+            if path == "/auth/v1/user" {
+                if request.httpMethod == "PUT" {
+                    passwordUpdates += 1
+                    let body = try JSONSerialization.jsonObject(with: AuthVerificationProtocol.bodyData(request)) as? [String: String]
+                    checkedUpdate = body == ["password": "New-email-password-123"] && request.value(forHTTPHeaderField: "Authorization") == "Bearer same-account-access" && request.value(forHTTPHeaderField: "apikey") == key
+                    if let updateError { return (422, ["error_code": updateError]) }
+                    if wrongIdentity { return (200, ["id": UUID().uuidString, "email": email]) }
+                    passwordAdded = true
+                }
+                return (200, user)
+            }
+            guard path == "/rest/v1/reviewnfcgo_backups" else { throw DesktopError.invalidBusiness }
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            if request.httpMethod == "POST" { row = try JSONDecoder().decode(CloudBackupRecord.self, from: AuthVerificationProtocol.bodyData(request)) }
+            else { guard query.contains(URLQueryItem(name: "user_id", value: "eq." + id)) else { throw DesktopError.invalidBusiness } }
+            return (200, try JSONSerialization.jsonObject(with: JSONEncoder().encode(row.map { [$0] } ?? [])))
+        }
+        let google = try await auth.authenticateWithGoogle(openBrowser: { url in
+            let query = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
+            return URL(string: query.first(where: { $0.name == "redirect_to" })!.value! + "?code=google-code")!
+        })
+        let record = VisitRecord(place: PlaceResult(id: "google-business", name: "Negocio de Google", address: "Centro", latitude: 38, longitude: -6))
+        let backup = BusinessBackup(owner: email, records: [record], money: MoneyLedger())
+        _ = try await auth.saveCloudBackup(backup, expectedRevision: nil)
+        do { try await auth.updatePassword("short"); throw DesktopError.invalidBusiness } catch RemoteAuthError.rejected { }
+        try check(passwordUpdates == 0, "Una contraseña corta no modifica la cuenta de Google")
+        let token = auth.session?.token
+        try await auth.updatePassword("New-email-password-123")
+        try check(checkedUpdate && passwordAdded && signups == 0 && auth.session?.user.id == google.id && auth.session?.token == token,
+                  "Google permite añadir contraseña al UUID autenticado sin registrar otra cuenta ni perder la sesión")
+        auth.clearSession()
+        let reinstalled = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        let emailUser = try await reinstalled.authenticate(email: " GOOGLE-FIRST@example.com ", password: "New-email-password-123")
+        let restored = try await reinstalled.loadCloudBackup(owner: email)
+        try check(emailUser.id == google.id && restored?.user_id == id && restored?.payload.records == [record] && signups == 0,
+                  "Cuenta creada con Google recupera sus negocios con correo y contraseña después de reinstalar")
+        for (code, text) in [("weak_password", "segura"), ("same_password", "diferente"), ("reauthentication_needed", "vuelve a iniciar")] {
+            updateError = code
+            do { try await reinstalled.updatePassword("New-email-password-123"); throw DesktopError.invalidBusiness }
+            catch RemoteAuthError.rejected(let message) { try check(message.contains(text) && reinstalled.signedIn, "Error de contraseña " + code + " explicado sin cerrar la sesión") }
+        }
+        updateError = nil; wrongIdentity = true
+        do { try await reinstalled.updatePassword("New-email-password-123"); throw DesktopError.invalidBusiness }
+        catch RemoteAuthError.rejected { try check(reinstalled.session?.user.id == id, "Respuesta con otro UUID nunca sustituye la cuenta de Google") }
+        reinstalled.clearSession()
+        let updatesBefore = passwordUpdates
+        do { try await reinstalled.updatePassword("New-email-password-123"); throw DesktopError.invalidBusiness }
+        catch RemoteAuthError.rejected { try check(passwordUpdates == updatesBefore, "No se puede cambiar una contraseña sin una sesión válida") }
         return checks
     }
     private static func verifyGoogleAccounts() async throws -> [String] {

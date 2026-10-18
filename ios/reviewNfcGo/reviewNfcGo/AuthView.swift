@@ -76,6 +76,9 @@ struct AuthView: View {
                     .appSecondaryButton()
                     .disabled(auth.isAuthenticating)
 
+                    Text("Google y el acceso con correo comparten tu cuenta si usas el mismo correo verificado. Si empezaste con Google, crea tu contraseña desde Perfil.")
+                        .font(.footnote).foregroundStyle(.secondary)
+
                     Button(createMode ? "Ya tengo cuenta" : "Crear una cuenta") {
                         createMode.toggle()
                         password = ""
@@ -86,7 +89,7 @@ struct AuthView: View {
                     .disabled(auth.isAuthenticating)
 
                     if createMode {
-                        Text("Si ya usabas reviewNfcGo, crea la cuenta con el mismo correo para conservar tus datos de este iPhone. Puedes elegir una contraseña nueva.")
+                        Text("Si ya tienes cuenta, entra con tu correo o con Google. Para elegir una contraseña nueva, usa «¿Olvidaste tu contraseña?» o entra con Google y abre Perfil.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
 

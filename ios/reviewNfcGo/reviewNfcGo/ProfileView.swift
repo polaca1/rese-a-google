@@ -12,6 +12,7 @@ struct ProfileView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject private var cloud: CloudBackupController
     @State private var confirmingSignOut = false
+    @State private var showingPassword = false
 
     var body: some View {
         List {
@@ -35,7 +36,7 @@ struct ProfileView: View {
                 Section { Button("Deshacer: " + title) { store.undoLastChange() } }
             }
             Section("Acerca de reviewNfcGo") {
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "6.0.2")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "6.0.3")
             }
             Section("Cuenta") {
                 CloudBackupStatusView()
@@ -43,11 +44,12 @@ struct ProfileView: View {
                     Task { await auth.authenticateWithGoogle() }
                 } label: {
                     HStack {
-                        GoogleSignInLabel()
+                        GoogleSignInLabel(title: "Vincular con Google")
                         if auth.isAuthenticating { Spacer(); ProgressView() }
                     }
                 }.disabled(auth.isAuthenticating)
                 if let error = auth.errorMessage { Text(error).font(.footnote).foregroundStyle(.red) }
+                Button("Crear o cambiar contraseña") { showingPassword = true }.disabled(auth.isAuthenticating)
                 Button("Cerrar sesión", role: .destructive) {
                     if cloud.shouldConfirmSignOut { confirmingSignOut = true }
                     else { auth.logout() }
@@ -55,6 +57,7 @@ struct ProfileView: View {
             }
         }
         .navigationTitle("Perfil")
+        .sheet(isPresented: $showingPassword) { AccountPasswordView(auth: auth.accountService) }
         .confirmationDialog("Tus últimos cambios aún se están guardando", isPresented: $confirmingSignOut, titleVisibility: .visible) {
             Button("Guardar y seguir aquí") { cloud.requestSync(immediate: true) }
             Button("Cerrar sesión igualmente", role: .destructive) { auth.logout() }

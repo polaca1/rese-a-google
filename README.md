@@ -2,8 +2,8 @@
 
 App para organizar negocios, tarjetas NFC, visitas, clientes, presupuestos, inventario e ingresos y gastos.
 
-- **iPhone 6.0.2:** Inicio con mapa y búsqueda, escritura NFC mediante Simply NFC, widgets y recordatorios. Distribución mediante SideStore.
-- **Mac 2.0.2:** app nativa para macOS 14 o posterior, Intel y Apple Silicon, con tablas, gráficos, informes PDF y exportación CSV.
+- **iPhone 6.0.3:** Inicio con mapa y búsqueda, escritura NFC mediante Simply NFC, widgets y recordatorios. Distribución mediante SideStore.
+- **Mac 2.0.3:** app nativa para macOS 14 o posterior, Intel y Apple Silicon, con tablas, gráficos, informes PDF y exportación CSV.
 - **Cuentas:** acceso con correo/contraseña o Google mediante Supabase. Los datos de cada cuenta se guardan automáticamente y se recuperan al volver a entrar. La interfaz no requiere configurar servidores, sincronizar manualmente ni gestionar copias.
 
 [Fuente de SideStore](https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/source-compatible.json) · [Descargas](https://github.com/polaca1/rese-a-google/releases)
