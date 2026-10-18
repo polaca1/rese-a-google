@@ -197,7 +197,7 @@ struct MacSettingsView: View {
                 if let message = notifications.message { Text(message).foregroundStyle(.secondary) }
             }
             Section {
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0.2")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0.3")
             }
         }.formStyle(.grouped).padding().frame(width: 560, height: 680)
 
@@ -215,10 +215,12 @@ struct MacAccountSection: View {
     @State private var busy = false
     @State private var message: String?
     @State private var confirmingSignOut = false
+    @State private var showingPassword = false
     var body: some View {
         Section("Cuenta") {
             if let session = auth.session, auth.signedIn {
                 LabeledContent("Sesión", value: session.user.email)
+                Button("Crear o cambiar contraseña") { showingPassword = true }.disabled(busy)
                 Button("Cerrar sesión") {
                     if cloud.shouldConfirmSignOut { confirmingSignOut = true }
                     else { auth.logout() }
@@ -239,6 +241,10 @@ struct MacAccountSection: View {
                         } catch { message = error.localizedDescription }
                     }
                 }.disabled(busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (registering && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                if !registering {
+                    Link("¿Olvidaste tu contraseña?", destination: URL(string: "https://polaca1.github.io/rese-a-google/reset-password.html")!)
+                        .disabled(busy)
+                }
             }
             Button {
                 let expectedEmail = auth.signedIn ? auth.session?.user.email : nil
@@ -252,12 +258,16 @@ struct MacAccountSection: View {
                     } catch is CancellationError { }
                     catch { message = error.localizedDescription }
                 }
-            } label: { GoogleSignInLabel() }
+            } label: { GoogleSignInLabel(title: auth.signedIn ? "Vincular con Google" : "Continuar con Google") }
             .buttonStyle(.borderedProminent).controlSize(.large)
             .disabled(busy)
+            if !auth.signedIn {
+                Text("Usa el mismo correo verificado para entrar con Google o con contraseña. Si empezaste con Google, entra y elige «Crear o cambiar contraseña».").font(.footnote).foregroundStyle(.secondary)
+            }
             if busy { ProgressView().controlSize(.small) }
             if let message { Text(message).foregroundStyle(.secondary) }
         }.onAppear { email = store.owner ?? "" }
+        .sheet(isPresented: $showingPassword) { AccountPasswordView(auth: auth) }
         .onChange(of: registering) { _, _ in password = ""; message = nil }
         .confirmationDialog("Tus últimos cambios aún se están guardando", isPresented: $confirmingSignOut, titleVisibility: .visible) {
             Button("Guardar y seguir aquí") { cloud.requestSync(immediate: true) }

@@ -63,6 +63,11 @@ struct AuthView: View {
                     .appPrimaryButton()
                     .disabled(!canSubmit)
 
+                    if !createMode {
+                        Link("¿Olvidaste tu contraseña?", destination: URL(string: "https://polaca1.github.io/rese-a-google/reset-password.html")!)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+
                     Button {
                         Task { await auth.authenticateWithGoogle() }
                     } label: {
@@ -70,6 +75,9 @@ struct AuthView: View {
                     }
                     .appSecondaryButton()
                     .disabled(auth.isAuthenticating)
+
+                    Text("Google y el acceso con correo comparten tu cuenta si usas el mismo correo verificado. Si empezaste con Google, crea tu contraseña desde Perfil.")
+                        .font(.footnote).foregroundStyle(.secondary)
 
                     Button(createMode ? "Ya tengo cuenta" : "Crear una cuenta") {
                         createMode.toggle()
@@ -81,7 +89,7 @@ struct AuthView: View {
                     .disabled(auth.isAuthenticating)
 
                     if createMode {
-                        Text("Si ya usabas reviewNfcGo, crea la cuenta con el mismo correo para conservar tus datos de este iPhone. Puedes elegir una contraseña nueva.")
+                        Text("Si ya tienes cuenta, entra con tu correo o con Google. Para elegir una contraseña nueva, usa «¿Olvidaste tu contraseña?» o entra con Google y abre Perfil.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
 
