@@ -18,7 +18,7 @@
           "buildVersion": "34",
           "date": "2026-10-23T23:31:18Z",
           "localizedDescription": "reviewNfcGo 6.0.4: el local correcto, más cerca.\n\nMi ubicación prioriza la distancia real. Cuando dos negocios están prácticamente a la misma distancia, bares, restaurantes y tiendas aparecen antes que oficinas. Pulsa otra vez Mi ubicación para recorrer las alternativas cercanas sin repetir la consulta a Google.\n\nSi hay dos locales igual de probables, aparece una tarjeta minimalista para elegir antes de escribir NFC. Se descartan resultados lejanos, calles y negocios cerrados permanentemente. La ubicación antigua o demasiado imprecisa espera una señal mejor.\n\nNueva venta incluye el producto que estás rellenando al guardar, con totales al instante, Guardar siempre accesible arriba y Hecho para cerrar el teclado. Inicio sigue siendo la pantalla principal y ahora aparece entre Avisos y Perfil. La fuente muestra las capturas de las pruebas de esta versión.\n\nActualiza sin borrar la app. Se conservan tu cuenta, negocios e historial, y la compatibilidad de datos con Mac.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-6.0.4-build34.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.4-build34/reviewNfcGo-6.0.4-build34.ipa",
           "size": 6919733,
           "minOSVersion": "16.1"
         },
@@ -233,7 +233,7 @@
       "version": "6.0.4",
       "versionDate": "2026-10-23T23:31:18Z",
       "versionDescription": "reviewNfcGo 6.0.4: el local correcto, más cerca.\n\nMi ubicación prioriza la distancia real. Cuando dos negocios están prácticamente a la misma distancia, bares, restaurantes y tiendas aparecen antes que oficinas. Pulsa otra vez Mi ubicación para recorrer las alternativas cercanas sin repetir la consulta a Google.\n\nSi hay dos locales igual de probables, aparece una tarjeta minimalista para elegir antes de escribir NFC. Se descartan resultados lejanos, calles y negocios cerrados permanentemente. La ubicación antigua o demasiado imprecisa espera una señal mejor.\n\nNueva venta incluye el producto que estás rellenando al guardar, con totales al instante, Guardar siempre accesible arriba y Hecho para cerrar el teclado. Inicio sigue siendo la pantalla principal y ahora aparece entre Avisos y Perfil. La fuente muestra las capturas de las pruebas de esta versión.\n\nActualiza sin borrar la app. Se conservan tu cuenta, negocios e historial, y la compatibilidad de datos con Mac.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-6.0.4-build34.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.4-build34/reviewNfcGo-6.0.4-build34.ipa",
       "size": 6919733,
       "appPermissions": {
         "entitlements": [
