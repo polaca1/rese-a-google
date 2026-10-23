@@ -4,4 +4,6 @@ Mi ubicación prioriza la distancia real. Cuando dos negocios están prácticame
 
 Si hay dos locales igual de probables, aparece una tarjeta minimalista para elegir antes de escribir NFC. Se descartan resultados lejanos, calles y negocios cerrados permanentemente. La ubicación antigua o demasiado imprecisa espera una señal mejor.
 
+Nueva venta incluye el producto que estás rellenando al guardar, con totales al instante, Guardar siempre accesible arriba y Hecho para cerrar el teclado. Inicio sigue siendo la pantalla principal y ahora aparece entre Avisos y Perfil. La fuente muestra las capturas de las pruebas de esta versión.
+
 Actualiza sin borrar la app. Se conservan tu cuenta, negocios e historial, y la compatibilidad de datos con Mac.

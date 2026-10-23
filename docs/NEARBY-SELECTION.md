@@ -31,3 +31,13 @@ El GPS y las coordenadas de Google no identifican de forma infalible el interior
 - `NearbyPlaceVerification.swift`: pruebas nativas de toques repetidos, elección manual, errores y respuestas tardías; capturas clara/oscura.
 
 No se añaden llamadas de IA para decidir el negocio ni consultas de Places por cada alternativa mostrada.
+
+## Registro de ventas y navegación
+
+Guardar valida e incluye el producto pendiente, junto con las líneas ya añadidas. El resumen incluye ese producto antes de guardarlo. Se mantienen las validaciones de stock, cantidades e importes y la sincronización existente. Hay un botón Guardar en la barra superior, teclado decimal con Hecho y cierre al deslizar.
+
+El orden de pestañas es Sitios, Dinero, Avisos, Inicio y Perfil. Inicio conserva la selección inicial y los identificadores de navegación anteriores.
+
+## Capturas en la fuente
+
+Cada publicación con pruebas nativas sube sus PNG a screenshots/VERSION-buildBUILD y añade un manifiesto con el commit probado. La galería de ambas fuentes apunta a esa versión, evitando capturas antiguas en caché. Las capturas usan cuentas y negocios de prueba.

@@ -122,14 +122,23 @@ def publish(args):
         for local, remote in [('icon-native-light.png', 'icon.png'), ('icon-native-dark.png', 'icon-dark.png')]:
             if (previews / local).exists():
                 files[remote] = (previews / local).read_bytes()
-        screenshots = []
-        for name in ['blur-home-light.png', 'money-light.png', 'inventory-light.png', 'reminder-dates-light.png']:
-            if (previews / name).exists():
-                files['screenshots/' + name] = (previews / name).read_bytes()
-                screenshots.append(RAW + '/screenshots/' + name)
-        if screenshots:
+        # Keep every native test capture from this exact release, with immutable URLs.
+        screenshot_prefix = f'screenshots/{version}-build{build}'
+        captured = sorted(previews.glob('*.png'))
+        for image in captured:
+            if not image.name.startswith('icon-'):
+                files[screenshot_prefix + '/' + image.name] = image.read_bytes()
+        gallery = ['home-top-light.png', 'nearby-choices-light.png', 'nearby-choices-dark.png',
+                   'suite-sale.png', 'money-light.png', 'inventory-light.png']
+        screenshots = [RAW + '/' + screenshot_prefix + '/' + name for name in gallery
+                       if (previews / name).exists()]
+        if screenshots and entry == newest:
             app['screenshotURLs'] = screenshots
             files['source.json'] = (json.dumps(source, ensure_ascii=False, indent=2) + '\n').encode()
+        files[screenshot_prefix + '/manifest.json'] = (json.dumps({
+            'version': version, 'build': build, 'sourceCommit': args.source_commit,
+            'images': [p.name for p in captured if not p.name.startswith('icon-')]
+        }, indent=2) + '\n').encode()
     entries = []
     for name, content in files.items():
         blob = api('POST', 'git/blobs', {'content': base64.b64encode(content).decode(), 'encoding': 'base64'})

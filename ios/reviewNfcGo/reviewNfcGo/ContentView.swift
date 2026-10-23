@@ -59,15 +59,6 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack {
-                #if DEBUG
-                if ProcessInfo.processInfo.arguments.contains("--verification-major-today") { TodayWorkspaceView() }
-                else { HomeView() }
-                #else
-                HomeView()
-                #endif
-            }
-                .tabItem { Label("Inicio", systemImage: "location.fill") }.tag(0)
             NavigationStack(path: $businessPath) {
                 HistoryView()
                     .navigationDestination(for: UUID.self) { id in
@@ -79,6 +70,15 @@ struct MainTabView: View {
                 .tabItem { Label("Dinero", systemImage: "eurosign.circle.fill") }.tag(2)
             NavigationStack { RemindersView() }
                 .tabItem { Label("Avisos", systemImage: "bell.fill") }.tag(3)
+            NavigationStack {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--verification-major-today") { TodayWorkspaceView() }
+                else { HomeView() }
+                #else
+                HomeView()
+                #endif
+            }
+                .tabItem { Label("Inicio", systemImage: "location.fill") }.tag(0)
             NavigationStack { ProfileView() }
                 .tabItem { Label("Perfil", systemImage: "person.crop.circle.fill") }.tag(4)
         }

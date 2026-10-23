@@ -45,10 +45,17 @@ struct QuickSaleView: View {
     @State private var items: [QuickSaleInput] = []
     @State private var payment = "Efectivo"
     @State private var error: String?
-    private var total: Int64 { items.reduce(0) { $0 + (MoneyLedger.cents($1.unitPrice) ?? 0) * Int64($1.quantity) } }
+    @FocusState private var priceFocused: Bool
+    private func saleItems() throws -> [QuickSaleInput] {
+        try QuickSaleInput.includingPending(items, productID: productID, quantity: quantity, price: price,
+                                           availableStock: productID.map { store.money.stock($0) } ?? 0)
+    }
+    private var previewItems: [QuickSaleInput] { (try? saleItems()) ?? items }
+    private var canSave: Bool { businessID != nil && (!items.isEmpty || productID != nil) }
+    private var total: Int64 { previewItems.reduce(0) { $0 + (MoneyLedger.cents($1.unitPrice) ?? 0) * Int64($1.quantity) } }
     private var cost: Int64? {
-        guard items.allSatisfy({ store.money.averageCostCents($0.productID) != nil }) else { return nil }
-        return items.reduce(0) { $0 + Int64(((store.money.averageCostCents($1.productID) ?? 0) * Double($1.quantity)).rounded()) }
+        guard previewItems.allSatisfy({ store.money.averageCostCents($0.productID) != nil }) else { return nil }
+        return previewItems.reduce(0) { $0 + Int64(((store.money.averageCostCents($1.productID) ?? 0) * Double($1.quantity)).rounded()) }
     }
     var body: some View {
         Form {
@@ -67,7 +74,16 @@ struct QuickSaleView: View {
                     }
                 }
                 Stepper("Cantidad: \(quantity)", value: $quantity, in: 1...100_000)
-                LabeledContent("Precio por unidad (€)") { TextField("0,00", text: $price).multilineTextAlignment(.trailing) }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Precio por unidad (€)")
+                    TextField("0,00", text: $price)
+                        .focused($priceFocused)
+                        .multilineTextAlignment(.trailing)
+                        .accessibilityLabel("Precio por unidad en euros")
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
+                }
                 Button("Añadir a la venta") { addItem() }.disabled(productID == nil || items.count >= 20)
                 ForEach(items) { item in
                     HStack {
@@ -86,21 +102,58 @@ struct QuickSaleView: View {
                 LabeledContent("Total", value: suiteEuro(total))
                 if let cost { LabeledContent("Coste de productos", value: suiteEuro(cost)); LabeledContent("Beneficio", value: suiteEuro(total - cost)) }
                 else { Text("Coste pendiente: faltan compras registradas.").foregroundStyle(.secondary) }
-                Button("Guardar venta") {
-                    guard let businessID else { return }
-                    do { try store.registerQuickSale(recordID: businessID, items: items, payment: payment); dismiss() }
-                    catch { self.error = error.localizedDescription }
-                }.buttonStyle(.borderedProminent).disabled(businessID == nil || items.isEmpty || total <= 0)
+                Button("Guardar venta", action: saveSale)
+                    .buttonStyle(.borderedProminent).disabled(!canSave)
             }
         }.navigationTitle("Nueva venta")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Guardar", action: saveSale).disabled(!canSave)
+                        .accessibilityLabel("Guardar venta")
+                }
+                #if os(iOS)
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Hecho") { priceFocused = false }
+                }
+                #endif
+            }
+            #if os(iOS)
+            .scrollDismissesKeyboard(.interactively)
+            #endif
             .onAppear { if businessID == nil { businessID = initialBusinessID } }
+            #if DEBUG && os(iOS)
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("--verification-suite-sale") else { return }
+                try? await Task.sleep(for: .milliseconds(200))
+                businessID = store.records.first?.id
+                if let product = store.money.products.first(where: { store.money.stock($0.id) > 0 }) {
+                    productID = product.id
+                } else {
+                    let product = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Negro")
+                    try? store.receiveStock(title: product.name, quantity: 10, productID: product.id, newProduct: product,
+                                            origin: .manufactured, date: Date(), notes: "Verificación")
+                    productID = product.id
+                }
+                price = "15"
+                if ProcessInfo.processInfo.arguments.contains("--verification-sale-keyboard") { priceFocused = true }
+            }
+            #endif
             .alert("No se pudo guardar", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Aceptar") { error = nil } } message: { Text(error ?? "") }
     }
     private func addItem() {
-        guard let productID, let amount = SaleAmountFormatting.parse(price), let cents = MoneyLedger.cents(amount), cents >= 0 else { error = "Introduce un precio válido."; return }
-        guard quantity <= store.money.stock(productID) else { error = MoneyError.insufficientStock.localizedDescription; return }
-        guard !items.contains(where: { $0.productID == productID }) else { return }
-        items.append(QuickSaleInput(productID: productID, quantity: quantity, unitPrice: amount)); self.productID = nil; quantity = 1
+        guard productID != nil else { return }
+        do {
+            items = try saleItems(); productID = nil; quantity = 1; priceFocused = false
+        } catch { self.error = error.localizedDescription }
+    }
+    private func saveSale() {
+        guard let businessID else { return }
+        priceFocused = false
+        do {
+            try store.registerQuickSale(recordID: businessID, items: saleItems(), payment: payment)
+            dismiss()
+        } catch { self.error = error.localizedDescription }
     }
 }
 
