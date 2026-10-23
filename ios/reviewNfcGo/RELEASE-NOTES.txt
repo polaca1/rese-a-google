@@ -1,7 +1,7 @@
-reviewNfcGo 6.0.3: una cuenta para Google y correo.
+reviewNfcGo 6.0.4: el local correcto, más cerca.
 
-Si empezaste con Google, abre Perfil → Crear o cambiar contraseña para entrar también con tu correo. Se mantiene la misma cuenta y los mismos datos. Si empezaste con correo verificado, puedes usar Google con ese mismo correo sin duplicar tu cuenta.
+Mi ubicación prioriza la distancia real. Cuando dos negocios están prácticamente a la misma distancia, bares, restaurantes y tiendas aparecen antes que oficinas. Pulsa otra vez Mi ubicación para recorrer las alternativas cercanas sin repetir la consulta a Google.
 
-Se añade «¿Olvidaste tu contraseña?» en iPhone y Mac, con recuperación por correo. No se necesita borrar la app ni crear una cuenta nueva.
+Si hay dos locales igual de probables, aparece una tarjeta minimalista para elegir antes de escribir NFC. Se descartan resultados lejanos, calles y negocios cerrados permanentemente. La ubicación antigua o demasiado imprecisa espera una señal mejor.
 
-Actualiza sin borrar la app para conservar cualquier cambio pendiente.
+Actualiza sin borrar la app. Se conservan tu cuenta, negocios e historial, y la compatibilidad de datos con Mac.

@@ -67,6 +67,26 @@ sleep 3
 xcrun simctl io "$task_device" screenshot "$task_output_dir/portal-cold-launch.png"
 echo 'Simulador: portal desde arranque en frio, capturas clara/oscura guardadas.'
 
+# Nearby ranking, repeated location taps, ambiguity and late-response protection.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-nearby
+for task_attempt in $(seq 1 30); do
+    if [ -f "$task_container/Documents/nearby-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/nearby-verification.json" "$task_output_dir/nearby-verification.log"
+python3 - "$task_output_dir/nearby-verification.log" <<'PYCHECK'
+import json,sys
+result=json.load(open(sys.argv[1]));print(json.dumps(result,ensure_ascii=False,indent=2))
+assert result['passed'] and len(result['checks'])==10,result
+PYCHECK
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/nearby-choices-light.png"
+xcrun simctl ui "$task_device" appearance dark
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/nearby-choices-dark.png"
+
 xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl ui "$task_device" appearance light
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-portal "reviewnfcgo://business/$task_record_id" --verification-editor

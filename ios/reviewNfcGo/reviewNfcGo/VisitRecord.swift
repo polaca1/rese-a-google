@@ -9,6 +9,10 @@ struct PlaceResult: Identifiable, Codable, Equatable {
     let address: String
     let latitude: Double
     let longitude: Double
+    // Optional so saved businesses and older iPhone/Mac copies remain compatible.
+    var types: [String]? = nil
+    var primaryType: String? = nil
+    var businessStatus: String? = nil
 
     #if canImport(CoreLocation)
     var coordinate: CLLocationCoordinate2D {

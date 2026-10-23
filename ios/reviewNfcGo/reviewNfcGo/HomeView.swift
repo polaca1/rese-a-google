@@ -33,10 +33,12 @@ struct HomeView: View {
 
                 statusRow
 
-                if let place = finder.selectedPlace {
+                if !finder.nearbyChoices.isEmpty {
+                    nearbyChoicesCard
+                } else if let place = finder.selectedPlace {
                     placeCard(place)
                 } else if finder.isLoading {
-                    ProgressView("Buscando negocio más cercano…")
+                    ProgressView("Buscando locales cercanos…")
                         .frame(maxWidth: .infinity, minHeight: 120)
                 }
 
@@ -60,6 +62,10 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-nearby") {
+                Task { await NearbyPlaceVerification.run(finder: finder) }
+                return
+            }
             if ProcessInfo.processInfo.arguments.contains("--verification-blur-home") || ProcessInfo.processInfo.arguments.contains("--verification-home-top") {
                 finder.prepareMapVerification()
                 finder.chooseSearchResult(MajorUpdateVerification.searchPlaces[0])
@@ -187,25 +193,60 @@ struct HomeView: View {
                 .foregroundStyle(AppTheme.blue)
             Text(finder.status).font(.footnote.weight(.medium))
             Spacer()
-            if let coordinate = finder.userLocation {
+            if finder.userLocation != nil {
                 Button("Mi ubicación") {
                     showSearchResults = false; searchFocused = false
-                    finder.focusOnUserLocation()
-                    Task { await finder.searchNearest(to: coordinate, focusResult: false) }
+                    Task { await finder.useMyLocation() }
                 }
                 .font(.footnote.weight(.semibold))
                 .appSecondaryButton()
                 .controlSize(.small)
+                .disabled(finder.isFindingNearby)
+                .accessibilityHint("Vuelve a pulsar para seleccionar otro local cercano")
             }
         }
         .padding(.horizontal, 4)
+    }
+
+    private var nearbyChoicesCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("¿En qué local estás?").font(.title3.bold())
+            Text("Hay dos opciones muy cerca.").font(.subheadline).foregroundStyle(.secondary)
+                .padding(.bottom, 10)
+            ForEach(finder.nearbyChoices) { place in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { finder.chooseNearbyPlace(place) }
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.title3).foregroundStyle(AppTheme.blue)
+                            .frame(width: 42, height: 42)
+                            .background(AppTheme.softBlue, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(place.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                            if !place.address.isEmpty { Text(place.address).font(.footnote).foregroundStyle(.secondary).lineLimit(2) }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary).accessibilityHidden(true)
+                    }
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Seleccionar este negocio")
+                if place.id != finder.nearbyChoices.last?.id { Divider().padding(.leading, 56) }
+            }
+        }
+        .padding(20)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private func placeCard(_ place: PlaceResult) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("NEGOCIO SELECCIONADO")
+                    Text(finder.nearbyPosition > 0 ? "LOCAL CERCANO · \(finder.nearbyPosition) DE \(finder.nearbyCount)" : "NEGOCIO SELECCIONADO")
                         .font(.caption.weight(.bold)).foregroundStyle(.secondary)
                     Text(place.name).font(.title3.bold())
                     if !place.address.isEmpty {
@@ -215,6 +256,11 @@ struct HomeView: View {
                 Spacer()
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2).foregroundStyle(.green)
+            }
+
+            if finder.nearbyCount > 1 {
+                Text("Vuelve a pulsar «Mi ubicación» para ver otro local cercano.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
 
             Divider()
