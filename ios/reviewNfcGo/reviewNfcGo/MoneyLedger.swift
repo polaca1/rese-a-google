@@ -87,6 +87,17 @@ struct QuickSaleInput: Identifiable, Equatable {
     var productID: UUID
     var quantity: Int
     var unitPrice: Double
+
+    static func includingPending(_ items: [QuickSaleInput], productID: UUID?, quantity: Int,
+                                 price: String, availableStock: Int) throws -> [QuickSaleInput] {
+        guard let productID else { return items }
+        guard items.count < 20, !items.contains(where: { $0.productID == productID }) else { throw MoneyError.invalidProduct }
+        guard (1...100_000).contains(quantity) else { throw MoneyError.invalidQuantity }
+        guard let amount = SaleAmountFormatting.parse(price), let cents = MoneyLedger.cents(amount),
+              cents >= 0, cents * Int64(quantity) <= 1_000_000_000 else { throw MoneyError.invalidAmount }
+        guard quantity <= availableStock else { throw MoneyError.insufficientStock }
+        return items + [QuickSaleInput(productID: productID, quantity: quantity, unitPrice: amount)]
+    }
 }
 struct QuickSaleLine: Codable, Equatable {
     var productID: UUID

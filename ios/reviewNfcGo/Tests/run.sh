@@ -5,6 +5,13 @@ task_test_dir=$(mktemp -d)
 trap 'rm -rf "$task_test_dir"' EXIT HUP INT TERM
 xcrun swiftc -parse-as-library -swift-version 5 \
     -module-cache-path "$task_test_dir/ModuleCache" \
+    "$task_project_dir/reviewNfcGo/VisitRecord.swift" \
+    "$task_project_dir/reviewNfcGo/NearbyBusinesses.swift" \
+    "$task_project_dir/Tests/NearbyBusinessTests.swift" \
+    -o "$task_test_dir/nearby-business-tests"
+"$task_test_dir/nearby-business-tests"
+xcrun swiftc -parse-as-library -swift-version 5 \
+    -module-cache-path "$task_test_dir/ModuleCache" \
     "$task_project_dir/reviewNfcGo/VisitScheduling.swift" \
     "$task_project_dir/Tests/SchedulingTests.swift" \
     -o "$task_test_dir/scheduling-tests"

@@ -92,6 +92,7 @@ def publish_compatible_source(source):
             'developerName': app['developerName'],
             'localizedDescription': app['localizedDescription'],
             'iconURL': app['iconURL'],
+            'screenshotURLs': app.get('screenshotURLs', []),
             'version': latest['version'], 'versionDate': latest['date'],
             'versionDescription': latest['localizedDescription'],
             'downloadURL': latest['downloadURL'], 'size': latest['size'],

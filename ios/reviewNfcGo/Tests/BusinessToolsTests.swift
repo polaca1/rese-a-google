@@ -84,6 +84,22 @@ import Foundation
         try quick.addExpense(title: "Stands", amount: 12, quantity: 4, productID: stand.id, newProduct: stand, date: now, merchant: "", method: "", url: "", notes: "")
         let beforeQuick = quick, beforeCustomer = customer
         let items = [QuickSaleInput(productID: card.id, quantity: 2, unitPrice: 15), QuickSaleInput(productID: stand.id, quantity: 1, unitPrice: 8)]
+        let pending = try QuickSaleInput.includingPending([], productID: card.id, quantity: 1, price: "15,50", availableStock: 10)
+        check(pending.count == 1 && pending[0].unitPrice == 15.5, "Save includes the unfinished product and Spanish decimal price")
+        let combined = try QuickSaleInput.includingPending([items[0]], productID: stand.id, quantity: 1, price: "8", availableStock: 4)
+        check(combined == items, "Save includes both previously added products and the pending product exactly once")
+        let unchanged = try QuickSaleInput.includingPending(items, productID: nil, quantity: 1, price: "bad", availableStock: 0)
+        check(unchanged == items, "Saving added products does not invent an empty draft")
+        for (price, count, stock) in [("bad", 1, 10), ("-1", 1, 10), ("15", 11, 10), ("15", 0, 10)] {
+            do { _ = try QuickSaleInput.includingPending([], productID: card.id, quantity: count, price: price, availableStock: stock); preconditionFailure("Invalid pending sale accepted") }
+            catch { checks += 1 }
+        }
+        do { _ = try QuickSaleInput.includingPending(items, productID: card.id, quantity: 1, price: "15", availableStock: 10); preconditionFailure("Pending product duplicated") }
+        catch { checks += 1 }
+        var directSale = beforeQuick, directCustomer = beforeCustomer
+        try directSale.registerSale(business: &directCustomer, items: pending, payment: "Efectivo", now: now)
+        check(directSale.stock(card.id) == 9 && directSale.businessIncome(customer.id) == 1550,
+              "Direct save deducts stock and records income without Add to sale")
         try quick.registerSale(business: &customer, items: items, payment: "Bizum", now: now)
         check(quick.businessIncome(customer.id) == 3800 && quick.businessProfit(customer.id) == 2500, "Mixed card and stand sale preserves gross, cost and profit")
         check(quick.stock(card.id) == 8 && quick.stock(stand.id) == 3 && quick.allCardsSold == 2, "Sale consumes both products without inventing a legacy card")

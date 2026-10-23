@@ -99,23 +99,13 @@ enum MacSheet: Identifiable {
                 var request = URLRequest(url: URL(string: "https://places.googleapis.com/v1/places:searchText")!, timeoutInterval: 20)
                 request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 request.setValue(key, forHTTPHeaderField: "X-Goog-Api-Key")
-                request.setValue("places.id,places.displayName,places.formattedAddress,places.location", forHTTPHeaderField: "X-Goog-FieldMask")
+                request.setValue("places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType,places.businessStatus", forHTTPHeaderField: "X-Goog-FieldMask")
                 request.httpBody = try JSONSerialization.data(withJSONObject: ["textQuery": query, "languageCode": "es", "maxResultCount": 8])
                 let (data, response) = try await PlacesTransport.execute(request)
                 guard let response = response as? HTTPURLResponse, (200...299).contains(response.statusCode), data.count <= 2_000_000 else {
                     throw NSError(domain: "Places", code: 1, userInfo: [NSLocalizedDescriptionKey: "No se ha podido buscar el negocio. Puedes añadirlo manualmente o intentarlo otra vez."])
                 }
-                struct Response: Decodable {
-                    struct Place: Decodable {
-                        struct Name: Decodable { var text: String }
-                        struct Location: Decodable { var latitude: Double; var longitude: Double }
-                        var id: String; var displayName: Name; var formattedAddress: String?; var location: Location
-                    }
-                    var places: [Place]?
-                }
-                found = try JSONDecoder().decode(Response.self, from: data).places?.map {
-                    PlaceResult(id: $0.id, name: $0.displayName.text, address: $0.formattedAddress ?? "", latitude: $0.location.latitude, longitude: $0.location.longitude)
-                } ?? []
+                found = try JSONDecoder().decode(GooglePlaceSearchResponse.self, from: data).results
             }
             try Task.checkCancellation()
             guard revision == token else { return }
