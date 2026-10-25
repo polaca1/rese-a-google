@@ -10,18 +10,18 @@
       "localizedDescription": "Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Versión de escritorio para macOS 14 disponible en la release.",
       "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/icon.png",
       "screenshotURLs": [
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.4-build34/home-top-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.4-build34/nearby-choices-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.4-build34/nearby-choices-dark.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.4-build34/suite-sale.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.4-build34/money-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.4-build34/inventory-light.png"
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/home-top-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/widget-money-small-30-dark.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/nearby-choices-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/suite-sale.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/money-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/inventory-light.png"
       ],
-      "version": "6.0.4",
-      "versionDate": "2026-10-23T23:31:18Z",
-      "versionDescription": "reviewNfcGo 6.0.4: el local correcto, más cerca.\n\nMi ubicación prioriza la distancia real. Cuando dos negocios están prácticamente a la misma distancia, bares, restaurantes y tiendas aparecen antes que oficinas. Pulsa otra vez Mi ubicación para recorrer las alternativas cercanas sin repetir la consulta a Google.\n\nSi hay dos locales igual de probables, aparece una tarjeta minimalista para elegir antes de escribir NFC. Se descartan resultados lejanos, calles y negocios cerrados permanentemente. La ubicación antigua o demasiado imprecisa espera una señal mejor.\n\nNueva venta incluye el producto que estás rellenando al guardar, con totales al instante, Guardar siempre accesible arriba y Hecho para cerrar el teclado. Inicio sigue siendo la pantalla principal y ahora aparece entre Avisos y Perfil. La fuente muestra las capturas de las pruebas de esta versión.\n\nActualiza sin borrar la app. Se conservan tu cuenta, negocios e historial, y la compatibilidad de datos con Mac.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.4-build34/reviewNfcGo-6.0.4-build34.ipa",
-      "size": 6919733,
+      "version": "6.0.5",
+      "versionDate": "2026-10-25T21:47:53Z",
+      "versionDescription": "reviewNfcGo 6.0.5: el widget muestra tu saldo real.\n\nCorregida la lectura de datos compartidos cuando SideStore vuelve a firmar la app. El widget identifica el grupo autorizado del perfil instalado, además de conservar compatibilidad con AltStore Classic. Al volver a abrir la app se actualizan los datos del widget.\n\nSi no puede cargar los datos, muestra «Abre reviewNfcGo» en lugar de inventar un saldo de 0 €. Se mantienen el saldo, ingresos, gastos y tarjetas de tu cuenta, sin cambiar los datos ni el inicio de sesión.\n\nActualiza sin borrar la app y ábrela una vez después de actualizar. Capturas de las pruebas de esta versión incluidas en la fuente.",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.5-build35/reviewNfcGo-6.0.5-build35.ipa",
+      "size": 6936346,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
