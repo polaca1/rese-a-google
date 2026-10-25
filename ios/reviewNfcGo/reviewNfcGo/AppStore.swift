@@ -220,8 +220,12 @@ final class AppStore: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: "resenago.preRestore.\(userKey ?? "guest")") else { return nil }
         return try BusinessBackup.decode(data, for: userKey)
     }
-    private func publishWidgets() {
-        didChange?()
+    func refreshWidgets() {
+        guard hasLoadedRecords else { return }
+        publishWidgets(notifyChange: false)
+    }
+    private func publishWidgets(notifyChange: Bool = true) {
+        if notifyChange { didChange?() }
         StockNotifications.refresh(money: money, owner: userKey)
 
         var snapshot = WidgetSnapshot(records: records, isSignedIn: userKey != nil)

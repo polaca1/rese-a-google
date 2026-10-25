@@ -179,7 +179,7 @@ cp "$task_container/Documents/widgets-verification.json" "$task_output_dir/widge
 python3 - "$task_output_dir/widgets-verification.log" <<'PYCHECK'
 import json,sys
 result=json.load(open(sys.argv[1]));print(result)
-assert result['passed'] and len(result['checks'])==4,result
+assert result['passed'] and len(result['checks'])==5,result
 PYCHECK
 cp "$task_container"/Documents/widget-*.png "$task_output_dir/"
 

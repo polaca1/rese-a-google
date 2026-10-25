@@ -159,37 +159,42 @@ struct EarningsSummaryWidgetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Label("Dinero", systemImage: "eurosign.circle.fill").font(.headline).foregroundStyle(.green)
-            Text(entry.snapshot.balance, format: .currency(code: "EUR"))
-                .font(family == .systemSmall ? .title.bold() : .title2.bold()).minimumScaleFactor(0.6).lineLimit(1)
-                .foregroundStyle(entry.snapshot.balance < 0 ? Color.red : Color.primary)
-            if family == .systemSmall {
-                Text("Saldo · \(entry.snapshot.totalCards) tarjetas").font(.caption).foregroundStyle(.secondary)
+            if entry.snapshot.isAvailable == false || !entry.snapshot.isSignedIn {
+                WidgetEmptyView(icon: "arrow.clockwise", title: "Abre reviewNfcGo",
+                    subtitle: entry.snapshot.isAvailable == false ? "Actualiza los datos del widget" : "Inicia sesión para ver tu saldo")
             } else {
-                Text("Ingresos \(entry.snapshot.totalEarnings.formatted(.currency(code: "EUR"))) · Gastos \(entry.snapshot.expenses.formatted(.currency(code: "EUR")))")
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
-                let operations = entry.snapshot.moneyOperations ?? entry.snapshot.operations.map {
-                    WidgetMoneyOperation(id: $0.id, name: $0.name, amount: $0.earnings, date: $0.createdAt, businessID: $0.id)
-                }
-                if operations.isEmpty {
-                    Text(entry.snapshot.isSignedIn ? "Todavía no hay operaciones" : "Abre la app e inicia sesión").font(.caption).foregroundStyle(.secondary)
+                Text(entry.snapshot.balance, format: .currency(code: "EUR"))
+                    .font(family == .systemSmall ? .title.bold() : .title2.bold()).minimumScaleFactor(0.6).lineLimit(1)
+                    .foregroundStyle(entry.snapshot.balance < 0 ? Color.red : Color.primary)
+                if family == .systemSmall {
+                    Text("Saldo · \(entry.snapshot.totalCards) tarjetas").font(.caption).foregroundStyle(.secondary)
                 } else {
-                    Divider()
-                    ForEach(Array(operations.prefix(family == .systemLarge ? 5 : 1))) { operation in
-                        Link(destination: operation.businessID.map { PortalLink.url(recordID: $0) } ?? WidgetSection.earnings.url) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(operation.name).font(.caption.weight(.semibold)).lineLimit(1)
-                                    Text(operation.date, format: .dateTime.day().month(.abbreviated)).font(.caption2).foregroundStyle(.secondary)
-                                }
-                                Spacer(minLength: 4)
-                                Text(operation.amount, format: .currency(code: "EUR")).font(.caption.bold())
-                                    .foregroundStyle(operation.amount < 0 ? Color.orange : Color.green)
-                            }.foregroundStyle(.primary)
+                    Text("Ingresos \(entry.snapshot.totalEarnings.formatted(.currency(code: "EUR"))) · Gastos \(entry.snapshot.expenses.formatted(.currency(code: "EUR")))")
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
+                    let operations = entry.snapshot.moneyOperations ?? entry.snapshot.operations.map {
+                        WidgetMoneyOperation(id: $0.id, name: $0.name, amount: $0.earnings, date: $0.createdAt, businessID: $0.id)
+                    }
+                    if operations.isEmpty {
+                        Text(entry.snapshot.isSignedIn ? "Todavía no hay operaciones" : "Abre la app e inicia sesión").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Divider()
+                        ForEach(Array(operations.prefix(family == .systemLarge ? 5 : 1))) { operation in
+                            Link(destination: operation.businessID.map { PortalLink.url(recordID: $0) } ?? WidgetSection.earnings.url) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(operation.name).font(.caption.weight(.semibold)).lineLimit(1)
+                                        Text(operation.date, format: .dateTime.day().month(.abbreviated)).font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                    Spacer(minLength: 4)
+                                    Text(operation.amount, format: .currency(code: "EUR")).font(.caption.bold())
+                                        .foregroundStyle(operation.amount < 0 ? Color.orange : Color.green)
+                                }.foregroundStyle(.primary)
+                            }
                         }
                     }
                 }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
         }.widgetURL(WidgetSection.earnings.url)
     }
 }
@@ -323,6 +328,16 @@ enum WidgetScreenshotVerification {
             try save(EarningsSummaryWidgetView(entry: entry, familyOverride: .systemMedium), name: "widget-earnings-medium-light", size: CGSize(width: 360, height: 170), scheme: .light, folder: folder)
             try save(EarningsSummaryWidgetView(entry: entry, familyOverride: .systemLarge), name: "widget-earnings-large-dark", size: CGSize(width: 360, height: 370), scheme: .dark, folder: folder)
             checks.append("Vistas de los tres widgets renderizadas en claro y oscuro")
+            var money = WidgetSnapshot(isSignedIn: true, updatedAt: Date(), pending: [], operations: [], totalEarnings: 55, totalCards: 4)
+            money.moneyBalance = 30; money.moneyExpenses = 25
+            let moneyEntry = DashboardEntry(date: Date(), snapshot: money)
+            try save(EarningsSummaryWidgetView(entry: moneyEntry, familyOverride: .systemSmall), name: "widget-money-small-30-light", size: CGSize(width: 170, height: 170), scheme: .light, folder: folder)
+            try save(EarningsSummaryWidgetView(entry: moneyEntry, familyOverride: .systemSmall), name: "widget-money-small-30-dark", size: CGSize(width: 170, height: 170), scheme: .dark, folder: folder)
+            let unavailable = WidgetSharedStore.load(from: nil)
+            guard unavailable.isAvailable == false else { throw NSError(domain: "WidgetUnavailable", code: 4) }
+            let unavailableEntry = DashboardEntry(date: Date(), snapshot: unavailable)
+            try save(EarningsSummaryWidgetView(entry: unavailableEntry, familyOverride: .systemSmall), name: "widget-money-unavailable-light", size: CGSize(width: 170, height: 170), scheme: .light, folder: folder)
+            checks.append("Widget pequeño de saldo real 30 € y estado sin datos sin saldo cero inventado")
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: folder.appendingPathComponent("widgets-verification.json"))
         } catch {
             try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": String(describing: error)], options: .prettyPrinted).write(to: folder.appendingPathComponent("widgets-verification.json"))

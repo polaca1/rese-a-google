@@ -36,7 +36,7 @@ struct ProfileView: View {
                 Section { Button("Deshacer: " + title) { store.undoLastChange() } }
             }
             Section("Acerca de reviewNfcGo") {
-                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "6.0.4")
+                LabeledContent("Versión", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "6.0.5")
             }
             Section("Cuenta") {
                 CloudBackupStatusView()

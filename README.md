@@ -2,7 +2,7 @@
 
 App para organizar negocios, tarjetas NFC, visitas, clientes, presupuestos, inventario e ingresos y gastos.
 
-- **iPhone 6.0.4:** Inicio con mapa y búsqueda, escritura NFC mediante Simply NFC, widgets y recordatorios. Distribución mediante SideStore.
+- **iPhone 6.0.5:** Inicio con mapa y búsqueda, escritura NFC mediante Simply NFC, widgets y recordatorios. Distribución mediante SideStore.
 - **Mac 2.0.4:** app nativa para macOS 14 o posterior, Intel y Apple Silicon, con tablas, gráficos, informes PDF y exportación CSV.
 - **Cuentas:** acceso con correo/contraseña o Google mediante Supabase. Los datos de cada cuenta se guardan automáticamente y se recuperan al volver a entrar. La interfaz no requiere configurar servidores, sincronizar manualmente ni gestionar copias.
 

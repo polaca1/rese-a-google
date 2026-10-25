@@ -1,9 +1,7 @@
-reviewNfcGo 6.0.4: el local correcto, más cerca.
+reviewNfcGo 6.0.5: el widget muestra tu saldo real.
 
-Mi ubicación prioriza la distancia real. Cuando dos negocios están prácticamente a la misma distancia, bares, restaurantes y tiendas aparecen antes que oficinas. Pulsa otra vez Mi ubicación para recorrer las alternativas cercanas sin repetir la consulta a Google.
+Corregida la lectura de datos compartidos cuando SideStore vuelve a firmar la app. El widget identifica el grupo autorizado del perfil instalado, además de conservar compatibilidad con AltStore Classic. Al volver a abrir la app se actualizan los datos del widget.
 
-Si hay dos locales igual de probables, aparece una tarjeta minimalista para elegir antes de escribir NFC. Se descartan resultados lejanos, calles y negocios cerrados permanentemente. La ubicación antigua o demasiado imprecisa espera una señal mejor.
+Si no puede cargar los datos, muestra «Abre reviewNfcGo» en lugar de inventar un saldo de 0 €. Se mantienen el saldo, ingresos, gastos y tarjetas de tu cuenta, sin cambiar los datos ni el inicio de sesión.
 
-Nueva venta incluye el producto que estás rellenando al guardar, con totales al instante, Guardar siempre accesible arriba y Hecho para cerrar el teclado. Inicio sigue siendo la pantalla principal y ahora aparece entre Avisos y Perfil. La fuente muestra las capturas de las pruebas de esta versión.
-
-Actualiza sin borrar la app. Se conservan tu cuenta, negocios e historial, y la compatibilidad de datos con Mac.
+Actualiza sin borrar la app y ábrela una vez después de actualizar. Capturas de las pruebas de esta versión incluidas en la fuente.

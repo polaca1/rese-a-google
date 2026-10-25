@@ -50,6 +50,14 @@ xcrun swiftc -parse-as-library -swift-version 5 \
 xcrun swiftc -parse-as-library -swift-version 5 \
     -module-cache-path "$task_test_dir/ModuleCache" \
     "$task_project_dir/reviewNfcGo/VisitRecord.swift" \
+    "$task_project_dir/reviewNfcGo/WidgetData.swift" \
+    "$task_project_dir/reviewNfcGo/WidgetSharedStore.swift" \
+    "$task_project_dir/Tests/WidgetSharedStoreTests.swift" \
+    -o "$task_test_dir/widget-shared-store-tests"
+"$task_test_dir/widget-shared-store-tests"
+xcrun swiftc -parse-as-library -swift-version 5 \
+    -module-cache-path "$task_test_dir/ModuleCache" \
+    "$task_project_dir/reviewNfcGo/VisitRecord.swift" \
     "$task_project_dir/reviewNfcGo/MoneyLedger.swift" \
     "$task_project_dir/Tests/MoneyTests.swift" \
     -o "$task_test_dir/money-tests"

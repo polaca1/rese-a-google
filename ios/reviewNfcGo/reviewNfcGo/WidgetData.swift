@@ -27,6 +27,7 @@ struct WidgetSnapshot: Codable, Equatable {
     var operations: [WidgetPlace]
     var totalEarnings: Double
     var totalCards: Int
+    var isAvailable: Bool? = nil
     var moneyBalance: Double? = nil
     var moneyExpenses: Double? = nil
     var moneyOperations: [WidgetMoneyOperation]? = nil
@@ -35,6 +36,9 @@ struct WidgetSnapshot: Codable, Equatable {
 
     static let empty = WidgetSnapshot(isSignedIn: false, updatedAt: .distantPast,
         pending: [], operations: [], totalEarnings: 0, totalCards: 0)
+    static var unavailable: WidgetSnapshot {
+        var value = empty; value.isAvailable = false; return value
+    }
 
     init(isSignedIn: Bool, updatedAt: Date, pending: [WidgetPlace], operations: [WidgetPlace], totalEarnings: Double, totalCards: Int) {
         self.isSignedIn = isSignedIn; self.updatedAt = updatedAt; self.pending = pending

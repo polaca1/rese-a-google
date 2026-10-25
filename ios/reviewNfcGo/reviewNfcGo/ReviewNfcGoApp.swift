@@ -99,6 +99,7 @@ struct ReviewNfcGoApp: App {
                 .onChange(of: scenePhase) { phase in
                     cloud.requestSync(immediate: true)
                     if phase == .active {
+                        store.refreshWidgets()
                         ReminderCoordinator.refresh()
                         AlertHistoryStore.shared.refresh()
                     } else {
