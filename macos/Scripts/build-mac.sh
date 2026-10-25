@@ -72,5 +72,5 @@ p=pathlib.Path(sys.argv[1]);assert p.exists(),'La app no termin√≥ la verificaci√
 v=json.loads(p.read_text());print(json.dumps(v,ensure_ascii=False));assert v['passed'],v.get('error')
 PY
 bash "$task_root/ios/reviewNfcGo/Scripts/package-xcode.sh" "$task_out"
-mv "$task_out/reviewNfcGo-6.0.4-Xcode.zip" "$task_out/reviewNfcGo-Mac-2.0.4-Xcode.zip"
+mv "$task_out/reviewNfcGo-6.0.5-Xcode.zip" "$task_out/reviewNfcGo-Mac-2.0.4-Xcode.zip"
 echo 'App universal para macOS 14 preparada y verificada.'
