@@ -18,7 +18,7 @@
           "buildVersion": "35",
           "date": "2026-10-25T21:47:53Z",
           "localizedDescription": "reviewNfcGo 6.0.5: el widget muestra tu saldo real.\n\nCorregida la lectura de datos compartidos cuando SideStore vuelve a firmar la app. El widget identifica el grupo autorizado del perfil instalado, además de conservar compatibilidad con AltStore Classic. Al volver a abrir la app se actualizan los datos del widget.\n\nSi no puede cargar los datos, muestra «Abre reviewNfcGo» en lugar de inventar un saldo de 0 €. Se mantienen el saldo, ingresos, gastos y tarjetas de tu cuenta, sin cambiar los datos ni el inicio de sesión.\n\nActualiza sin borrar la app y ábrela una vez después de actualizar. Capturas de las pruebas de esta versión incluidas en la fuente.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-6.0.5-build35.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.5-build35/reviewNfcGo-6.0.5-build35.ipa",
           "size": 6936346,
           "minOSVersion": "16.1"
         },
@@ -242,7 +242,7 @@
       "version": "6.0.5",
       "versionDate": "2026-10-25T21:47:53Z",
       "versionDescription": "reviewNfcGo 6.0.5: el widget muestra tu saldo real.\n\nCorregida la lectura de datos compartidos cuando SideStore vuelve a firmar la app. El widget identifica el grupo autorizado del perfil instalado, además de conservar compatibilidad con AltStore Classic. Al volver a abrir la app se actualizan los datos del widget.\n\nSi no puede cargar los datos, muestra «Abre reviewNfcGo» en lugar de inventar un saldo de 0 €. Se mantienen el saldo, ingresos, gastos y tarjetas de tu cuenta, sin cambiar los datos ni el inicio de sesión.\n\nActualiza sin borrar la app y ábrela una vez después de actualizar. Capturas de las pruebas de esta versión incluidas en la fuente.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-6.0.5-build35.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.5-build35/reviewNfcGo-6.0.5-build35.ipa",
       "size": 6936346,
       "appPermissions": {
         "entitlements": [
