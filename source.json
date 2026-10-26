@@ -18,7 +18,7 @@
           "buildVersion": "37",
           "date": "2026-10-26T20:50:52Z",
           "localizedDescription": "reviewNfcGo 7.1: vender y guardar sin pasos ocultos.\n\nSelecciona tarjetas NFC, stands y otros productos en una sola pantalla, indica cantidades y precio y pulsa Guardar venta. El botón permanece visible con el teclado abierto; también tienes Hecho y confirmación de venta guardada. No necesitas pulsar Añadir a la venta.\n\nDespués de volver de Simply NFC, puedes indicar si has vendido y registrar los productos del mismo negocio. Elegir No he vendido no crea ingresos ni descuenta existencias. Abrir el escritor no confirma que se haya grabado una etiqueta.\n\nLos stands seleccionados junto a tarjetas NFC se incluyen gratis; se descuenta su stock y se conserva su coste en el beneficio.\n\nSe retira la gestión de enlaces de redirección. Las escrituras nuevas contienen directamente la reseña de Google del Place ID del negocio.\n\nIncluye Mac 2.1, capturas de esta compilación y sincronización automática. Actualiza sin borrar la app.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-7.1.0-build37.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-7.1.0-build37/reviewNfcGo-7.1.0-build37.ipa",
           "size": 6967264,
           "minOSVersion": "16.1"
         },
@@ -251,7 +251,7 @@
       "version": "7.1.0",
       "versionDate": "2026-10-26T20:50:52Z",
       "versionDescription": "reviewNfcGo 7.1: vender y guardar sin pasos ocultos.\n\nSelecciona tarjetas NFC, stands y otros productos en una sola pantalla, indica cantidades y precio y pulsa Guardar venta. El botón permanece visible con el teclado abierto; también tienes Hecho y confirmación de venta guardada. No necesitas pulsar Añadir a la venta.\n\nDespués de volver de Simply NFC, puedes indicar si has vendido y registrar los productos del mismo negocio. Elegir No he vendido no crea ingresos ni descuenta existencias. Abrir el escritor no confirma que se haya grabado una etiqueta.\n\nLos stands seleccionados junto a tarjetas NFC se incluyen gratis; se descuenta su stock y se conserva su coste en el beneficio.\n\nSe retira la gestión de enlaces de redirección. Las escrituras nuevas contienen directamente la reseña de Google del Place ID del negocio.\n\nIncluye Mac 2.1, capturas de esta compilación y sincronización automática. Actualiza sin borrar la app.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-7.1.0-build37.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-7.1.0-build37/reviewNfcGo-7.1.0-build37.ipa",
       "size": 6967264,
       "appPermissions": {
         "entitlements": [
