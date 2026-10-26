@@ -5,11 +5,15 @@ on:
       source_ref:
         description: Rama o commit de las apps
         required: true
-        default: accounts/supabase-free
+        default: features/reviewnfcgo-6.0
       mac_only_verification:
-        description: Compilar y verificar solo Mac sin publicar
+        description: Compilar solo Mac; publicar únicamente si publish está activado
         type: boolean
         default: false
+      publish:
+        description: Publicar los paquetes y la fuente tras verificar
+        type: boolean
+        default: true
 permissions:
   contents: read
 jobs:
@@ -100,6 +104,7 @@ jobs:
       - run: python -m pip install -r server/requirements.txt -r server/requirements-dev.txt
       - run: python -m pytest server/tests -q
   publish:
+    if: ${{ inputs.publish }}
     needs: [source, build, mac, server]
     runs-on: ubuntu-latest
     permissions:
@@ -147,7 +152,7 @@ jobs:
           fi
 
   publish-mac:
-    if: ${{ inputs.mac_only_verification }}
+    if: ${{ inputs.mac_only_verification && inputs.publish }}
     needs: [source, mac]
     runs-on: ubuntu-latest
     permissions:
