@@ -20,3 +20,9 @@ Fuentes: https://sideloadly.io/changelog y https://sideloadly.io/faq.html.
 No se ha encontrado una alternativa verificada que renueve gratuitamente una app nativa de Watch utilizando solo el iPhone y SideStore. No se han comprado cuentas, certificados ni suscripciones.
 
 Si se prepara posteriormente el paquete complementario para una vía compatible, su icono será plano, sin Liquid Glass, conforme a la preferencia del usuario. Mantendrá un bundle ID hijo de la app de iPhone y versiones coordinadas, y se verificará de forma independiente antes de distribuirlo.
+
+## Cuenta gratuita: alternativa de instalación con Xcode
+
+Se ha preparado el complemento nativo en `watchos/reviewNfcGoWatch.xcodeproj` con un puente de datos en el candidato iPhone 7.2. La firma inicial puede gestionarla Xcode con Personal Team en un Mac compatible. No se anuncia renovación automática: el perfil gratuito caduca y necesitará renovarse. El reloj no recibe credenciales del servicio. La instalación física sigue pendiente de comprobar el Mac y el reloj del usuario.
+
+Las instrucciones y el helper que adapta los identificadores reales del teléfono están en `watchos/LEEME.md` y `watchos/Scripts/configure-watch.py`. El helper rechaza identificadores inválidos o varias instalaciones posibles y no selecciona una cuenta de Apple por suposiciones.
