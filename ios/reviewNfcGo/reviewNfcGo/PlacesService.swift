@@ -151,7 +151,7 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
     func useMyLocation() async {
         guard !isFindingNearby else { return }
         if manager.accuracyAuthorization == .reducedAccuracy {
-            manager.requestTemporaryFullAccuracyAuthorization(withPurposeKey: "NearbyBusiness")
+            manager.requestTemporaryFullAccuracyAuthorization(withPurposeKey: "NearbyBusiness", completion: { _ in })
         }
         let needsFreshFix = latestLocation.map { $0.horizontalAccuracy > 15 || abs($0.timestamp.timeIntervalSinceNow) > 5 } ?? true
         if needsFreshFix {
