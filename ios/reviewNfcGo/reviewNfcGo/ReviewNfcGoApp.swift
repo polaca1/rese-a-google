@@ -83,11 +83,13 @@ struct ReviewNfcGoApp: App {
                     store.restorePhoto = { [weak photos] data in try? photos?.restoreBackupData(data) }
                     configureCloud()
                     nfcSale.sceneChanged(.active, store: store)
+                    PhoneWatchCompanion.shared.start(store: store)
                     Task { await auth.validateServerSession() }
                     #if DEBUG
                     // Simulator verification enters the same validated route without
                     // SpringBoard's external-URL consent dialog. Absent from the IPA.
                     let arguments = ProcessInfo.processInfo.arguments
+                    if arguments.contains("--verification-phone-watch") { PhoneWatchCompanion.verify(store: store) }
                     if arguments.contains("--verification-v5") { Version5Verification.run(store: store, photos: photos) }
                     if arguments.contains("--verification-production") { ProductionVerification.run() }
                     if arguments.contains("--verification-money") { Task { await MajorUpdateVerification.run(store: store, photos: photos) } }
