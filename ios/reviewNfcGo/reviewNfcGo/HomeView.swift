@@ -17,6 +17,7 @@ struct HomeView: View {
     @FocusState private var searchFocused: Bool
     @State private var showSavedToast = false
     @State private var reminderPlace: PlaceResult?
+    @State private var showNearbyList = false
     @EnvironmentObject private var portalRouter: PortalRouter
 
     var body: some View {
@@ -32,6 +33,11 @@ struct HomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
 
                 statusRow
+                if !finder.nearbyCandidates.isEmpty {
+                    Button { showNearbyList = true } label: { Label("Elegir otro local cercano", systemImage: "list.bullet") }
+                        .font(.subheadline.weight(.semibold)).disabled(finder.isFindingNearby)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4)
+                }
 
                 if !finder.nearbyChoices.isEmpty {
                     nearbyChoicesCard
@@ -62,6 +68,14 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-nearby-list") {
+                let coordinate = CLLocationCoordinate2D(latitude: 40.4168, longitude: -3.7038)
+                let examples = [("Bar de la Plaza", 6.0, "bar"), ("Seguros Centro", 8.0, "insurance_agency"), ("Café del Centro", 55.0, "cafe"), ("Supermercado", 125.0, "supermarket")]
+                let places = examples.enumerated().map { index, value in PlaceResult(id: "nearby-list-\(index)", name: value.0, address: "Calle Mayor, Madrid", latitude: coordinate.latitude + value.1 / 111_195, longitude: coordinate.longitude, types: [value.2], primaryType: value.2) }
+                finder.prepareNearbyChoicesVerification(places, coordinate: coordinate)
+                Task { try? await Task.sleep(for: .milliseconds(300)); showNearbyList = true }
+                return
+            }
             if ProcessInfo.processInfo.arguments.contains("--verification-nearby") {
                 Task { await NearbyPlaceVerification.run(finder: finder) }
                 return
@@ -118,6 +132,7 @@ struct HomeView: View {
         .onChange(of: portalRouter.pendingRecordID) { id in
             if id != nil { reminderPlace = nil }
         }
+        .sheet(isPresented: $showNearbyList) { NavigationStack { NearbyPlacesPicker(finder: finder) } }
         .sheet(item: $reminderPlace) { place in
             QuickReminderView(place: place)
                 .environmentObject(store)
@@ -211,7 +226,7 @@ struct HomeView: View {
     private var nearbyChoicesCard: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("¿En qué local estás?").font(.title3.bold())
-            Text("Hay dos opciones muy cerca.").font(.subheadline).foregroundStyle(.secondary)
+            Text(finder.nearbyChoices.count > 1 ? "Hay varias opciones cerca. Confirma la tuya." : "El punto de Google puede estar dentro del edificio. Confirma el nombre.").font(.subheadline).foregroundStyle(.secondary)
                 .padding(.bottom, 10)
             ForEach(finder.nearbyChoices) { place in
                 Button {
@@ -272,7 +287,7 @@ struct HomeView: View {
                 Label("Escribir NFC", systemImage: "wave.3.right")
                     .frame(maxWidth: .infinity)
             }
-            .appPrimaryButton()
+            .appPrimaryButton().disabled(finder.isFindingNearby)
 
             Button {
                 UIPasteboard.general.string = place.reviewURL
@@ -285,7 +300,7 @@ struct HomeView: View {
                 Label("Copiar enlace de reseña", systemImage: "doc.on.doc.fill")
                     .frame(maxWidth: .infinity)
             }
-            .appSecondaryButton()
+            .appSecondaryButton().disabled(finder.isFindingNearby)
 
             Button {
                 store.addOrUpdatePlace(place)
@@ -349,3 +364,34 @@ struct HomeView: View {
 }
 
 // Keep the two native compact controls on the same row as their label.
+
+private struct NearbyPlacesPicker: View {
+    @ObservedObject var finder: PlaceFinder
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+    private var candidates: [PlaceResult] {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return finder.nearbyCandidates.filter { text.isEmpty || $0.name.localizedCaseInsensitiveContains(text) || $0.address.localizedCaseInsensitiveContains(text) }
+    }
+    var body: some View {
+        List {
+            Section {
+                ForEach(candidates) { place in
+                    Button { finder.chooseNearbyCandidate(place); dismiss() } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "mappin.circle.fill").font(.title2).foregroundStyle(.blue)
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(place.name).font(.headline).foregroundStyle(.primary)
+                                if !place.address.isEmpty { Text(place.address).font(.caption).foregroundStyle(.secondary) }
+                            }
+                            Spacer()
+                            if let distance = finder.distanceText(to: place) { Text(distance).font(.caption).foregroundStyle(.secondary) }
+                        }.padding(.vertical, 5).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                }
+            } footer: { Text("Distancias aproximadas al punto buscado. Google puede situar el negocio en el centro del edificio. Si falta tu local, búscalo por nombre en Inicio.") }
+        }.navigationTitle("Locales cercanos")
+            .searchable(text: $query, prompt: "Nombre del local")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { dismiss() } } }
+    }
+}

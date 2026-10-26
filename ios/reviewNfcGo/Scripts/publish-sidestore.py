@@ -129,7 +129,7 @@ def publish(args):
             if not image.name.startswith('icon-'):
                 files[screenshot_prefix + '/' + image.name] = image.read_bytes()
         gallery = ['home-top-light.png', 'sale-keyboard-light.png', 'sale-keyboard-dark.png',
-                   'nfc-sale-question-light.png', 'sale-saved-light.png', 'inventory-light.png']
+                   'nearby-list-light.png', 'sale-saved-light.png', 'nfc-sale-question-light.png']
         screenshots = [RAW + '/' + screenshot_prefix + '/' + name for name in gallery
                        if (previews / name).exists()]
         if screenshots and entry == newest:

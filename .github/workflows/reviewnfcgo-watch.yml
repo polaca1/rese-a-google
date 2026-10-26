@@ -1,0 +1,30 @@
+name: reviewNfcGo - Verificar Apple Watch
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Commit o rama del complemento Watch
+        required: true
+permissions:
+  contents: read
+jobs:
+  watch:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: Seleccionar Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+      - name: Compilar y verificar Watch nativo sin firma de cuenta
+        run: bash watchos/Scripts/build-watch.sh "$RUNNER_TEMP/reviewNfcGo-watch"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reviewNfcGo-Watch-verificacion
+          path: |
+            ${{ runner.temp }}/reviewNfcGo-watch/*.zip
+            ${{ runner.temp }}/reviewNfcGo-watch/*.log
+            ${{ runner.temp }}/reviewNfcGo-watch/*.png
+          if-no-files-found: ignore

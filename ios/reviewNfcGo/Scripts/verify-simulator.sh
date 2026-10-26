@@ -79,7 +79,7 @@ cp "$task_container/Documents/nearby-verification.json" "$task_output_dir/nearby
 python3 - "$task_output_dir/nearby-verification.log" <<'PYCHECK'
 import json,sys
 result=json.load(open(sys.argv[1]));print(json.dumps(result,ensure_ascii=False,indent=2))
-assert result['passed'] and len(result['checks'])==10,result
+assert result['passed'] and len(result['checks'])>=14,result
 PYCHECK
 sleep 2
 xcrun simctl io "$task_device" screenshot "$task_output_dir/nearby-choices-light.png"
@@ -340,3 +340,23 @@ xcrun simctl terminate "$task_device" "$task_bundle_id"
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-nfc-question
 sleep 3
 xcrun simctl io "$task_device" screenshot "$task_output_dir/nfc-sale-question-light.png"
+
+# The actual iPhone store exports a bounded private Watch snapshot without changing it.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-phone-watch --verification-home-top
+for task_attempt in $(seq 1 30); do
+    if [ -f "$task_container/Documents/phone-watch-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/phone-watch-verification.json" "$task_output_dir/phone-watch-verification.log"
+python3 - "$task_output_dir/phone-watch-verification.log" <<'PYPHONEWATCH'
+import json,sys
+r=json.load(open(sys.argv[1])); print(r); assert r['passed'] and r['realBalance'] and r['privateOwner'] and r['boundedPayload'],r
+PYPHONEWATCH
+
+# The wider real-candidate picker remains usable without extra provider requests.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-nearby-list
+sleep 4
+xcrun simctl io "$task_device" screenshot "$task_output_dir/nearby-list-light.png"

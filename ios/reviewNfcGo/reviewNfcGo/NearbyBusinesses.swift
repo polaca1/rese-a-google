@@ -29,10 +29,10 @@ struct GooglePlaceSearchResponse: Decodable {
 }
 
 enum NearbyBusinessSelection {
-    static let searchRadius = 150.0
+    static let searchRadius = 250.0
     static let maximumAccuracy = 80.0
-    static let maximumLocationAge = 20.0
-    static let cacheLifetime = 120.0
+    static let maximumLocationAge = 10.0
+    static let cacheLifetime = 60.0
 
     static func validCoordinate(latitude: Double, longitude: Double) -> Bool {
         latitude.isFinite && longitude.isFinite && (-90...90).contains(latitude) && (-180...180).contains(longitude)
@@ -41,6 +41,12 @@ enum NearbyBusinessSelection {
     static func usableLocation(accuracy: Double, timestamp: Date, now: Date = Date()) -> Bool {
         accuracy.isFinite && accuracy >= 0 && accuracy <= maximumAccuracy
             && abs(timestamp.timeIntervalSince(now)) <= maximumLocationAge
+    }
+
+    static func preferPreviousFix(previousAccuracy: Double, previousAge: TimeInterval, newAccuracy: Double, movement: Double) -> Bool {
+        previousAccuracy.isFinite && newAccuracy.isFinite && movement.isFinite && movement >= 0
+            && (0...5).contains(previousAge) && previousAccuracy >= 0 && newAccuracy >= 0
+            && previousAccuracy < newAccuracy * 0.7 && movement <= max(10, newAccuracy)
     }
 
     static func distance(latitude: Double, longitude: Double, to place: PlaceResult) -> Double {
@@ -92,8 +98,9 @@ enum NearbyBusinessSelection {
     static func ranked(_ places: [PlaceResult], latitude: Double, longitude: Double, accuracy: Double) -> [PlaceResult] {
         guard validCoordinate(latitude: latitude, longitude: longitude), accuracy.isFinite,
               (0...maximumAccuracy).contains(accuracy) else { return [] }
-        // Reject another street's results instead of selecting anything within the API's wider circle.
-        let radius = min(100, max(45, accuracy + 25))
+        // Google often pins a business at the building centre, not the entrance.
+        // Retain these real candidates; distant/uncertain matches require confirmation.
+        let radius = searchRadius
         let sorted = places.filter(isBusiness).map { (place: $0, distance: distance(latitude: latitude, longitude: longitude, to: $0)) }
             .filter { $0.distance <= radius }
             .sorted {
@@ -124,16 +131,20 @@ enum NearbyBusinessSelection {
     }
 
     static func isAmbiguous(_ candidates: [PlaceResult], latitude: Double, longitude: Double, accuracy: Double) -> Bool {
-        guard candidates.count >= 2, accuracy.isFinite, (0...maximumAccuracy).contains(accuracy) else { return false }
+        guard let first = candidates.first, accuracy.isFinite, (0...maximumAccuracy).contains(accuracy) else { return false }
+        let closestDistance = distance(latitude: latitude, longitude: longitude, to: first)
+        if accuracy > 30 || closestDistance > max(25, min(45, accuracy + 10)) { return true }
+        guard candidates.count >= 2 else { return false }
         let a = candidates[0], b = candidates[1]
         let da = distance(latitude: latitude, longitude: longitude, to: a)
         let db = distance(latitude: latitude, longitude: longitude, to: b)
         let gap = abs(da - db)
         if accuracy >= 25 && max(da, db) <= accuracy + 10 && gap <= min(12, accuracy * 0.25) { return true }
-        guard gap <= min(4, max(1, accuracy * 0.2)) else { return false }
+        guard gap <= min(12, max(4, accuracy * 0.6)) else { return false }
         let pa = categoryPriority(a), pb = categoryPriority(b)
         // A public-facing shop versus an office has the clear tie-breaker requested by the user.
-        let clearTieBreak = (pa <= 1 && pb == 3) || (pb <= 1 && pa == 3)
+        let categoryTie = gap <= min(4, max(1, accuracy * 0.2))
+        let clearTieBreak = categoryTie && ((pa <= 1 && pb == 3) || (pb <= 1 && pa == 3))
         return !clearTieBreak
     }
 }
@@ -152,7 +163,8 @@ struct NearbyBusinessCycle {
         let movement = NearbyBusinessSelection.distance(latitude: latitude, longitude: longitude,
                                                         toLatitude: self.latitude, toLongitude: self.longitude)
         // Keep a stable order under GPS jitter, but refresh once the user walks elsewhere.
-        return movement <= max(15, min(30, max(accuracy, self.accuracy)))
+        if accuracy <= self.accuracy * 0.65 { return false }
+        return movement <= max(10, min(18, max(accuracy, self.accuracy)))
     }
 
     func selection(after id: String?, advance: Bool) -> (place: PlaceResult, position: Int)? {
@@ -161,5 +173,15 @@ struct NearbyBusinessCycle {
         if advance, let id, let current = candidates.firstIndex(where: { $0.id == id }) { index = (current + 1) % candidates.count }
         else { index = 0 }
         return (candidates[index], index + 1)
+    }
+}
+
+enum NearbySearchCoverage {
+    // Types checked against Google Places Table A. Two bounded, complementary queries.
+    static let businessTypes = ["restaurant", "cafe", "bar", "bakery", "supermarket", "pharmacy", "lodging", "gym", "insurance_agency", "store", "bank", "real_estate_agency", "clothing_store", "electronics_store", "hair_care", "beauty_salon", "car_repair", "dentist", "doctor", "hardware_store", "furniture_store", "florist", "book_store", "laundry", "veterinary_care", "convenience_store", "shoe_store", "lawyer", "accounting"]
+    static func body(latitude: Double, longitude: Double, wider: Bool) -> [String: Any] {
+        var value: [String: Any] = ["maxResultCount": 20, "rankPreference": "DISTANCE", "locationRestriction": ["circle": ["center": ["latitude": latitude, "longitude": longitude], "radius": wider ? NearbyBusinessSelection.searchRadius : 90.0]]]
+        if wider { value["includedTypes"] = businessTypes }
+        return value
     }
 }

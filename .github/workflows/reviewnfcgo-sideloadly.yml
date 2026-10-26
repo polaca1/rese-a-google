@@ -1,0 +1,82 @@
+name: reviewNfcGo - IPA iPhone y Watch para Sideloadly
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Commit exacto compilado
+        required: true
+      iphone_run_id:
+        description: Ejecucion verificada de iPhone y Mac
+        required: true
+      watch_run_id:
+        description: Ejecucion verificada de Watch
+        required: true
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: reviewnfcgo-sideloadly-assembly
+  cancel-in-progress: false
+jobs:
+  combine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PHONE_RUN: ${{ inputs.iphone_run_id }}
+      WATCH_RUN: ${{ inputs.watch_run_id }}
+      EXPECTED_SOURCE: ${{ inputs.source_ref }}
+    steps:
+      - name: Esperar compilaciones y comprobar el mismo commit
+        run: |
+          python3 - <<'PY'
+          import json,os,re,subprocess,time
+          base='repos/'+os.environ['GITHUB_REPOSITORY'];commit=os.environ['EXPECTED_SOURCE']
+          assert re.fullmatch('[0-9a-f]{40}',commit)
+          for key in ['PHONE_RUN','WATCH_RUN']:
+              run=os.environ[key];assert run.isdigit()
+              for attempt in range(65):
+                  result=json.loads(subprocess.check_output(['gh','api',base+'/actions/runs/'+run]))
+                  if result['status']=='completed':break
+                  print('Esperando paquete verificado: '+run,flush=True);time.sleep(30)
+              assert result['status']=='completed' and result['conclusion']=='success',result['conclusion']
+              jobs=json.loads(subprocess.check_output(['gh','api',base+'/actions/runs/'+run+'/jobs']))['jobs']
+              name='source' if key=='PHONE_RUN' else 'watch'
+              job=next(x for x in jobs if x['name']==name)
+              log=subprocess.check_output(['gh','api','--allow-escape-sequences',base+'/actions/jobs/'+str(job['id'])+'/logs'],text=True)
+              assert commit in log,'El componente no corresponde al commit esperado'
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-IPA
+          run-id: ${{ inputs.iphone_run_id }}
+          github-token: ${{ github.token }}
+          path: iphone
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-Watch-verificacion
+          run-id: ${{ inputs.watch_run_id }}
+          github-token: ${{ github.token }}
+          path: watch
+      - name: Comprobar y empaquetar iPhone y Watch
+        run: |
+          python3 -m unittest discover -s watchos/Tests -p 'test_*.py'
+          python3 - <<'PY'
+          import hashlib,json,pathlib,plistlib,subprocess,zipfile
+          phone=next(pathlib.Path('iphone').glob('*.ipa'));watch=next(pathlib.Path('watch').glob('*.zip'))
+          with zipfile.ZipFile(phone) as z: info=plistlib.loads(z.read('Payload/reviewNfcGo.app/Info.plist'))
+          version=info['CFBundleShortVersionString'];build=info['CFBundleVersion'];tag='reviewnfcgo-'+version+'-build'+build
+          assert json.loads(pathlib.Path('watch/watch-verification.log').read_text())['passed']
+          for screen in ['visit','businesses','money']:assert 'rendered content verified' in pathlib.Path('watch/watch-screen-'+screen+'.log').read_text()
+          out=pathlib.Path('prepared');out.mkdir()
+          name='reviewNfcGo-'+version+'-build'+build+'-iPhone-Watch-Sideloadly.ipa';target=out/name
+          subprocess.run(['python3','watchos/Scripts/package-sideloadly.py','--iphone',str(phone),'--watch',str(watch),'--output',str(target)],check=True)
+          digest=hashlib.sha256(target.read_bytes()).hexdigest()
+          checksum=out/'SHA256-SIDELOADLY-WATCH.txt';checksum.write_text(digest+'  '+name+'\n')
+          manifest=out/'SIDELOADLY-WATCH.json';manifest.write_text(json.dumps({'version':version,'build':build,'sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'sha256':digest,'size':target.stat().st_size,'signingRequired':True,'physicalWatchInstallationVerified':False,'minimumWatchOS':'10.0','installer':'Sideloadly','freeWatchSigningSupportedBySideloadly071':False},indent=2)+'\n')
+          subprocess.run(['gh','release','upload',tag,str(target),str(checksum),str(manifest),*[str(x) for x in pathlib.Path('watch').glob('watch-*.png')]],check=True)
+          print('IPA combinado publicado: https://github.com/'+__import__('os').environ['GITHUB_REPOSITORY']+'/releases/download/'+tag+'/'+name)
+          PY

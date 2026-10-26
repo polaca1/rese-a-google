@@ -1,0 +1,61 @@
+name: reviewNfcGo - Paquete Watch para Xcode gratuito
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Commit de los ficheros de preparación
+        required: true
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: reviewnfcgo-sidestore-publication
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Esperar las verificaciones de los componentes
+        run: |
+          python3 - <<'PY'
+          import json,os,subprocess,time
+          repo='repos/'+os.environ['GITHUB_REPOSITORY']
+          for run in [40400181353,40402062572]:
+              for attempt in range(40):
+                  value=json.loads(subprocess.check_output(['gh','api',repo+'/actions/runs/'+str(run)]))
+                  if value['status']=='completed':break
+                  print('Esperando componente verificado: '+str(run),flush=True);time.sleep(30)
+              assert value['status']=='completed' and value['conclusion']=='success',value['conclusion']
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+      - name: Comprobar que los archivos de producción coinciden con los componentes probados
+        run: |
+          git diff --exit-code 6da9cd83d9ecf978bf9986425d0f15081d54bf68 HEAD -- ios macos scripts
+          git diff --exit-code ad2c9126df2b470f527aeddba9bcf888529fc143 HEAD -- watchos/reviewNfcGoWatch watchos/reviewNfcGoWatch.xcodeproj
+          python3 -m unittest discover -s watchos/Tests -p 'test_*.py'
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-IPA
+          run-id: 40400181353
+          github-token: ${{ github.token }}
+          path: phone
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-verificacion
+          run-id: 40400181353
+          github-token: ${{ github.token }}
+          path: phone-checks
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-Watch-verificacion
+          run-id: 40402062572
+          github-token: ${{ github.token }}
+          path: watch
+      - name: Publicar preparación y capturas sin cambiar el IPA estable
+        run: python3 watchos/Scripts/publish-xcode-preparation.py

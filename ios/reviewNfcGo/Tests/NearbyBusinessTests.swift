@@ -27,7 +27,8 @@ import Foundation
         check(rank([place("street", meters: 0, type: "route"), insurer]).map(\.id) == ["insurer"], "Street geography is never selected as a business")
         check(rank([place("postal", meters: 0, type: "postal_code"), insurer]).count == 1, "Postal areas do not become businesses")
         check(rank([bar, bar, insurer]).count == 2, "Duplicate place IDs are removed")
-        check(rank([place("another-street", meters: 120, type: "bar")]).isEmpty, "A distant business is not picked just because Google returned it")
+        check(rank([place("building-centre", meters: 120, type: "bar")]).count == 1 && ambiguous([place("building-centre", meters: 120, type: "bar")]), "A building-centre pin remains available but requires confirmation")
+        check(rank([place("outside-area", meters: 280, type: "bar")]).isEmpty, "Candidates outside the bounded search area are rejected")
         check(rank([place("unknown", meters: 3)]).count == 1, "Missing optional category keeps a real nearby business")
         check(rank([bar], accuracy: 200).isEmpty, "Poor GPS does not choose a random business")
         check(rank([bar], accuracy: -.infinity).isEmpty, "Invalid accuracy is rejected")
@@ -72,6 +73,17 @@ import Foundation
         ]]
         let parsed = try JSONDecoder().decode(GooglePlaceSearchResponse.self, from: JSONSerialization.data(withJSONObject: response)).results
         check(parsed.count == 1 && parsed[0].name == "Café real" && parsed[0].primaryType == "cafe" && parsed[0].businessStatus == "OPERATIONAL", "Parser preserves real names and categories; never invents a business for incomplete data")
+        check(ambiguous([bar], accuracy: 45), "Poor precision requires confirmation even with only one real match")
+        check(ambiguous([place("one", meters: 8, type: "cafe"), place("two", meters: 16, type: "cafe")], accuracy: 20), "GPS uncertainty between neighbouring doors does not produce false confidence")
+        check(!cycle.canReuse(latitude: latitude, longitude: longitude, accuracy: 2, now: now.addingTimeInterval(10)), "Much better GPS invalidates results ranked using an older imprecise fix")
+        check(NearbyBusinessSelection.preferPreviousFix(previousAccuracy: 4, previousAge: 2, newAccuracy: 45, movement: 6), "Brief GPS degradation keeps the fresh precise fix")
+        check(!NearbyBusinessSelection.preferPreviousFix(previousAccuracy: 4, previousAge: 7, newAccuracy: 45, movement: 6), "Old precise fixes cannot freeze the user at another doorway")
+        check(!NearbyBusinessSelection.preferPreviousFix(previousAccuracy: 4, previousAge: 2, newAccuracy: 45, movement: 100), "Walking away overrides the earlier precise fix")
+        let closeBody = NearbySearchCoverage.body(latitude: latitude, longitude: longitude, wider: false)
+        let wideBody = NearbySearchCoverage.body(latitude: latitude, longitude: longitude, wider: true)
+        check(closeBody["includedTypes"] == nil && (wideBody["includedTypes"] as? [String])?.contains("insurance_agency") == true, "Wider business query supplements the unrestricted doorway query without excluding insurers")
+        check((wideBody["includedTypes"] as? [String])?.contains("store") == true && NearbySearchCoverage.businessTypes.count <= 50, "Business coverage includes shops within Google request limits")
+        check(closeBody["maxResultCount"] as? Int == 20 && wideBody["maxResultCount"] as? Int == 20, "Location lookup makes two bounded result sets, not an unbounded pagination loop")
         print("Nearby business ranking and choices: \(checks) checks passed")
     }
 }

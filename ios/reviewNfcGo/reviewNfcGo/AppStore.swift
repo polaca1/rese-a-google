@@ -240,5 +240,6 @@ final class AppStore: ObservableObject {
             }
         }
         WidgetSharedStore.publish(snapshot)
+        PhoneWatchCompanion.shared.publish(store: self)
     }
 }

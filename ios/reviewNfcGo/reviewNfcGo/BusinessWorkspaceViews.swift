@@ -107,6 +107,7 @@ struct QuickSaleView: View {
                 #endif
                 .safeAreaInset(edge: .bottom) {
                     VStack(spacing: 6) {
+                        if focusedPrice != nil { HStack { Spacer(); Button("Hecho") { focusedPrice = nil }.font(.subheadline.weight(.semibold)) } }
                         Button(action: saveSale) {
                             HStack { Text("Guardar venta"); Spacer(); Text(total.map(suiteEuro) ?? "—").monospacedDigit() }
                                 .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 7)
@@ -196,6 +197,7 @@ struct QuickSaleView: View {
     private func finish() { if let onSaved { onSaved() } else { dismiss() } }
     #if DEBUG && os(iOS)
     private func prepareVerification() {
+        ownerAtStart = currentOwner
         businessID = store.records.first?.id
         if !store.money.products.contains(where: { $0.kind == .nfcCard && store.money.stock($0.id) > 0 }) {
             let product = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Negro")
