@@ -26,7 +26,7 @@ jobs:
       - name: Comprobar ejecucion y esperar su resultado
         run: |
           python3 - <<'PY'
-          import json,os,re,subprocess,time
+          import json,os,re,subprocess,time,urllib.request
           run=os.environ['TASK_RUN']; commit=os.environ['TASK_COMMIT']
           assert re.fullmatch(r'[0-9]+',run) and re.fullmatch(r'[0-9a-f]{40}',commit)
           base='repos/'+os.environ['GITHUB_REPOSITORY']
@@ -42,7 +42,8 @@ jobs:
           for name in ['source','build','mac','server']:
               job=next(x for x in jobs if x['name']==name);assert job['conclusion']=='success',name
           source=next(x for x in jobs if x['name']=='source')
-          log=subprocess.check_output(['gh','api',base+'/actions/jobs/'+str(source['id'])+'/logs'],text=True)
+          request=urllib.request.Request('https://api.github.com/'+base+'/actions/jobs/'+str(source['id'])+'/logs',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']})
+          with urllib.request.urlopen(request,timeout=30) as response: log=response.read().decode()
           assert commit in log,'El commit no coincide con la compilacion'
           print('Compilacion completa y commit comprobados')
           PY
