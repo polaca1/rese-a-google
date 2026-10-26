@@ -267,7 +267,7 @@ struct HomeView: View {
 
             Button {
                 store.addOrUpdatePlace(place)
-                ExternalNFCWriter.write(reviewURL: place.reviewURL)
+                if let id = store.records.first(where: { $0.place.id == place.id })?.id { NFCSaleFollowUp.shared.begin(recordID: id, store: store) }
             } label: {
                 Label("Escribir NFC", systemImage: "wave.3.right")
                     .frame(maxWidth: .infinity)

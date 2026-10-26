@@ -1,7 +1,11 @@
-reviewNfcGo 6.0.5: el widget muestra tu saldo real.
+reviewNfcGo 7.1: vender y guardar sin pasos ocultos.
 
-Corregida la lectura de datos compartidos cuando SideStore vuelve a firmar la app. El widget identifica el grupo autorizado del perfil instalado, además de conservar compatibilidad con AltStore Classic. Al volver a abrir la app se actualizan los datos del widget.
+Selecciona tarjetas NFC, stands y otros productos en una sola pantalla, indica cantidades y precio y pulsa Guardar venta. El botón permanece visible con el teclado abierto; también tienes Hecho y confirmación de venta guardada. No necesitas pulsar Añadir a la venta.
 
-Si no puede cargar los datos, muestra «Abre reviewNfcGo» en lugar de inventar un saldo de 0 €. Se mantienen el saldo, ingresos, gastos y tarjetas de tu cuenta, sin cambiar los datos ni el inicio de sesión.
+Después de volver de Simply NFC, puedes indicar si has vendido y registrar los productos del mismo negocio. Elegir No he vendido no crea ingresos ni descuenta existencias. Abrir el escritor no confirma que se haya grabado una etiqueta.
 
-Actualiza sin borrar la app y ábrela una vez después de actualizar. Capturas de las pruebas de esta versión incluidas en la fuente.
+Los stands seleccionados junto a tarjetas NFC se incluyen gratis; se descuenta su stock y se conserva su coste en el beneficio.
+
+Se retira la gestión de enlaces de redirección. Las escrituras nuevas contienen directamente la reseña de Google del Place ID del negocio.
+
+Incluye Mac 2.1, capturas de esta compilación y sincronización automática. Actualiza sin borrar la app.

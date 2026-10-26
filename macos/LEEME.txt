@@ -1,4 +1,4 @@
-reviewNfcGo para Mac 2.0.4
+reviewNfcGo para Mac 2.1.0
 
 Compatible con macOS Sonoma 14 y posteriores, Intel y Apple Silicon.
 
@@ -13,3 +13,5 @@ Incluye negocios, visitas, clientes, presupuestos PDF, inventario, análisis de 
 El paquete usa firma ad hoc y no está notarizado. No necesita renovarse cada siete días.
 
 Google y correo utilizan la misma cuenta si el correo está verificado. Si comenzaste con Google, abre Cuenta → Crear o cambiar contraseña para entrar también con correo. «¿Olvidaste tu contraseña?» permite recuperar el acceso por correo.
+
+Ventas simplificadas: selección de productos, stands incluidos con tarjetas y guardado accesible.

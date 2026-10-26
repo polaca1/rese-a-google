@@ -8,7 +8,9 @@ struct RootView: View {
     var body: some View {
         Group {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--verification-blur-auth") {
+            if ProcessInfo.processInfo.arguments.contains("--verification-nfc-question") {
+                NFCQuestionVerificationHost()
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-blur-auth") {
                 AuthView()
             } else if ProcessInfo.processInfo.arguments.contains("--verification-suite-sale") {
                 NavigationStack { QuickSaleView() }
@@ -127,3 +129,12 @@ struct MainTabView: View {
 struct ContentView: View {
     var body: some View { RootView() }
 }
+
+#if DEBUG
+private struct NFCQuestionVerificationHost: View {
+    @EnvironmentObject private var store: AppStore
+    var body: some View {
+        NavigationStack { NFCSaleQuestionView(recordID: store.records.first?.id ?? UUID()) }
+    }
+}
+#endif

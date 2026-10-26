@@ -38,123 +38,190 @@ struct QuickSaleView: View {
     @EnvironmentObject private var store: WorkspaceStore
     @Environment(\.dismiss) private var dismiss
     var initialBusinessID: UUID? = nil
+    var onSaved: (() -> Void)? = nil
+    var didSave: (() -> Void)? = nil
     @State private var businessID: UUID?
-    @State private var productID: UUID?
-    @State private var quantity = 1
-    @State private var price = "10"
-    @State private var items: [QuickSaleInput] = []
+    @State private var draft: [EasySaleLine] = []
     @State private var payment = "Efectivo"
     @State private var error: String?
-    @FocusState private var priceFocused: Bool
-    private func saleItems() throws -> [QuickSaleInput] {
-        try QuickSaleInput.includingPending(items, productID: productID, quantity: quantity, price: price,
-                                           availableStock: productID.map { store.money.stock($0) } ?? 0)
+    @State private var savedTotal: Int64?
+    @State private var saving = false
+    @State private var initialized = false
+    @State private var ownerAtStart: String?
+    private var currentOwner: String? {
+        #if os(iOS)
+        return store.loadedUserEmail
+        #else
+        return store.owner
+        #endif
     }
-    private var previewItems: [QuickSaleInput] { (try? saleItems()) ?? items }
-    private var canSave: Bool { businessID != nil && (!items.isEmpty || productID != nil) }
-    private var total: Int64 { previewItems.reduce(0) { $0 + (MoneyLedger.cents($1.unitPrice) ?? 0) * Int64($1.quantity) } }
-    private var cost: Int64? {
-        guard previewItems.allSatisfy({ store.money.averageCostCents($0.productID) != nil }) else { return nil }
-        return previewItems.reduce(0) { $0 + Int64(((store.money.averageCostCents($1.productID) ?? 0) * Double($1.quantity)).rounded()) }
-    }
+    @FocusState private var focusedPrice: UUID?
+    private var hasCard: Bool { draft.contains { line in line.selected && store.money.products.contains { $0.id == line.productID && $0.kind == .nfcCard } } }
+    private var inputs: [QuickSaleInput]? { try? EasySaleLine.inputs(draft, money: store.money) }
+    private var total: Int64? { inputs.map { $0.reduce(0) { $0 + (MoneyLedger.cents($1.unitPrice) ?? 0) * Int64($1.quantity) } } }
+    private var customerExists: Bool { businessID.map { id in store.records.contains { $0.id == id } } ?? false }
     var body: some View {
-        Form {
-            Section("Negocio") {
-                Picker("Cliente", selection: $businessID) {
-                    Text("Seleccionar negocio").tag(nil as UUID?)
-                    ForEach(store.records) { Text($0.place.name).tag(Optional($0.id)) }
-                }
-                if store.records.isEmpty { Text("Guarda primero un negocio en Sitios.").foregroundStyle(.secondary) }
-            }
-            Section("Tarjetas, stands y productos") {
-                Picker("Producto", selection: $productID) {
-                    Text("Seleccionar producto").tag(nil as UUID?)
-                    ForEach(store.money.products.filter { product in store.money.stock(product.id) > 0 && !items.contains { $0.productID == product.id } }) { product in
-                        Text("\(product.displayName) · \(store.money.stock(product.id)) disponibles").tag(Optional(product.id))
-                    }
-                }
-                Stepper("Cantidad: \(quantity)", value: $quantity, in: 1...100_000)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Precio por unidad (€)")
-                    TextField("0,00", text: $price)
-                        .focused($priceFocused)
-                        .multilineTextAlignment(.trailing)
-                        .accessibilityLabel("Precio por unidad en euros")
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
-                }
-                Button("Añadir a la venta") { addItem() }.disabled(productID == nil || items.count >= 20)
-                ForEach(items) { item in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(store.money.products.first { $0.id == item.productID }?.displayName ?? "Producto")
-                            Text("\(item.quantity) × \(suiteEuro(MoneyLedger.cents(item.unitPrice) ?? 0))").font(.caption).foregroundStyle(.secondary)
+        Group {
+            if let savedTotal {
+                VStack(spacing: 18) {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(.green)
+                    Text("Venta guardada").font(.title2.bold())
+                    Text(suiteEuro(savedTotal)).font(.largeTitle.bold()).monospacedDigit()
+                    Text("El ingreso y el inventario ya están actualizados.").foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Button("Listo", action: finish).buttonStyle(.borderedProminent)
+                }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Form {
+                    Section("Cliente") {
+                        Picker("Negocio", selection: $businessID) {
+                            Text("Seleccionar negocio").tag(nil as UUID?)
+                            ForEach(store.records) { Text($0.place.name).tag(Optional($0.id)) }
                         }
-                        Spacer()
-                        Button(role: .destructive) { items.removeAll { $0.id == item.id } } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless).accessibilityLabel("Quitar producto")
+                        if store.records.isEmpty { Text("Guarda primero el negocio desde Inicio.").foregroundStyle(.secondary) }
                     }
-                }
-                if store.money.products.isEmpty { Text("Añade existencias en Dinero → Inventario antes de vender.").foregroundStyle(.secondary) }
-            }
-            Section("Cobro") {
-                Picker("Forma de pago", selection: $payment) { ForEach(["Efectivo", "Tarjeta", "Bizum", "Transferencia", "Otro"], id: \.self) { Text($0) } }
-                LabeledContent("Total", value: suiteEuro(total))
-                if let cost { LabeledContent("Coste de productos", value: suiteEuro(cost)); LabeledContent("Beneficio", value: suiteEuro(total - cost)) }
-                else { Text("Coste pendiente: faltan compras registradas.").foregroundStyle(.secondary) }
-                Button("Guardar venta", action: saveSale)
-                    .buttonStyle(.borderedProminent).disabled(!canSave)
-            }
-        }.navigationTitle("Nueva venta")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Guardar", action: saveSale).disabled(!canSave)
-                        .accessibilityLabel("Guardar venta")
+                    Section {
+                        ForEach($draft) { $line in
+                            if let product = store.money.products.first(where: { $0.id == line.productID }) {
+                                productRow(product, line: $line)
+                            }
+                        }
+                        if draft.isEmpty { Text("Añade existencias para seleccionar los productos que entregas.").foregroundStyle(.secondary) }
+                        #if os(iOS)
+                        NavigationLink("Añadir productos o existencias") { InventoryView() }
+                        #endif
+                    } header: { Text("¿Qué has vendido?") } footer: {
+                        Text("Marca los productos que entregas. Los stands seleccionados van gratis con las tarjetas y se descuentan del inventario.")
+                    }
+                    Section("Cobro") {
+                        Picker("Forma de pago", selection: $payment) { ForEach(["Efectivo", "Tarjeta", "Bizum", "Transferencia", "Otro"], id: \.self) { Text($0) } }
+                        LabeledContent("Total", value: total.map(suiteEuro) ?? "Revisa los importes")
+                        if let inputs, inputs.allSatisfy({ store.money.averageCostCents($0.productID) != nil }) {
+                            let cost = inputs.reduce(Int64(0)) { $0 + Int64(((store.money.averageCostCents($1.productID) ?? 0) * Double($1.quantity)).rounded()) }
+                            LabeledContent("Beneficio", value: suiteEuro((total ?? 0) - cost))
+                        }
+                    }
+                    if let error { Section { Label(error, systemImage: "exclamationmark.circle").foregroundStyle(.red) } }
                 }
                 #if os(iOS)
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Hecho") { priceFocused = false }
+                .scrollDismissesKeyboard(.interactively)
+                #endif
+                .safeAreaInset(edge: .bottom) {
+                    VStack(spacing: 6) {
+                        Button(action: saveSale) {
+                            HStack { Text("Guardar venta"); Spacer(); Text(total.map(suiteEuro) ?? "—").monospacedDigit() }
+                                .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 7)
+                        }.buttonStyle(.borderedProminent).disabled(saving)
+                    }.padding(12).background(.regularMaterial)
                 }
+            }
+        }.navigationTitle(savedTotal == nil ? "Nueva venta" : "Venta guardada")
+            #if os(iOS)
+            .navigationBarBackButtonHidden(savedTotal != nil)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    if savedTotal != nil { Button("Listo", action: finish) }
+                    else { Button("Guardar", action: saveSale).disabled(saving).accessibilityLabel("Guardar venta") }
+                }
+                #if os(iOS)
+                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Hecho") { focusedPrice = nil } }
                 #endif
             }
-            #if os(iOS)
-            .scrollDismissesKeyboard(.interactively)
-            #endif
-            .onAppear { if businessID == nil { businessID = initialBusinessID } }
+            .onAppear(perform: initialize)
+            .onChange(of: store.money) { _ in if savedTotal == nil { refreshProducts() } }
             #if DEBUG && os(iOS)
             .task {
                 guard ProcessInfo.processInfo.arguments.contains("--verification-suite-sale") else { return }
-                try? await Task.sleep(for: .milliseconds(200))
-                businessID = store.records.first?.id
-                if let product = store.money.products.first(where: { store.money.stock($0.id) > 0 }) {
-                    productID = product.id
-                } else {
-                    let product = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Negro")
-                    try? store.receiveStock(title: product.name, quantity: 10, productID: product.id, newProduct: product,
-                                            origin: .manufactured, date: Date(), notes: "Verificación")
-                    productID = product.id
-                }
-                price = "15"
-                if ProcessInfo.processInfo.arguments.contains("--verification-sale-keyboard") { priceFocused = true }
+                try? await Task.sleep(for: .milliseconds(250))
+                prepareVerification()
+                if ProcessInfo.processInfo.arguments.contains("--verification-sale-keyboard") { focusedPrice = draft.first?.id }
+                if ProcessInfo.processInfo.arguments.contains("--verification-sale-save") { verifySave() }
             }
             #endif
-            .alert("No se pudo guardar", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Aceptar") { error = nil } } message: { Text(error ?? "") }
     }
-    private func addItem() {
-        guard productID != nil else { return }
-        do {
-            items = try saleItems(); productID = nil; quantity = 1; priceFocused = false
-        } catch { self.error = error.localizedDescription }
+    @ViewBuilder private func productRow(_ product: InventoryProduct, line: Binding<EasySaleLine>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: line.selected) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(product.displayName, systemImage: product.kind.icon).font(.headline)
+                    Text("\(store.money.stock(product.id)) disponibles").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if line.wrappedValue.selected {
+                Stepper("Cantidad: \(line.wrappedValue.quantity)", value: line.quantity, in: 1...max(1, min(100_000, store.money.stock(product.id))))
+                if product.kind == .stand && hasCard {
+                    LabeledContent("Incluido con las tarjetas", value: "Gratis").foregroundStyle(.green)
+                } else {
+                    HStack {
+                        Text("Precio por unidad (€)").fixedSize(horizontal: false, vertical: true)
+                        TextField("0,00", text: line.price).multilineTextAlignment(.trailing)
+                            .focused($focusedPrice, equals: product.id).accessibilityLabel("Precio de " + product.displayName)
+                            #if os(iOS)
+                            .keyboardType(.decimalPad)
+                            #endif
+                    }
+                }
+            }
+        }.padding(.vertical, 6)
+    }
+    private func initialize() {
+        guard !initialized else { refreshProducts(); return }; initialized = true
+        ownerAtStart = currentOwner
+        businessID = initialBusinessID ?? (store.records.count == 1 ? store.records.first?.id : nil)
+        draft = EasySaleLine.make(money: store.money)
+    }
+    private func refreshProducts() {
+        guard currentOwner == ownerAtStart else { return }
+        let available = EasySaleLine.make(money: store.money)
+        if draft.isEmpty { draft = available; return }
+        for var line in available where !draft.contains(where: { $0.id == line.id }) {
+            line.selected = false; draft.append(line)
+        }
     }
     private func saveSale() {
-        guard let businessID else { return }
-        priceFocused = false
+        guard !saving, savedTotal == nil else { return }
+        focusedPrice = nil; error = nil
+        guard currentOwner == ownerAtStart else { error = "La cuenta ha cambiado. Abre una venta nueva."; return }
+        guard customerExists, let businessID else { error = "Selecciona el negocio al que has vendido."; return }
+        saving = true; defer { saving = false }
         do {
-            try store.registerQuickSale(recordID: businessID, items: saleItems(), payment: payment)
-            dismiss()
+            let items = try EasySaleLine.inputs(draft, money: store.money)
+            let sum = items.reduce(Int64(0)) { $0 + (MoneyLedger.cents($1.unitPrice) ?? 0) * Int64($1.quantity) }
+            guard sum > 0 else { throw EasySaleError.zeroTotal }
+            try store.registerQuickSale(recordID: businessID, items: items, payment: payment)
+            savedTotal = sum
+            didSave?()
         } catch { self.error = error.localizedDescription }
     }
+    private func finish() { if let onSaved { onSaved() } else { dismiss() } }
+    #if DEBUG && os(iOS)
+    private func prepareVerification() {
+        businessID = store.records.first?.id
+        if !store.money.products.contains(where: { $0.kind == .nfcCard && store.money.stock($0.id) > 0 }) {
+            let product = InventoryProduct(name: "Tarjeta NFC", kind: .nfcCard, color: "Negro")
+            try? store.receiveStock(title: product.name, quantity: 10, productID: product.id, newProduct: product, origin: .manufactured, date: Date(), notes: "Verificación")
+        }
+        if !store.money.products.contains(where: { $0.kind == .stand && store.money.stock($0.id) > 0 }) {
+            let product = InventoryProduct(name: "Stand", kind: .stand)
+            try? store.receiveStock(title: product.name, quantity: 10, productID: product.id, newProduct: product, origin: .manufactured, date: Date(), notes: "Verificación")
+        }
+        draft = EasySaleLine.make(money: store.money)
+        for index in draft.indices {
+            if store.money.products.contains(where: { $0.id == draft[index].id && $0.kind == .nfcCard }) { draft[index].price = "15" }
+            if store.money.products.contains(where: { $0.id == draft[index].id && $0.kind == .stand }) { draft[index].selected = true; draft[index].price = "99" }
+        }
+    }
+    private func verifySave() {
+        let before = store.money.activeQuickSales.count
+        let selected = draft.filter(\.selected).map { ($0.id, store.money.stock($0.id)) }
+        saveSale(); saveSale()
+        let sale = store.money.activeQuickSales.last
+        let stands = Set(store.money.products.filter { $0.kind == .stand }.map(\.id))
+        let passed = savedTotal == 1500 && store.money.activeQuickSales.count == before + 1 && sale?.incomeCents == 1500 && sale?.items.contains(where: { stands.contains($0.productID) && $0.unitPriceCents == 0 }) == true && selected.allSatisfy { store.money.stock($0.0) == $0.1 - 1 }
+        let result: [String: Any] = ["passed": passed, "saleSavedOnce": store.money.activeQuickSales.count == before + 1, "standFree": sale?.items.contains(where: { stands.contains($0.productID) && $0.unitPriceCents == 0 }) == true, "stockUpdated": selected.allSatisfy { store.money.stock($0.0) == $0.1 - 1 }]
+        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) { try? data.write(to: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("easy-sale-verification.json")) }
+    }
+    #endif
 }
 
 struct ClientFollowUpView: View {
@@ -196,7 +263,6 @@ struct ClientTimelineView: View {
                     if let phone = record.contactPhone, !phone.isEmpty { Text(phone).textSelection(.enabled) }
                     NavigationLink("Editar contacto") { ClientContactView(recordID: recordID) }
                     NavigationLink("Presupuestos de este cliente") { QuotesWorkspaceView(businessID: recordID) }
-                    NavigationLink("Enlace de tarjeta actualizable") { EditableReviewLinkView(recordID: recordID) }
                 }
                 Section("Seguimiento") {
                     Picker("Estado", selection: $stage) { ForEach(ContactStage.allCases) { Text($0.rawValue).tag($0) } }
@@ -737,64 +803,5 @@ struct InventoryLevelsView: View {
         }
         context.closePDF()
         return url
-    }
-}
-
-struct EditableReviewLinkView: View {
-    @EnvironmentObject private var store: WorkspaceStore
-    let recordID: UUID
-    @State private var target = ""
-    @State private var active = true
-    @State private var busy = false
-    @State private var message: String?
-    private var record: VisitRecord? { store.records.first { $0.id == recordID } }
-    var body: some View {
-        Form {
-            if let record {
-                Section("Destino de la tarjeta") {
-                    TextField("Dirección HTTPS", text: $target, axis: .vertical).lineLimit(2...5)
-                    Toggle("Tarjeta activa", isOn: $active)
-                    Button(record.reviewLinkID == nil ? "Crear enlace" : "Guardar nuevo destino") { publish() }
-                        .buttonStyle(.borderedProminent).disabled(busy || !ReviewLinkAddress.validTarget(target))
-                    if busy { ProgressView() }
-                    if let message { Text(message).foregroundStyle(.secondary) }
-                }
-                if let id = record.reviewLinkID {
-                    Section("Escribir una sola vez") {
-                        Text(ReviewLinkAddress.permanent(id)).font(.caption).textSelection(.enabled)
-                        #if os(iOS)
-                        Button("Escribir NFC") { ExternalNFCWriter.write(reviewURL: ReviewLinkAddress.permanent(id)) }.buttonStyle(.borderedProminent)
-                        Button("Copiar enlace de tarjeta") { UIPasteboard.general.string = ReviewLinkAddress.permanent(id) }
-                        #else
-                        Button("Copiar enlace de tarjeta") { MacFiles.copy(ReviewLinkAddress.permanent(id)) }
-                        #endif
-                        Link("Probar tarjeta", destination: URL(string: ReviewLinkAddress.permanent(id))!)
-                        Text("Cambia el destino desde aquí sin volver a escribir la tarjeta. Las tarjetas que ya contienen un enlace directo a Google deben regrabarse una vez.").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                Section {
-                    Text("El destino es accesible para quien tenga el enlace de la tarjeta. Tus datos de cuenta siguen privados. Para abrirlo y cambiarlo se necesita conexión.").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-        }.navigationTitle("Tarjeta actualizable").onAppear {
-            target = record?.reviewLinkTarget ?? record?.place.reviewURL ?? ""; active = record?.reviewLinkActive ?? true
-        }
-    }
-    private func publish() {
-        guard let initial = record else { return }
-        let owner = RemoteAuthClient.shared.session?.user.id
-        let id = initial.reviewLinkID ?? UUID()
-        let destination = target, enabled = active
-        busy = true; message = nil
-        Task { @MainActor in
-            defer { busy = false }
-            do {
-                try await RemoteAuthClient.shared.publishReviewLink(id: id, target: destination, active: enabled)
-                guard owner == RemoteAuthClient.shared.session?.user.id, var current = record else { throw CancellationError() }
-                current.reviewLinkID = id; current.reviewLinkTarget = destination; current.reviewLinkActive = enabled
-                try store.saveClient(current); message = "Destino guardado. La tarjeta abrirá este enlace."
-            } catch is CancellationError { message = "El acceso ha cambiado. Vuelve a intentarlo." }
-            catch { message = error.localizedDescription }
-        }
     }
 }
