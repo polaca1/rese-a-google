@@ -541,6 +541,16 @@
       "notify": true,
       "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-4.1-build17",
       "appID": "com.pablo.resenagoogle.20261004"
+    },
+    {
+      "title": "Apple Watch con cuenta gratuita: preparación para Xcode",
+      "identifier": "reviewnfcgo-watch-xcode-7.2.0-build38",
+      "caption": "Requiere un Mac compatible y renovar la firma con Xcode. No se instala desde SideStore ni se anuncia renovación automática.",
+      "date": "2026-10-26T21:17:18Z",
+      "notify": false,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-watch-xcode-7.2.0-build38",
+      "appID": "com.pablo.resenagoogle.20261004",
+      "imageURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/watch-7.2.0-build38/watch-money.png"
     }
   ]
 }

@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "status": "preparation-requires-compatible-mac",
+  "nativeVersion": "7.2.0",
+  "build": "38",
+  "sourceArchiveCommit": "6aff84806998c85f447f223b5258113f2e08ca2c",
+  "phoneSourceCommit": "6da9cd83d9ecf978bf9986425d0f15081d54bf68",
+  "phoneRun": 40400181353,
+  "watchSourceCommit": "ad2c9126df2b470f527aeddba9bcf888529fc143",
+  "watchRun": 40402062572,
+  "automaticFreeWatchRenewalVerified": false,
+  "physicalWatchInstallationVerified": false,
+  "requiresXcode": true,
+  "assets": {
+    "reviewNfcGo-iPhone-7.2.0-build38-para-Watch.ipa": {
+      "size": 6992760,
+      "sha256": "9245d6158b534966b9319de713d30a767b01f62755324ab3430b00711db3099c"
+    },
+    "reviewNfcGo-Watch-Xcode-7.2.0-build38.zip": {
+      "size": 1783413,
+      "sha256": "0cb38c51aa96f4d7fba096693fabced26accb3d4002aba25a9d2a9066ee2d945"
+    },
+    "LEEME-WATCH-CUENTA-GRATUITA.md": {
+      "size": 3256,
+      "sha256": "b34bfd54269d0f30715aec99aa31214364fbf5a4860342523fa54b4a3e4e9380"
+    },
+    "watch-visit.png": {
+      "size": 37499,
+      "sha256": "b2e993fe7a40e1767a89ead7585d281213154b0eed4114cf9bc37df10208b4dc"
+    },
+    "watch-money.png": {
+      "size": 32684,
+      "sha256": "b4312b1f4c7e25ab013d24ad9e3f893e3d3a43ab861be0176c2ca2b764889569"
+    },
+    "watch-businesses.png": {
+      "size": 34155,
+      "sha256": "388b30b872c51b293e42471fef047dd0fb64b38756352da77e408abf0b90f399"
+    }
+  }
+}
