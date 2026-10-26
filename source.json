@@ -14,6 +14,15 @@
       "tintColor": "1976EC",
       "versions": [
         {
+          "version": "7.3.0",
+          "buildVersion": "39",
+          "date": "2026-10-26T22:09:29Z",
+          "localizedDescription": "reviewNfcGo 7.3: locales cercanos y paquete iPhone + Watch.\n\nLa búsqueda combina dos consultas acotadas: inmediaciones de la puerta y negocios de un área algo mayor. Mantiene locales cuyo punto de Google está en el centro del edificio, pide confirmar resultados inciertos y permite elegir o filtrar todos los locales cercanos.\n\nMi ubicación solicita más precisión cuando hace falta, espera una posición reciente y evita conservar una lista basada en una posición GPS que ya ha mejorado. Las elecciones manuales se respetan.\n\nSe mantienen las ventas sencillas, stands incluidos con tarjetas y la pregunta de venta al volver de Simply NFC. Guardar y Hecho son accesibles con el teclado abierto. Las escrituras usan el enlace directo de Google.\n\nApple Watch: paquete separado iPhone + Watch para Sideloadly, compatible desde watchOS 10, con icono plano, negocios, próximas visitas y saldo. Incluirlo en el IPA no firma el reloj ni elimina los requisitos del instalador: Sideloadly 0.71.0 documenta firma de Watch para cuentas Apple Developer de pago; las cuentas gratuitas siguen pendientes de soporte.\n\nLa fuente de SideStore conserva su IPA de iPhone compatible. El IPA combinado para Sideloadly se descarga desde esta release. Actualiza sin borrar la app.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-7.3.0-build39.ipa",
+          "size": 7022996,
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "7.1.0",
           "buildVersion": "37",
           "date": "2026-10-26T20:50:52Z",
@@ -248,11 +257,11 @@
           "minOSVersion": "16.1"
         }
       ],
-      "version": "7.1.0",
-      "versionDate": "2026-10-26T20:50:52Z",
-      "versionDescription": "reviewNfcGo 7.1: vender y guardar sin pasos ocultos.\n\nSelecciona tarjetas NFC, stands y otros productos en una sola pantalla, indica cantidades y precio y pulsa Guardar venta. El botón permanece visible con el teclado abierto; también tienes Hecho y confirmación de venta guardada. No necesitas pulsar Añadir a la venta.\n\nDespués de volver de Simply NFC, puedes indicar si has vendido y registrar los productos del mismo negocio. Elegir No he vendido no crea ingresos ni descuenta existencias. Abrir el escritor no confirma que se haya grabado una etiqueta.\n\nLos stands seleccionados junto a tarjetas NFC se incluyen gratis; se descuenta su stock y se conserva su coste en el beneficio.\n\nSe retira la gestión de enlaces de redirección. Las escrituras nuevas contienen directamente la reseña de Google del Place ID del negocio.\n\nIncluye Mac 2.1, capturas de esta compilación y sincronización automática. Actualiza sin borrar la app.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-7.1.0-build37/reviewNfcGo-7.1.0-build37.ipa",
-      "size": 6967264,
+      "version": "7.3.0",
+      "versionDate": "2026-10-26T22:09:29Z",
+      "versionDescription": "reviewNfcGo 7.3: locales cercanos y paquete iPhone + Watch.\n\nLa búsqueda combina dos consultas acotadas: inmediaciones de la puerta y negocios de un área algo mayor. Mantiene locales cuyo punto de Google está en el centro del edificio, pide confirmar resultados inciertos y permite elegir o filtrar todos los locales cercanos.\n\nMi ubicación solicita más precisión cuando hace falta, espera una posición reciente y evita conservar una lista basada en una posición GPS que ya ha mejorado. Las elecciones manuales se respetan.\n\nSe mantienen las ventas sencillas, stands incluidos con tarjetas y la pregunta de venta al volver de Simply NFC. Guardar y Hecho son accesibles con el teclado abierto. Las escrituras usan el enlace directo de Google.\n\nApple Watch: paquete separado iPhone + Watch para Sideloadly, compatible desde watchOS 10, con icono plano, negocios, próximas visitas y saldo. Incluirlo en el IPA no firma el reloj ni elimina los requisitos del instalador: Sideloadly 0.71.0 documenta firma de Watch para cuentas Apple Developer de pago; las cuentas gratuitas siguen pendientes de soporte.\n\nLa fuente de SideStore conserva su IPA de iPhone compatible. El IPA combinado para Sideloadly se descarga desde esta release. Actualiza sin borrar la app.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-7.3.0-build39.ipa",
+      "size": 7022996,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
@@ -272,16 +281,36 @@
         }
       ],
       "screenshotURLs": [
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.1.0-build37/home-top-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.1.0-build37/sale-keyboard-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.1.0-build37/sale-keyboard-dark.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.1.0-build37/nfc-sale-question-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.1.0-build37/sale-saved-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.1.0-build37/inventory-light.png"
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.3.0-build39/home-top-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.3.0-build39/sale-keyboard-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.3.0-build39/sale-keyboard-dark.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.3.0-build39/nearby-list-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.3.0-build39/sale-saved-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.3.0-build39/nfc-sale-question-light.png"
       ]
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 7.3.0 (39)",
+      "identifier": "reviewnfcgo-7.3.0-build39",
+      "caption": "reviewNfcGo 7.3: locales cercanos y paquete iPhone + Watch.",
+      "date": "2026-10-26T22:09:29Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-7.3.0-build39",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
+    {
+      "title": "Apple Watch con cuenta gratuita: preparación para Xcode",
+      "identifier": "reviewnfcgo-watch-xcode-7.2.0-build38",
+      "caption": "Requiere un Mac compatible y renovar la firma con Xcode. No se instala desde SideStore ni se anuncia renovación automática.",
+      "date": "2026-10-26T21:17:18Z",
+      "notify": false,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-watch-xcode-7.2.0-build38",
+      "appID": "com.pablo.resenagoogle.20261004",
+      "imageURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/watch-7.2.0-build38/watch-money.png"
+    },
     {
       "title": "reviewNfcGo 7.1.0 (37)",
       "identifier": "reviewnfcgo-7.1.0-build37",
@@ -541,16 +570,6 @@
       "notify": true,
       "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-4.1-build17",
       "appID": "com.pablo.resenagoogle.20261004"
-    },
-    {
-      "title": "Apple Watch con cuenta gratuita: preparación para Xcode",
-      "identifier": "reviewnfcgo-watch-xcode-7.2.0-build38",
-      "caption": "Requiere un Mac compatible y renovar la firma con Xcode. No se instala desde SideStore ni se anuncia renovación automática.",
-      "date": "2026-10-26T21:17:18Z",
-      "notify": false,
-      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-watch-xcode-7.2.0-build38",
-      "appID": "com.pablo.resenagoogle.20261004",
-      "imageURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/watch-7.2.0-build38/watch-money.png"
     }
   ]
 }
