@@ -23,6 +23,7 @@ struct BusinessHubView: View {
                 NavigationLink { InventoryLevelsView() } label: { Label("Stock mínimo", systemImage: "shippingbox") }
                 NavigationLink { QuickSaleView() } label: { Label("Registrar venta", systemImage: "plus.circle.fill") }
                 NavigationLink { ClientFollowUpView() } label: { Label("Seguimiento de clientes", systemImage: "person.2") }
+                NavigationLink { ManagedCardsListView() } label: { Label("Mis tarjetas y estadísticas", systemImage: "chart.bar.xaxis") }
                 NavigationLink { WorkspaceRouteView() } label: { Label("Ruta del día", systemImage: "map") }
             }
             Section("Resultados") {
@@ -623,7 +624,7 @@ struct QuoteDetailView: View {
     }
     private var storeOwner: String {
         #if os(iOS)
-        return RemoteAuthClient.shared.session?.user.email ?? ""
+        return store.loadedUserEmail ?? ""
         #else
         return store.owner ?? ""
         #endif

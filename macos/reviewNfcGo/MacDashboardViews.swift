@@ -116,7 +116,7 @@ struct MacBusinessesView: View {
     private var rows: [VisitRecord] {
         store.records.filter { record in
             clientFilter.matches(record, income: store.money.businessIncome(record.id), cards: store.money.businessCards(record.id)) && (status == "Todos" || record.status.rawValue == status) &&
-            (query.isEmpty || (record.place.name + " " + record.place.address + " " + record.notes).localizedStandardContains(query))
+            (query.isEmpty || (record.place.name + " " + record.place.address + " " + record.notes + " " + (record.contactName ?? "")).localizedStandardContains(query))
         }.sorted(using: sorting)
     }
     var body: some View {

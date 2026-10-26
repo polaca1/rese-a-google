@@ -13,3 +13,5 @@ Incluye negocios, visitas, clientes, presupuestos PDF, inventario, análisis de 
 El paquete usa firma ad hoc y no está notarizado. No necesita renovarse cada siete días.
 
 Google y correo utilizan la misma cuenta si el correo está verificado. Si comenzaste con Google, abre Cuenta → Crear o cambiar contraseña para entrar también con correo. «¿Olvidaste tu contraseña?» permite recuperar el acceso por correo.
+
+Versión 3.0: filtros de clientes con compras y visitas; tarjetas con destino remoto, pausa y estadísticas privadas de aperturas. Comparte el formato de cuenta y el historial NFC con iPhone 7.0.

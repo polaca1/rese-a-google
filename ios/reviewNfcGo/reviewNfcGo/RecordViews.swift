@@ -25,6 +25,7 @@ struct HistoryView: View {
                 }.pickerStyle(.segmented)
             }.listRowBackground(Color.clear)
             NavigationLink { BusinessHubView() } label: { Label("Actividad y seguimiento", systemImage: "person.2") }
+            NavigationLink { ManagedCardsListView() } label: { Label("Mis tarjetas y estadísticas", systemImage: "chart.bar.xaxis") }
             if rows.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: filter == .customers ? "person.2" : "building.2.crop.circle").font(.system(size: 42)).foregroundStyle(.secondary)
@@ -60,6 +61,9 @@ struct HistoryView: View {
             }
         }
         .navigationTitle("Sitios y clientes")
+        #if DEBUG
+        .onAppear { if ProcessInfo.processInfo.arguments.contains("--verification-customers") { filter = .customers } }
+        #endif
         .searchable(text: $query, prompt: "Buscar negocio o cliente")
         .toolbar { ToolbarItem(placement: .primaryAction) { NavigationLink { WorkspaceRouteView() } label: { Image(systemName: "point.topleft.down.to.point.bottomright.curvepath") }.accessibilityLabel("Ruta del día") } }
     }

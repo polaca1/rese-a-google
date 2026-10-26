@@ -142,3 +142,13 @@ def test_concurrent_openings_do_not_lose_counts(database):
         assert all(result == GOOGLE for result in pool.map(opening, events))
     value = json.loads(database(f"select public.reviewnfcgo_link_stats('{LINK}');", "authenticated", A))
     assert value["total"] == 12
+
+
+def test_receipt_retention_does_not_erase_lifetime_totals(database):
+    old = uuid.uuid4()
+    database(f"insert into public.reviewnfcgo_link_receipts values ('{old}','{LINK}',now()-interval '8 days');")
+    database(f"insert into public.reviewnfcgo_link_daily values ('{LINK}',(now() at time zone 'UTC')::date-60,12,now()-interval '60 days');")
+    database(f"select public.reviewnfcgo_open_card('{LINK}','{uuid.uuid4()}');", "anon")
+    assert database(f"select count(*) from public.reviewnfcgo_link_receipts where request_id='{old}';") == "0"
+    value = json.loads(database(f"select public.reviewnfcgo_link_stats('{LINK}');", "authenticated", A))
+    assert value["total"] == 13 and value["last_30_days"] == 1

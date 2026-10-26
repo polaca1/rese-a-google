@@ -21,6 +21,7 @@ struct EditableReviewLinkView: View {
     @ObservedObject private var account = RemoteAuthClient.shared
     #endif
     let recordID: UUID
+    var existingLinkID: UUID? = nil
     @State private var link: ManagedReviewLink?
     @State private var statistics: CardStatistics?
     @State private var target = ""
@@ -34,39 +35,27 @@ struct EditableReviewLinkView: View {
     private var destination: String { target.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var changed: Bool { link.map { $0.target_url != destination || $0.active != active } ?? false }
     private var valid: Bool { link.map { CardLinkRules.validTarget(destination, linkID: $0.id) } ?? false }
-    private var taskKey: String { recordID.uuidString + (account.session?.user.id ?? "") }
+    private var taskKey: String { recordID.uuidString + (existingLinkID?.uuidString ?? "") + (account.session?.user.id ?? "") }
     private var ownerMatches: Bool { account.session?.user.email != nil && account.session?.user.email == cardWorkspaceOwner(store) }
     private var fixtureMode: Bool {
         #if DEBUG
-        return ProcessInfo.processInfo.arguments.contains("--verification-card-details")
+        return ProcessInfo.processInfo.arguments.contains("--verification-card-details") || ProcessInfo.processInfo.arguments.contains("--verification-card-destination")
         #else
         return false
         #endif
     }
     var body: some View {
+        ScrollViewReader { scrollProxy in
         Form {
-            if let record, ownerMatches || fixtureMode {
+            if (record != nil || link != nil), ownerMatches || fixtureMode {
                 Section {
                     Label(link?.active == false ? "Enlace en pausa" : "Enlace del cliente", systemImage: link?.active == false ? "pause.circle.fill" : "link.circle.fill")
                         .font(.headline).foregroundStyle(link?.active == false ? Color.orange : Color.blue)
-                    Text(record.place.name).font(.subheadline).foregroundStyle(.secondary)
+                    Text(record?.place.name ?? link?.label ?? "Tarjeta del cliente").font(.subheadline).foregroundStyle(.secondary)
                     Text("El mismo enlace permanece en la tarjeta. Su destino se puede cambiar aunque el NFC esté bloqueado.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 if let link {
-                    Section("Destino") {
-                        TextField("Dirección HTTPS", text: $target, axis: .vertical).lineLimit(2...4)
-                            .focused($targetFocused).autocorrectionDisabled()
-                            #if os(iOS)
-                            .textInputAutocapitalization(.never).keyboardType(.URL)
-                            #endif
-                        Button("Usar la reseña de Google del negocio") { target = record.place.reviewURL }
-                        Toggle("Enlace activo", isOn: $active)
-                        Button("Guardar cambios", action: save).buttonStyle(.borderedProminent)
-                            .disabled(busy || !changed || !valid)
-                        if changed { Text("Cambios pendientes de guardar.").font(.caption).foregroundStyle(.secondary) }
-                        if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
-                    }.disabled(busy)
                     Section("Aperturas del enlace") {
                         if let statistics { statisticsContent(statistics) }
                         else if let statsError {
@@ -76,18 +65,33 @@ struct EditableReviewLinkView: View {
                         Text("Son aperturas del enlace, no personas únicas ni reseñas publicadas. Varias tarjetas con este enlace comparten el contador.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
+                    Section("Destino") {
+                        TextField("Dirección HTTPS", text: $target, axis: .vertical).lineLimit(2...4)
+                            .focused($targetFocused).autocorrectionDisabled()
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never).keyboardType(.URL)
+                            #endif
+                        if let google = record?.place.reviewURL ?? link.defaultGoogleURL {
+                            Button("Usar la reseña de Google del negocio") { target = google }
+                        }
+                        Toggle("Enlace activo", isOn: $active)
+                        Button("Guardar cambios", action: save).buttonStyle(.borderedProminent)
+                            .disabled(busy || !changed || !valid)
+                        if changed { Text("Cambios pendientes de guardar.").font(.caption).foregroundStyle(.secondary) }
+                        if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
+                    }.disabled(busy).id("card-destination")
                     Section("Enlace escrito en el NFC") {
                         Text(link.permanentURL).font(.caption).textSelection(.enabled)
                         #if os(iOS)
-                        Button("Escribir NFC") { showWriter = true }.buttonStyle(.borderedProminent)
+                        if record?.reviewLinkID == link.id { Button("Escribir NFC") { showWriter = true }.buttonStyle(.borderedProminent) }
                         Button("Copiar enlace de tarjeta") { UIPasteboard.general.string = link.permanentURL }
                         #else
                         Button("Copiar enlace de tarjeta") { MacFiles.copy(link.permanentURL) }
                         #endif
-                        if let url = URL(string: link.target_url), link.active { Link("Probar destino sin contar una apertura", destination: url) }
-                        NavigationLink("Escrituras registradas") { CardWritingHistoryView(recordID: recordID) }
+                        if let url = URL(string: link.target_url), link.active, CardLinkRules.validTarget(link.target_url, linkID: link.id) { Link("Probar destino sin contar una apertura", destination: url) }
+                        if record != nil { NavigationLink("Escrituras registradas") { CardWritingHistoryView(recordID: recordID) } }
                     }
-                } else {
+                } else if let record {
                     Section("Tu primera tarjeta") {
                         Text("Por defecto abrirá la reseña de Google de este negocio, usando su Place ID.")
                         Text(record.place.reviewURL).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
@@ -101,10 +105,13 @@ struct EditableReviewLinkView: View {
                     Text("Las estadísticas empiezan al activar el contador. El enlace necesita Internet para abrir su destino; tus ventas y datos de cuenta permanecen privados.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-            } else { Text("Inicia sesión en la cuenta de este cliente para gestionar su tarjeta.") }
+            } else if !busy { Text(message ?? (ownerMatches ? "Esta tarjeta ya no está disponible." : "Inicia sesión en la cuenta de este cliente para gestionar su tarjeta.")) }
             if busy { ProgressView() }
         }
         .navigationTitle("Tarjeta y estadísticas")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) { Button("Guardar", action: save).disabled(busy || !changed || !valid) }
             #if os(iOS)
@@ -113,7 +120,14 @@ struct EditableReviewLinkView: View {
         }
         .task(id: taskKey) {
             #if DEBUG
-            if fixtureMode { prepareScreenshot(); return }
+            if fixtureMode {
+                prepareScreenshot()
+                if ProcessInfo.processInfo.arguments.contains("--verification-card-destination") {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    scrollProxy.scrollTo("card-destination", anchor: .top)
+                }
+                return
+            }
             #endif
             await load()
         }
@@ -122,6 +136,7 @@ struct EditableReviewLinkView: View {
         .scrollDismissesKeyboard(.interactively)
         .sheet(isPresented: $showWriter) { NavigationStack { NFCCardWriteView(recordID: recordID) } }
         #endif
+        }
     }
     @ViewBuilder private func statisticsContent(_ value: CardStatistics) -> some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), alignment: .leading)], spacing: 12) {
@@ -144,21 +159,22 @@ struct EditableReviewLinkView: View {
         }.accessibilityElement(children: .combine)
     }
     private func persist(_ value: ManagedReviewLink, owner: String, email: String) throws {
-        guard account.session?.user.id == owner, cardWorkspaceOwner(store) == email,
-              var current = record else { throw CancellationError() }
+        guard account.session?.user.id == owner, cardWorkspaceOwner(store) == email else { throw CancellationError() }
+        guard var current = record else { return }
+        if let currentID = current.reviewLinkID, currentID != value.id { return }
         let old = current; try current.applyManagedLink(value)
         if current != old { try store.saveClient(current) }
     }
     private func load() async {
         link = nil; statistics = nil; statsError = nil; message = nil
-        guard let initial = record, let owner = account.session?.user.id, let email = account.session?.user.email, ownerMatches else { return }
+        guard let owner = account.session?.user.id, let email = account.session?.user.email, ownerMatches else { return }
         busy = true; defer { busy = false }
         do {
-            guard let id = initial.reviewLinkID else { target = initial.place.reviewURL; return }
+            guard let id = existingLinkID ?? record?.reviewLinkID else { target = record?.place.reviewURL ?? ""; return }
             if let value = try await account.managedReviewLink(id: id) {
                 try persist(value, owner: owner, email: email); link = value; target = value.target_url; active = value.active
                 await refreshStats(value.id)
-            } else { target = initial.place.reviewURL }
+            } else { target = record?.place.reviewURL ?? "" }
         } catch is CancellationError { link = nil; statistics = nil }
         catch { message = error.localizedDescription }
     }
@@ -194,25 +210,105 @@ struct EditableReviewLinkView: View {
     }
     #if DEBUG
     private func prepareScreenshot() {
-        guard var current = record else { return }
-        let id = current.reviewLinkID ?? UUID()
-        let value = ManagedReviewLink(id: id, user_id: "11111111-1111-4111-8111-111111111111", business_id: current.id,
-                                      target_url: current.place.reviewURL, active: true, revision: 1,
-                                      updated_at: ISO8601DateFormatter().string(from: Date()), label: current.place.name)
-        try? current.applyManagedLink(value)
-        if (current.nfcWrites ?? []).isEmpty {
-            if let event = try? current.prepareCardWriting(link: value) { try? current.finishCardWriting(event.id, confirmed: true) }
+        let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let output = folder.appendingPathComponent("card-feature-verification.json")
+        var checks: [String] = []
+        do {
+            guard var current = record else { throw CardLinkError.invalid }
+            let id = current.reviewLinkID ?? UUID()
+            let value = ManagedReviewLink(id: id, user_id: "11111111-1111-4111-8111-111111111111", business_id: current.id,
+                                          place_id: current.place.id, target_url: current.place.reviewURL, active: true, revision: 1,
+                                          updated_at: ISO8601DateFormatter().string(from: Date()), label: current.place.name)
+            try value.validate(owner: value.user_id, expected: id)
+            checks.append("Enlace fijo con destino predeterminado del Place ID del cliente")
+            try current.applyManagedLink(value)
+            if (current.nfcWrites ?? []).isEmpty {
+                let event = try current.prepareCardWriting(link: value); try current.finishCardWriting(event.id, confirmed: true)
+            }
+            guard CardLinkRules.confirmedWrites(current).first?.writtenURL == value.permanentURL else { throw CardLinkError.invalid }
+            checks.append("La ficha conserva el enlace NFC confirmado por el usuario")
+            if CardLinkRules.visits(current).isEmpty {
+                current.followUp = (current.followUp ?? []) + [FollowUpEvent(date: Date().addingTimeInterval(-86400), text: "Visita realizada", isVisit: true)]
+            }
+            try store.saveClient(current)
+            guard CardLinkRules.visits(current).count >= 1 else { throw CardLinkError.invalid }
+            checks.append("Visitas del cliente separadas de las aperturas del enlace")
+            #if os(iOS)
+            _ = try store.backup(photo: nil).validated(for: cardWorkspaceOwner(store))
+            #else
+            guard let snapshot = store.backup else { throw CardLinkError.invalid }
+            _ = try snapshot.validated(for: cardWorkspaceOwner(store))
+            #endif
+            checks.append("Historial NFC incluido en el formato privado de cuenta")
+            link = value; target = value.target_url; active = value.active
+            let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian)
+            formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "yyyy-MM-dd"
+            let days = (0..<14).map { index in CardOpeningDay(day: formatter.string(from: Calendar.current.date(byAdding: .day, value: index - 13, to: Date())!), opens: Int64(index % 4)) }
+            let total = days.reduce(Int64(0)) { $0 + $1.opens }
+            let sample = CardStatistics(link_id: id, total: total, last_7_days: days.suffix(7).reduce(0) { $0 + $1.opens }, last_30_days: total,
+                                        last_opened_at: value.updated_at, first_recorded_day: days.first?.day, daily: days)
+            try sample.validate(linkID: id); statistics = sample
+            checks.append("Contadores y gráfica nativos coherentes con el transporte de estadísticas")
+            try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
+        } catch {
+            message = error.localizedDescription
+            try? JSONSerialization.data(withJSONObject: ["passed": false, "checks": checks, "error": error.localizedDescription], options: .prettyPrinted).write(to: output)
         }
-        try? store.saveClient(current)
-        link = value; target = value.target_url; active = value.active
-        let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "yyyy-MM-dd"
-        let days = (0..<14).map { index in CardOpeningDay(day: formatter.string(from: Calendar.current.date(byAdding: .day, value: index - 13, to: Date())!), opens: Int64(index % 4)) }
-        let total = days.reduce(Int64(0)) { $0 + $1.opens }
-        statistics = CardStatistics(link_id: id, total: total, last_7_days: days.suffix(7).reduce(0) { $0 + $1.opens }, last_30_days: total,
-                                    last_opened_at: value.updated_at, first_recorded_day: days.first?.day, daily: days)
     }
     #endif
+}
+
+struct ManagedCardsListView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    #if os(iOS)
+    @EnvironmentObject private var auth: AuthStore
+    private var account: RemoteAuthClient { auth.accountService }
+    #else
+    @ObservedObject private var account = RemoteAuthClient.shared
+    #endif
+    @State private var links: [ManagedReviewLink] = []
+    @State private var busy = false
+    @State private var message: String?
+    @State private var query = ""
+    private var ownerMatches: Bool { account.session?.user.email != nil && account.session?.user.email == cardWorkspaceOwner(store) }
+    private var rows: [ManagedReviewLink] { links.filter { query.isEmpty || $0.label.localizedStandardContains(query) } }
+    var body: some View {
+        List {
+            if busy { ProgressView("Cargando tus tarjetas…") }
+            if let message { Text(message).foregroundStyle(.secondary); Button("Reintentar") { Task { await load() } } }
+            if ownerMatches {
+                ForEach(rows) { link in
+                    NavigationLink {
+                        EditableReviewLinkView(recordID: store.records.first(where: { $0.reviewLinkID == link.id })?.id ?? link.business_id ?? link.id, existingLinkID: link.id)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(link.label.isEmpty ? "Tarjeta del cliente" : link.label).font(.headline)
+                            Label(link.active ? "Activa" : "En pausa", systemImage: link.active ? "link" : "pause.circle")
+                                .font(.caption).foregroundStyle(link.active ? Color.blue : Color.orange)
+                            Text(link.target_url).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }.padding(.vertical, 4)
+                    }
+                }
+                if !busy && message == nil && rows.isEmpty {
+                    Text(links.isEmpty ? "Prepara una tarjeta desde un sitio para ver aquí su destino y sus estadísticas." : "Sin coincidencias.")
+                        .foregroundStyle(.secondary)
+                }
+            } else { Text("Inicia sesión para ver tus tarjetas.").foregroundStyle(.secondary) }
+        }.navigationTitle("Mis tarjetas")
+            .searchable(text: $query, prompt: "Buscar cliente")
+            .task(id: account.session?.user.id) { await load() }
+            .refreshable { await load() }
+    }
+    private func load() async {
+        links = []; message = nil
+        guard let owner = account.session?.user.id, ownerMatches else { return }
+        busy = true; defer { busy = false }
+        do {
+            let values = try await account.managedReviewLinks()
+            guard owner == account.session?.user.id && ownerMatches else { return }; links = values
+        } catch is CancellationError { links = [] }
+        catch { message = error.localizedDescription }
+    }
 }
 
 struct CardWritingHistoryView: View {
@@ -299,6 +395,7 @@ struct NFCCardWriteView: View {
     @State private var finished = false
     @State private var message: String?
     @State private var owner: String?
+    @State private var visible = true
     private var record: VisitRecord? { store.records.first { $0.id == recordID } }
     var body: some View {
         Form {
@@ -337,6 +434,8 @@ struct NFCCardWriteView: View {
         .navigationTitle("Escribir NFC").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { dismiss() } } }
         .task { await prepare() }
+        .onAppear { visible = true }
+        .onDisappear { visible = false }
         .onChange(of: phase) { phase in
             if phase != .active && launched { leftApp = true }
             if phase == .active && leftApp && launched && !finished { leftApp = false; confirm = true }
@@ -348,12 +447,15 @@ struct NFCCardWriteView: View {
         } message: { Text("Solo se registrará como escrita cuando lo confirmes.") }
     }
     private func current(_ expected: String) throws -> VisitRecord {
-        guard auth.accountService.session?.user.id == expected,
+        guard visible, !Task.isCancelled, auth.accountService.session?.user.id == expected,
               store.loadedUserEmail == auth.accountService.session?.user.email,
               let value = record else { throw CancellationError() }; return value
     }
     private func prepare() async {
-        guard !busy, !launched, let initial = record, let owner = auth.accountService.session?.user.id else { return }
+        guard !busy, !launched else { return }
+        guard let initial = record, let owner = auth.accountService.session?.user.id else {
+            message = "Inicia sesión para preparar la tarjeta de este cliente."; return
+        }
         self.owner = owner; busy = true; message = nil; defer { busy = false }
         do {
             let value = try await auth.accountService.ensureManagedReviewLink(for: initial)

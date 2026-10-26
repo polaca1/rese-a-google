@@ -10,8 +10,9 @@ create table if not exists public.reviewnfcgo_links (
  updated_at timestamptz not null default now()
 );
 alter table public.reviewnfcgo_links add column if not exists business_id uuid;
-alter table public.reviewnfcgo_links add column if not exists label text not null default '';
-alter table public.reviewnfcgo_links add column if not exists revision bigint not null default 1;
+alter table public.reviewnfcgo_links add column if not exists place_id text check (length(place_id) between 1 and 500);
+alter table public.reviewnfcgo_links add column if not exists label text not null default '' check (length(label) <= 500);
+alter table public.reviewnfcgo_links add column if not exists revision bigint not null default 1 check (revision > 0);
 alter table public.reviewnfcgo_links add column if not exists created_at timestamptz not null default now();
 create index if not exists reviewnfcgo_links_owner_business on public.reviewnfcgo_links(user_id, business_id);
 create unique index if not exists reviewnfcgo_links_one_business on public.reviewnfcgo_links(user_id, business_id) where business_id is not null;
@@ -90,7 +91,7 @@ begin
  -- Limpieza acotada del recibo técnico; los totales diarios se conservan.
  delete from public.reviewnfcgo_link_receipts where request_id in (
   select request_id from public.reviewnfcgo_link_receipts
-  where created_at < instant - interval '7 days' order by created_at limit 100
+  where created_at < instant - interval '7 days' order by created_at limit 100 for update skip locked
  );
  return destination;
 end;

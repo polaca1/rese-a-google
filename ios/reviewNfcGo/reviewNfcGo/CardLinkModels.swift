@@ -17,16 +17,24 @@ struct ManagedReviewLink: Decodable, Equatable, Identifiable {
     let id: UUID
     let user_id: String
     let business_id: UUID?
+    var place_id: String? = nil
     let target_url: String
     let active: Bool
     let revision: Int64
     let updated_at: String
     let label: String
     var permanentURL: String { ReviewLinkAddress.permanent(id) }
+    var defaultGoogleURL: String? {
+        guard let place_id, !place_id.isEmpty, place_id.count <= 500 else { return nil }
+        var url = URLComponents(string: "https://search.google.com/local/writereview")!
+        url.queryItems = [URLQueryItem(name: "placeid", value: place_id)]; return url.string
+    }
     func validate(owner: String, expected: UUID) throws {
-        guard id == expected, user_id.lowercased() == owner.lowercased(), revision > 0, revision < Int64.max,
+        guard UUID(uuidString: owner) != nil, UUID(uuidString: user_id) != nil,
+              id == expected, user_id.lowercased() == owner.lowercased(), revision > 0, revision < Int64.max,
               label.count <= 500, ReviewLinkAddress.validTarget(target_url),
-              CardLinkRules.validTarget(target_url, linkID: id), CardLinkDates.timestamp(updated_at) != nil else { throw CardLinkError.invalid }
+              place_id.map({ !$0.isEmpty && $0.count <= 500 }) ?? true,
+              CardLinkDates.timestamp(updated_at) != nil else { throw CardLinkError.invalid }
     }
 }
 
@@ -111,12 +119,14 @@ enum ClientDirectoryFilter: String, CaseIterable, Identifiable {
 
 extension VisitRecord {
     mutating func applyManagedLink(_ link: ManagedReviewLink) throws {
+        try link.validate(owner: link.user_id, expected: link.id)
         guard link.business_id == nil || link.business_id == id,
               reviewLinkID == nil || reviewLinkID == link.id else { throw CardLinkError.invalid }
         reviewLinkID = link.id; reviewLinkTarget = link.target_url; reviewLinkActive = link.active
     }
     mutating func prepareCardWriting(link: ManagedReviewLink, now: Date = Date()) throws -> NFCWritingEvent {
         guard link.active else { throw CardLinkError.inactive }
+        guard CardLinkRules.validTarget(link.target_url, linkID: link.id) else { throw CardLinkError.invalid }
         try applyManagedLink(link)
         let event = NFCWritingEvent(date: now, linkID: link.id, writtenURL: link.permanentURL, initialTarget: link.target_url)
         nfcWrites = Array(((nfcWrites ?? []) + [event]).suffix(1000))

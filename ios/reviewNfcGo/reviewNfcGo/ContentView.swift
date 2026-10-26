@@ -10,6 +10,12 @@ struct RootView: View {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--verification-blur-auth") {
                 AuthView()
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-card-details") || ProcessInfo.processInfo.arguments.contains("--verification-card-destination") {
+                NavigationStack { EditableReviewLinkView(recordID: UUID(uuidString: "E686DAE0-73ED-4A82-B1D9-A2062F2EACB4")!) }
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-card-writes") {
+                NavigationStack { CardWritingHistoryView(recordID: UUID(uuidString: "E686DAE0-73ED-4A82-B1D9-A2062F2EACB4")!) }
+            } else if ProcessInfo.processInfo.arguments.contains("--verification-customer-visits") {
+                NavigationStack { ClientVisitsView(recordID: UUID(uuidString: "E686DAE0-73ED-4A82-B1D9-A2062F2EACB4")!) }
             } else if ProcessInfo.processInfo.arguments.contains("--verification-suite-sale") {
                 NavigationStack { QuickSaleView() }
             } else if ProcessInfo.processInfo.arguments.contains("--verification-suite-clients") {
@@ -86,6 +92,7 @@ struct MainTabView: View {
             openPendingBusiness()
             openPendingWidgetSection()
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--verification-customers") { selectedTab = 1 }
             if ProcessInfo.processInfo.arguments.contains("--verification-profile") { selectedTab = 4 }
             if ProcessInfo.processInfo.arguments.contains("--verification-history") { selectedTab = 3 }
             if ProcessInfo.processInfo.arguments.contains("--verification-money") || ProcessInfo.processInfo.arguments.contains("--verification-inventory") || ProcessInfo.processInfo.arguments.contains("--verification-expense") { selectedTab = 2 }
