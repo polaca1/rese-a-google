@@ -42,8 +42,7 @@ jobs:
           for name in ['source','build','mac','server']:
               job=next(x for x in jobs if x['name']==name);assert job['conclusion']=='success',name
           source=next(x for x in jobs if x['name']=='source')
-          request=urllib.request.Request('https://api.github.com/'+base+'/actions/jobs/'+str(source['id'])+'/logs',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']})
-          with urllib.request.urlopen(request,timeout=30) as response: log=response.read().decode()
+          log=subprocess.check_output(['gh','api','--allow-escape-sequences',base+'/actions/jobs/'+str(source['id'])+'/logs'],text=True)
           assert commit in log,'El commit no coincide con la compilacion'
           print('Compilacion completa y commit comprobados')
           PY
