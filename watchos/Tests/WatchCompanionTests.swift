@@ -28,7 +28,8 @@ import Foundation
         do { _ = try WatchCompanionSnapshot.decode(Data(repeating: 0, count: 60_001)); preconditionFailure("Huge context accepted") } catch { checks += 1 }
         var finished = value; finished.businesses[0].arrived = true
         check(finished.nextVisit == nil, "Arrival stops showing the visit as pending")
-        check(!String(data: try JSONEncoder().encode(value), encoding: .utf8)!.contains("example.invalid"), "No login credentials or raw account email travel to Watch")
+        let exported = try JSONEncoder().encode(value)
+        check(!String(data: exported, encoding: .utf8)!.contains("example.invalid"), "No login credentials or raw account email travel to Watch")
         print("Watch companion snapshot: \(checks) checks passed")
     }
 }
