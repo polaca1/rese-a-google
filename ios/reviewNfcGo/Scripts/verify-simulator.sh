@@ -319,3 +319,31 @@ xcrun simctl ui "$task_device" appearance light
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-major-today
 sleep 3
 xcrun simctl io "$task_device" screenshot "$task_output_dir/major6-today.png"
+
+
+# Major 7: real native client/card controls with isolated fixture data; no live opens.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-card-details
+for task_attempt in $(seq 1 30); do
+    if [ -f "$task_container/Documents/card-feature-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/card-feature-verification.json" "$task_output_dir/card-feature-verification.log"
+python3 - "$task_output_dir/card-feature-verification.log" <<'PYCARD'
+import json,sys
+result=json.load(open(sys.argv[1]));print(result)
+assert result['passed'] and len(result['checks'])==5,result
+PYCARD
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/card-stats-light.png"
+xcrun simctl ui "$task_device" appearance dark
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/card-stats-dark.png"
+for task_screen in card-destination card-writes customer-visits customers; do
+    xcrun simctl terminate "$task_device" "$task_bundle_id"
+    xcrun simctl ui "$task_device" appearance light
+    xcrun simctl launch "$task_device" "$task_bundle_id" "--verification-$task_screen"
+    sleep 3
+    xcrun simctl io "$task_device" screenshot "$task_output_dir/$task_screen-light.png"
+done

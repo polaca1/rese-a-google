@@ -21,6 +21,7 @@ import PDFKit
             checks += try await verifySupabaseAccounts()
             checks += try await verifyGoogleAccounts()
             checks += try await verifyGooglePasswordAccess()
+            checks += try await verifyManagedCards()
             let liveSuite = "reviewNfcGo.live-service." + UUID().uuidString
             let liveDefaults = UserDefaults(suiteName: liveSuite)!
             defer { liveDefaults.removePersistentDomain(forName: liveSuite) }
@@ -174,6 +175,100 @@ import PDFKit
             try report(passed: true, checks: checks, error: nil, output: output)
         } catch { try? report(passed: false, checks: checks, error: error.localizedDescription, output: output) }
         NSApp.terminate(nil)
+    }
+    private static func verifyManagedCards() async throws -> [String] {
+        var checks: [String] = []
+        func check(_ value: Bool, _ text: String) throws {
+            guard value else { throw CardLinkError.invalid }; checks.append(text)
+        }
+        let suite = "reviewNfcGo.cards-verification." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [AuthVerificationProtocol.self]
+        let network = URLSession(configuration: configuration)
+        let account = RemoteAuthClient(defaults: defaults, credentialService: suite, networkSession: network)
+        defer { account.clearSession(); defaults.removePersistentDomain(forName: suite); AuthVerificationProtocol.handler = nil; network.invalidateAndCancel() }
+        let userID = UUID().uuidString.lowercased(), email = "cards@example.invalid"
+        let user: [String: Any] = ["id": userID, "email": email, "user_metadata": ["full_name": "Prueba tarjetas"]]
+        let key = "sb_publishable_verification0123456789"
+        var values: [String: [String: Any]] = [:]
+        var inserts = 0, patches = 0
+        var badOwner = false, failStatistics = false, wrongStatistics = false, disconnected = false
+        AuthVerificationProtocol.handler = { request in
+            let url = request.url!, path = url.path
+            if disconnected { throw URLError(.notConnectedToInternet) }
+            if url.host == "raw.githubusercontent.com" { return (200, ["schema": 1, "provider": "supabase", "serverURL": "https://abcdefghijklmnopqrst.supabase.co", "publishableKey": key]) }
+            if path == "/auth/v1/token" { return (200, ["access_token": "cards-test-access", "refresh_token": "cards-test-refresh", "expires_in": 3600, "user": user]) }
+            if path == "/auth/v1/user" { return (200, user) }
+            if path == "/auth/v1/logout" { return (200, [:]) }
+            guard request.value(forHTTPHeaderField: "Authorization") == "Bearer cards-test-access",
+                  request.value(forHTTPHeaderField: "apikey") == key else { throw CardLinkError.invalid }
+            let data = AuthVerificationProtocol.bodyData(request)
+            var body: [String: Any] = [:]
+            if !data.isEmpty { body = try JSONSerialization.jsonObject(with: data) as! [String: Any] }
+            if path == "/rest/v1/rpc/reviewnfcgo_link_stats" {
+                if failStatistics { return (503, ["message": "temporary failure"]) }
+                return (200, ["link_id": wrongStatistics ? UUID().uuidString : body["p_token"]!, "total": 3, "last_7_days": 3, "last_30_days": 3,
+                              "last_opened_at": "2026-10-26T12:00:00Z", "first_recorded_day": "2026-10-26", "daily": [["day": "2026-10-26", "opens": 3]]])
+            }
+            guard path == "/rest/v1/reviewnfcgo_links" else { throw CardLinkError.invalid }
+            let query = Dictionary(uniqueKeysWithValues: (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+            if request.httpMethod == "POST" {
+                guard body["user_id"] as? String == userID, let id = body["id"] as? String else { throw CardLinkError.invalid }
+                if values[id] != nil { return (409, ["code": "23505"]) }
+                var row = body; row["revision"] = 1; row["updated_at"] = "2026-10-26T12:00:00Z"
+                values[id] = row; inserts += 1; return (201, [row])
+            }
+            guard query["user_id"] == "eq." + userID else { throw CardLinkError.invalid }
+            let filtered = values.values.filter { row in
+                (query["id"] == nil || query["id"] == "eq." + (row["id"] as! String)) &&
+                (query["business_id"] == nil || query["business_id"] == "eq." + (row["business_id"] as! String))
+            }
+            if request.httpMethod == "PATCH" {
+                guard var row = filtered.first, query["revision"] == "eq.\(row["revision"] as! Int)" else { return (200, []) }
+                row["target_url"] = body["target_url"]; row["active"] = body["active"]
+                row["revision"] = (row["revision"] as! Int) + 1
+                values[row["id"] as! String] = row; patches += 1; return (200, [row])
+            }
+            return (200, filtered.map { row in
+                var copy = row; if badOwner { copy["user_id"] = UUID().uuidString }; return copy
+            })
+        }
+        _ = try await account.authenticate(email: email, password: "Verification-only-password")
+        var record = VisitRecord(place: PlaceResult(id: "ChIJ-test-card", name: "Café de prueba", address: "Calle Mayor", latitude: 40, longitude: -3))
+        let created = try await account.ensureManagedReviewLink(for: record)
+        try check(inserts == 1 && created.target_url == record.place.reviewURL && created.business_id == record.id, "Nueva tarjeta se crea con Place ID, cliente y propietario autenticado")
+        let reused = try await account.ensureManagedReviewLink(for: record)
+        try check(inserts == 1 && reused.id == created.id, "Otro dispositivo reutiliza el enlace del cliente sin crear otro token")
+        try record.applyManagedLink(created)
+        let changed = try await account.updateManagedReviewLink(created, target: "https://example.org/new-card-target", active: false)
+        try check(changed.id == created.id && changed.revision == 2 && !changed.active && patches == 1,
+                  "Cambio y pausa usan la revisión esperada y conservan el enlace NFC")
+        let retained = try await account.ensureManagedReviewLink(for: record)
+        try check(retained.id == changed.id && retained.target_url == changed.target_url && !retained.active && inserts == 1,
+                  "Preparar otra tarjeta no restaura por accidente un destino o estado antiguos")
+        do { _ = try await account.updateManagedReviewLink(created, target: record.place.reviewURL, active: true); throw DesktopError.invalidBusiness }
+        catch CardLinkError.conflict { checks.append("Una revisión antigua no pisa cambios remotos") }
+        let statistics = try await account.reviewLinkStatistics(id: created.id)
+        try check(statistics.total == 3 && statistics.link_id == created.id, "Estadísticas se consultan con la sesión y el token del cliente correctos")
+        let listed = try await account.managedReviewLinks()
+        try check(listed.count == 1 && listed.first?.id == created.id, "Mis tarjetas conserva acceso a enlaces aunque no exista su ficha local")
+        badOwner = true
+        do { _ = try await account.managedReviewLink(id: created.id); throw DesktopError.invalidBusiness }
+        catch CardLinkError.invalid { checks.append("Respuesta de otra identidad no entra en la ficha") }
+        badOwner = false; wrongStatistics = true
+        do { _ = try await account.reviewLinkStatistics(id: created.id); throw DesktopError.invalidBusiness }
+        catch CardLinkError.invalid { checks.append("Estadísticas de otro token se rechazan") }
+        wrongStatistics = false; failStatistics = true
+        do { _ = try await account.reviewLinkStatistics(id: created.id); throw DesktopError.invalidBusiness }
+        catch CardLinkError.unavailable { checks.append("Fallo del contador no se convierte en cero aperturas ficticias") }
+        failStatistics = false; disconnected = true
+        do { _ = try await account.managedReviewLink(id: created.id); throw DesktopError.invalidBusiness }
+        catch { try check(account.signedIn, "Un fallo temporal conserva la cuenta y sus enlaces") }
+        disconnected = false; account.clearSession()
+        do { _ = try await account.updateManagedReviewLink(changed, target: record.place.reviewURL, active: true); throw DesktopError.invalidBusiness }
+        catch is CancellationError { checks.append("Cerrar sesión impide actualizar una tarjeta con la identidad anterior") }
+        return checks
     }
     private static func verifyCentralAccounts() async throws -> [String] {
         var checks: [String] = []

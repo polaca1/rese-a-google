@@ -111,11 +111,12 @@ struct MacBusinessesView: View {
     @EnvironmentObject private var navigation: MacNavigation
     @State private var query = ""
     @State private var status = "Todos"
+    @State private var clientFilter = ClientDirectoryFilter.all
     @State private var sorting = [KeyPathComparator(\VisitRecord.place.name)]
     private var rows: [VisitRecord] {
         store.records.filter { record in
-            (status == "Todos" || record.status.rawValue == status) &&
-            (query.isEmpty || (record.place.name + " " + record.place.address + " " + record.notes).localizedStandardContains(query))
+            clientFilter.matches(record, income: store.money.businessIncome(record.id), cards: store.money.businessCards(record.id)) && (status == "Todos" || record.status.rawValue == status) &&
+            (query.isEmpty || (record.place.name + " " + record.place.address + " " + record.notes + " " + (record.contactName ?? "")).localizedStandardContains(query))
         }.sorted(using: sorting)
     }
     var body: some View {
@@ -123,6 +124,9 @@ struct MacBusinessesView: View {
             VStack(spacing: 0) {
                 HStack {
                     TextField("Buscar negocio, dirección o nota", text: $query).textFieldStyle(.roundedBorder)
+                    Picker("Mostrar", selection: $clientFilter) {
+                        ForEach(ClientDirectoryFilter.allCases) { Text($0.rawValue).tag($0) }
+                    }.frame(maxWidth: 150)
                     Picker("Estado", selection: $status) {
                         Text("Todos").tag("Todos")
                         ForEach(VisitStatus.allCases, id: \.rawValue) { Text($0.displayName).tag($0.rawValue) }
@@ -136,6 +140,7 @@ struct MacBusinessesView: View {
                     Table(rows, selection: $navigation.selectedBusiness, sortOrder: $sorting) {
                         TableColumn("Negocio", value: \.place.name).width(min: 145, ideal: 210)
                         TableColumn("Estado", value: \.status.rawValue) { Text($0.status.displayName) }.width(min: 100, ideal: 130)
+                        TableColumn("Visitas") { Text(String(CardLinkRules.visits($0).count)).monospacedDigit() }.width(60)
                         TableColumn("Tarjetas") { Text(String(store.money.businessCards($0.id))).monospacedDigit() }.width(65)
                         TableColumn("Ingreso") { Text(euro(store.money.businessIncome($0.id))).monospacedDigit() }.width(95)
                     }
@@ -164,6 +169,14 @@ struct MacBusinessInspector: View {
                 Text(record.place.name).font(.title2.bold()).textSelection(.enabled)
                 Text(record.place.address).foregroundStyle(.secondary).textSelection(.enabled)
                 NavigationLink("Contacto e historial del cliente") { ClientTimelineView(recordID: record.id) }
+                NavigationLink("Tarjeta y estadísticas") { EditableReviewLinkView(recordID: record.id) }
+                NavigationLink("Visitas al cliente") { ClientVisitsView(recordID: record.id) }
+                if let written = CardLinkRules.confirmedWrites(record).first {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Enlace escrito en NFC", systemImage: "wave.3.right").font(.headline)
+                        Text(written.writtenURL).font(.caption).textSelection(.enabled)
+                    }
+                }
                 Button("Editar negocio") { navigation.sheet = .business(record.id) }.buttonStyle(.borderedProminent)
                 Divider()
                 LabeledContent("Estado", value: record.trackingStage.rawValue)

@@ -9,42 +9,62 @@ import ActivityKit
 
 struct HistoryView: View {
     @EnvironmentObject var store: AppStore
-
+    @State private var filter = ClientDirectoryFilter.all
+    @State private var query = ""
+    private var rows: [VisitRecord] {
+        store.records.filter { record in
+            filter.matches(record, income: store.money.businessIncome(record.id), cards: store.money.businessCards(record.id)) &&
+            (query.isEmpty || (record.place.name + " " + record.place.address + " " + (record.contactName ?? "")).localizedStandardContains(query))
+        }
+    }
     var body: some View {
         List {
+            Section {
+                Picker("Mostrar", selection: $filter) {
+                    ForEach(ClientDirectoryFilter.allCases) { Text($0.rawValue).tag($0) }
+                }.pickerStyle(.segmented)
+            }.listRowBackground(Color.clear)
             NavigationLink { BusinessHubView() } label: { Label("Actividad y seguimiento", systemImage: "person.2") }
-            if store.records.isEmpty {
+            NavigationLink { ManagedCardsListView() } label: { Label("Mis tarjetas y estadísticas", systemImage: "chart.bar.xaxis") }
+            if rows.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "building.2.crop.circle").font(.system(size: 42)).foregroundStyle(.secondary)
-                    Text("Todavía no has guardado ningún sitio").font(.headline)
-                    Text("Cuando copies un enlace desde Inicio, aparecerá aquí.")
+                    Image(systemName: filter == .customers ? "person.2" : "building.2.crop.circle").font(.system(size: 42)).foregroundStyle(.secondary)
+                    Text(store.records.isEmpty ? "Todavía no has guardado ningún sitio" : query.isEmpty ? (filter == .customers ? "Aún no hay clientes con compras" : "Sin visitas registradas o previstas") : "Sin coincidencias").font(.headline)
+                    Text(store.records.isEmpty ? "Guarda un negocio desde Inicio para preparar su tarjeta." : "Los clientes aparecen aquí cuando registras una venta.")
                         .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity).padding(.vertical, 60)
-                .listRowBackground(Color.clear)
+                }.frame(maxWidth: .infinity).padding(.vertical, 45).listRowBackground(Color.clear)
             } else {
-                ForEach(store.records) { record in
+                ForEach(rows) { record in
                     NavigationLink(value: record.id) {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(record.place.name).font(.headline)
                             Text(record.place.address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             HStack {
-                                Text(record.trackingStage.rawValue)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(record.status == .completed ? .green : AppTheme.blue)
+                                let customer = store.money.businessIncome(record.id) > 0 || store.money.businessCards(record.id) > 0
+                                Text(customer ? "Cliente" : record.trackingStage.rawValue).font(.caption.weight(.semibold)).foregroundStyle(customer ? .green : AppTheme.blue)
                                 Spacer()
                                 if store.money.businessIncome(record.id) > 0 {
-                                    Text(Double(store.money.businessIncome(record.id)) / 100, format: .currency(code: "EUR"))
-                                        .font(.subheadline.bold())
+                                    Text(Double(store.money.businessIncome(record.id)) / 100, format: .currency(code: "EUR")).font(.subheadline.bold())
                                 }
                             }
+                            HStack(spacing: 12) {
+                                Label("\(CardLinkRules.visits(record).count) visitas", systemImage: "calendar")
+                                if !CardLinkRules.confirmedWrites(record).isEmpty { Label("NFC registrado", systemImage: "wave.3.right") }
+                                if record.reviewLinkActive == false { Image(systemName: "pause.circle").accessibilityLabel("Enlace en pausa") }
+                            }.font(.caption2).foregroundStyle(.secondary)
                         }.padding(.vertical, 4)
                     }
+                }.onDelete { offsets in
+                    let ids = Set(offsets.map { rows[$0].id })
+                    store.delete(at: IndexSet(store.records.indices.filter { ids.contains(store.records[$0].id) }))
                 }
-                .onDelete(perform: store.delete)
             }
         }
-        .navigationTitle("Mis sitios")
+        .navigationTitle("Sitios y clientes")
+        #if DEBUG
+        .onAppear { if ProcessInfo.processInfo.arguments.contains("--verification-customers") { filter = .customers } }
+        #endif
+        .searchable(text: $query, prompt: "Buscar negocio o cliente")
         .toolbar { ToolbarItem(placement: .primaryAction) { NavigationLink { WorkspaceRouteView() } label: { Image(systemName: "point.topleft.down.to.point.bottomright.curvepath") }.accessibilityLabel("Ruta del día") } }
     }
 }
@@ -52,6 +72,7 @@ struct HistoryView: View {
 struct RecordDetailView: View {
     @EnvironmentObject var store: AppStore
     let recordID: UUID
+    @State private var showWriter = false
     #if DEBUG
     @State private var verificationEditorPresented = false
     #endif
@@ -65,6 +86,21 @@ struct RecordDetailView: View {
                     VStack(spacing: 16) {
                         NavigationLink { QuickSaleView(initialBusinessID: recordID) } label: { Label("Registrar venta", systemImage: "plus.circle.fill").frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent)
                         NavigationLink("Seguimiento e historial") { ClientTimelineView(recordID: recordID) }
+                        NavigationLink("Visitas al cliente") { ClientVisitsView(recordID: recordID) }
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("Tarjeta del cliente", systemImage: "wave.3.right").font(.headline)
+                            if let written = CardLinkRules.confirmedWrites(record).first {
+                                Text(written.writtenURL).font(.caption).textSelection(.enabled)
+                                Text("Escritura confirmada: " + (written.confirmedAt ?? written.date).formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                            } else { Text("Todavía no hay una escritura confirmada.").font(.footnote).foregroundStyle(.secondary) }
+                            if let id = record.reviewLinkID {
+                                Text("Destino: " + (record.reviewLinkTarget ?? record.place.reviewURL)).font(.footnote).foregroundStyle(.secondary)
+                                if record.reviewLinkActive == false { Label("Enlace en pausa", systemImage: "pause.circle").foregroundStyle(.orange) }
+                                Text(ReviewLinkAddress.permanent(id)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                            }
+                            NavigationLink("Tarjeta, estadísticas y destino") { EditableReviewLinkView(recordID: recordID) }
+                            NavigationLink("Ver escrituras NFC") { CardWritingHistoryView(recordID: recordID) }
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(18).background(AppTheme.card, in: RoundedRectangle(cornerRadius: 20))
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 5) {
@@ -138,7 +174,7 @@ struct RecordDetailView: View {
 
                         VStack(spacing: 10) {
                             Button {
-                                ExternalNFCWriter.write(reviewURL: record.place.reviewURL)
+                                showWriter = true
                             } label: {
                                 Label("Escribir NFC", systemImage: "wave.3.right")
                                     .frame(maxWidth: .infinity)
@@ -146,9 +182,9 @@ struct RecordDetailView: View {
                             .appPrimaryButton()
 
                             Button {
-                                UIPasteboard.general.string = record.place.reviewURL
+                                UIPasteboard.general.string = record.reviewLinkID.map(ReviewLinkAddress.permanent) ?? record.place.reviewURL
                             } label: {
-                                Label("Copiar enlace de reseña", systemImage: "doc.on.doc")
+                                Label(record.reviewLinkID == nil ? "Copiar enlace de reseña" : "Copiar enlace de tarjeta", systemImage: "doc.on.doc")
                                     .frame(maxWidth: .infinity)
                             }
                             .appSecondaryButton()
@@ -194,6 +230,7 @@ struct RecordDetailView: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .sheet(isPresented: $showWriter) { NavigationStack { NFCCardWriteView(recordID: recordID) } }
         #if DEBUG
         .navigationDestination(isPresented: $verificationEditorPresented) {
             RecordEditView(recordID: recordID)
