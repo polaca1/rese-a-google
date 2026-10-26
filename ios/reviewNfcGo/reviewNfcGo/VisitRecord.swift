@@ -49,16 +49,6 @@ struct FollowUpEvent: Identifiable, Codable, Equatable {
     var text: String
     var isVisit = false
 }
-enum NFCWritingStatus: String, Codable { case prepared, confirmed, cancelled }
-struct NFCWritingEvent: Identifiable, Codable, Equatable {
-    var id = UUID()
-    var date = Date()
-    var linkID: UUID
-    var writtenURL: String
-    var initialTarget: String
-    var status: NFCWritingStatus = .prepared
-    var confirmedAt: Date? = nil
-}
 struct VisitRecord: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var place: PlaceResult
@@ -82,7 +72,6 @@ struct VisitRecord: Identifiable, Codable, Equatable {
     var reviewLinkID: UUID? = nil
     var reviewLinkTarget: String? = nil
     var reviewLinkActive: Bool? = nil
-    var nfcWrites: [NFCWritingEvent]? = nil
     var interested: Bool? = nil
     var followUp: [FollowUpEvent]? = nil
     var hasQuickSales: Bool? = nil
@@ -124,7 +113,7 @@ struct VisitRecord: Identifiable, Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case contactName, contactEmail, contactPhone, reviewLinkID, reviewLinkTarget, reviewLinkActive
-        case interested, followUp, hasQuickSales, nfcWrites
+        case interested, followUp, hasQuickSales
         case id, place, createdAt, earnings, cardsSold, unitEarnings, inventoryProductID, arrivedAt, notes, status, reminderDate, notificationDate
     }
 }
@@ -154,7 +143,6 @@ extension VisitRecord {
         contactEmail = try values.decodeIfPresent(String.self, forKey: .contactEmail)
         contactPhone = try values.decodeIfPresent(String.self, forKey: .contactPhone)
         reviewLinkID = try values.decodeIfPresent(UUID.self, forKey: .reviewLinkID)
-        nfcWrites = try values.decodeIfPresent([NFCWritingEvent].self, forKey: .nfcWrites)
         reviewLinkTarget = try values.decodeIfPresent(String.self, forKey: .reviewLinkTarget)
         reviewLinkActive = try values.decodeIfPresent(Bool.self, forKey: .reviewLinkActive)
         interested = try values.decodeIfPresent(Bool.self, forKey: .interested)

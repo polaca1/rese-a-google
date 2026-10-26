@@ -47,14 +47,6 @@ struct BusinessBackup: Codable {
             guard (1...1_000_000_000).contains(sale.incomeCents), money.transactions.contains(where: { $0.saleID == sale.id && $0.kind == .income && $0.cents == sale.incomeCents }) else { throw BackupError.invalid }
         }
         for record in records {
-            guard (record.nfcWrites?.count ?? 0) <= 1000,
-                  Set((record.nfcWrites ?? []).map(\.id)).count == (record.nfcWrites?.count ?? 0),
-                  (record.nfcWrites ?? []).allSatisfy({
-                    $0.writtenURL == ReviewLinkAddress.permanent($0.linkID)
-                      && ReviewLinkAddress.validTarget($0.initialTarget)
-                      && $0.date.timeIntervalSince1970.isFinite
-                      && ($0.status == .confirmed ? $0.confirmedAt != nil : $0.confirmedAt == nil)
-                  }) else { throw BackupError.invalid }
             guard (record.contactName?.count ?? 0) <= 500, (record.contactEmail?.count ?? 0) <= 254, (record.contactPhone?.count ?? 0) <= 100,
                   record.reviewLinkTarget.map({ ReviewLinkAddress.validTarget($0) }) ?? true else { throw BackupError.invalid }
             guard (record.followUp?.count ?? 0) <= 1000, (record.followUp ?? []).allSatisfy({ $0.text.count <= 100_000 }) else { throw BackupError.invalid }

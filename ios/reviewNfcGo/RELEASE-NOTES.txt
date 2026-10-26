@@ -1,11 +1,7 @@
-reviewNfcGo 7.0: clientes, tarjetas y estadísticas.
+reviewNfcGo 6.0.5: el widget muestra tu saldo real.
 
-Sitios reúne todos tus negocios, los clientes que han comprado y sus visitas registradas o previstas. Las fichas muestran el enlace NFC confirmado y su historial de escritura.
+Corregida la lectura de datos compartidos cuando SideStore vuelve a firmar la app. El widget identifica el grupo autorizado del perfil instalado, además de conservar compatibilidad con AltStore Classic. Al volver a abrir la app se actualizan los datos del widget.
 
-Las tarjetas nuevas usan un enlace fijo con destino inicial a la reseña de Google de su Place ID. Desde Tarjeta y estadísticas puedes cambiar el destino, volver a Google, pausar y reactivar el mismo enlace, incluso con la etiqueta NFC bloqueada. Mis tarjetas mantiene el acceso a los enlaces aunque se elimine una ficha local.
+Si no puede cargar los datos, muestra «Abre reviewNfcGo» en lugar de inventar un saldo de 0 €. Se mantienen el saldo, ingresos, gastos y tarjetas de tu cuenta, sin cambiar los datos ni el inicio de sesión.
 
-Estadísticas privadas de aperturas totales, últimos 7/30 días y gráfica diaria. Son aperturas del enlace, no personas únicas ni reseñas publicadas; empiezan al activar el contador y no inventan datos anteriores.
-
-La app prepara el enlace antes de abrir Simply NFC y te pide confirmar la escritura al regresar. Las tarjetas antiguas con Google directo necesitan regrabarse; si están bloqueadas, requieren otra etiqueta.
-
-Actualiza sin borrar la app. Actualiza también Mac a 3.0 para conservar las funciones y el historial nuevos. Capturas reales de la compilación disponibles en la fuente.
+Actualiza sin borrar la app y ábrela una vez después de actualizar. Capturas de las pruebas de esta versión incluidas en la fuente.

@@ -23,7 +23,6 @@ struct BusinessHubView: View {
                 NavigationLink { InventoryLevelsView() } label: { Label("Stock mínimo", systemImage: "shippingbox") }
                 NavigationLink { QuickSaleView() } label: { Label("Registrar venta", systemImage: "plus.circle.fill") }
                 NavigationLink { ClientFollowUpView() } label: { Label("Seguimiento de clientes", systemImage: "person.2") }
-                NavigationLink { ManagedCardsListView() } label: { Label("Mis tarjetas y estadísticas", systemImage: "chart.bar.xaxis") }
                 NavigationLink { WorkspaceRouteView() } label: { Label("Ruta del día", systemImage: "map") }
             }
             Section("Resultados") {
@@ -197,8 +196,7 @@ struct ClientTimelineView: View {
                     if let phone = record.contactPhone, !phone.isEmpty { Text(phone).textSelection(.enabled) }
                     NavigationLink("Editar contacto") { ClientContactView(recordID: recordID) }
                     NavigationLink("Presupuestos de este cliente") { QuotesWorkspaceView(businessID: recordID) }
-                    NavigationLink("Tarjeta y estadísticas") { EditableReviewLinkView(recordID: recordID) }
-                    NavigationLink("Ver visitas al cliente") { ClientVisitsView(recordID: recordID) }
+                    NavigationLink("Enlace de tarjeta actualizable") { EditableReviewLinkView(recordID: recordID) }
                 }
                 Section("Seguimiento") {
                     Picker("Estado", selection: $stage) { ForEach(ContactStage.allCases) { Text($0.rawValue).tag($0) } }
@@ -624,7 +622,7 @@ struct QuoteDetailView: View {
     }
     private var storeOwner: String {
         #if os(iOS)
-        return store.loadedUserEmail ?? ""
+        return RemoteAuthClient.shared.session?.user.email ?? ""
         #else
         return store.owner ?? ""
         #endif
@@ -739,5 +737,64 @@ struct InventoryLevelsView: View {
         }
         context.closePDF()
         return url
+    }
+}
+
+struct EditableReviewLinkView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    let recordID: UUID
+    @State private var target = ""
+    @State private var active = true
+    @State private var busy = false
+    @State private var message: String?
+    private var record: VisitRecord? { store.records.first { $0.id == recordID } }
+    var body: some View {
+        Form {
+            if let record {
+                Section("Destino de la tarjeta") {
+                    TextField("Dirección HTTPS", text: $target, axis: .vertical).lineLimit(2...5)
+                    Toggle("Tarjeta activa", isOn: $active)
+                    Button(record.reviewLinkID == nil ? "Crear enlace" : "Guardar nuevo destino") { publish() }
+                        .buttonStyle(.borderedProminent).disabled(busy || !ReviewLinkAddress.validTarget(target))
+                    if busy { ProgressView() }
+                    if let message { Text(message).foregroundStyle(.secondary) }
+                }
+                if let id = record.reviewLinkID {
+                    Section("Escribir una sola vez") {
+                        Text(ReviewLinkAddress.permanent(id)).font(.caption).textSelection(.enabled)
+                        #if os(iOS)
+                        Button("Escribir NFC") { ExternalNFCWriter.write(reviewURL: ReviewLinkAddress.permanent(id)) }.buttonStyle(.borderedProminent)
+                        Button("Copiar enlace de tarjeta") { UIPasteboard.general.string = ReviewLinkAddress.permanent(id) }
+                        #else
+                        Button("Copiar enlace de tarjeta") { MacFiles.copy(ReviewLinkAddress.permanent(id)) }
+                        #endif
+                        Link("Probar tarjeta", destination: URL(string: ReviewLinkAddress.permanent(id))!)
+                        Text("Cambia el destino desde aquí sin volver a escribir la tarjeta. Las tarjetas que ya contienen un enlace directo a Google deben regrabarse una vez.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Section {
+                    Text("El destino es accesible para quien tenga el enlace de la tarjeta. Tus datos de cuenta siguen privados. Para abrirlo y cambiarlo se necesita conexión.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }.navigationTitle("Tarjeta actualizable").onAppear {
+            target = record?.reviewLinkTarget ?? record?.place.reviewURL ?? ""; active = record?.reviewLinkActive ?? true
+        }
+    }
+    private func publish() {
+        guard let initial = record else { return }
+        let owner = RemoteAuthClient.shared.session?.user.id
+        let id = initial.reviewLinkID ?? UUID()
+        let destination = target, enabled = active
+        busy = true; message = nil
+        Task { @MainActor in
+            defer { busy = false }
+            do {
+                try await RemoteAuthClient.shared.publishReviewLink(id: id, target: destination, active: enabled)
+                guard owner == RemoteAuthClient.shared.session?.user.id, var current = record else { throw CancellationError() }
+                current.reviewLinkID = id; current.reviewLinkTarget = destination; current.reviewLinkActive = enabled
+                try store.saveClient(current); message = "Destino guardado. La tarjeta abrirá este enlace."
+            } catch is CancellationError { message = "El acceso ha cambiado. Vuelve a intentarlo." }
+            catch { message = error.localizedDescription }
+        }
     }
 }
