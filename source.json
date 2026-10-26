@@ -18,7 +18,7 @@
           "buildVersion": "39",
           "date": "2026-10-26T22:09:29Z",
           "localizedDescription": "reviewNfcGo 7.3: locales cercanos y paquete iPhone + Watch.\n\nLa búsqueda combina dos consultas acotadas: inmediaciones de la puerta y negocios de un área algo mayor. Mantiene locales cuyo punto de Google está en el centro del edificio, pide confirmar resultados inciertos y permite elegir o filtrar todos los locales cercanos.\n\nMi ubicación solicita más precisión cuando hace falta, espera una posición reciente y evita conservar una lista basada en una posición GPS que ya ha mejorado. Las elecciones manuales se respetan.\n\nSe mantienen las ventas sencillas, stands incluidos con tarjetas y la pregunta de venta al volver de Simply NFC. Guardar y Hecho son accesibles con el teclado abierto. Las escrituras usan el enlace directo de Google.\n\nApple Watch: paquete separado iPhone + Watch para Sideloadly, compatible desde watchOS 10, con icono plano, negocios, próximas visitas y saldo. Incluirlo en el IPA no firma el reloj ni elimina los requisitos del instalador: Sideloadly 0.71.0 documenta firma de Watch para cuentas Apple Developer de pago; las cuentas gratuitas siguen pendientes de soporte.\n\nLa fuente de SideStore conserva su IPA de iPhone compatible. El IPA combinado para Sideloadly se descarga desde esta release. Actualiza sin borrar la app.",
-          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-7.3.0-build39.ipa",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-7.3.0-build39/reviewNfcGo-7.3.0-build39.ipa",
           "size": 7022996,
           "minOSVersion": "16.1"
         },
@@ -260,7 +260,7 @@
       "version": "7.3.0",
       "versionDate": "2026-10-26T22:09:29Z",
       "versionDescription": "reviewNfcGo 7.3: locales cercanos y paquete iPhone + Watch.\n\nLa búsqueda combina dos consultas acotadas: inmediaciones de la puerta y negocios de un área algo mayor. Mantiene locales cuyo punto de Google está en el centro del edificio, pide confirmar resultados inciertos y permite elegir o filtrar todos los locales cercanos.\n\nMi ubicación solicita más precisión cuando hace falta, espera una posición reciente y evita conservar una lista basada en una posición GPS que ya ha mejorado. Las elecciones manuales se respetan.\n\nSe mantienen las ventas sencillas, stands incluidos con tarjetas y la pregunta de venta al volver de Simply NFC. Guardar y Hecho son accesibles con el teclado abierto. Las escrituras usan el enlace directo de Google.\n\nApple Watch: paquete separado iPhone + Watch para Sideloadly, compatible desde watchOS 10, con icono plano, negocios, próximas visitas y saldo. Incluirlo en el IPA no firma el reloj ni elimina los requisitos del instalador: Sideloadly 0.71.0 documenta firma de Watch para cuentas Apple Developer de pago; las cuentas gratuitas siguen pendientes de soporte.\n\nLa fuente de SideStore conserva su IPA de iPhone compatible. El IPA combinado para Sideloadly se descarga desde esta release. Actualiza sin borrar la app.",
-      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-7.3.0-build39.ipa",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-7.3.0-build39/reviewNfcGo-7.3.0-build39.ipa",
       "size": 7022996,
       "appPermissions": {
         "entitlements": [
