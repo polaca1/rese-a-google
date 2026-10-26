@@ -69,6 +69,9 @@ struct CardStatistics: Decodable, Equatable {
 }
 
 enum CardLinkDates {
+    static var utcCalendar: Calendar {
+        var value = Calendar(identifier: .gregorian); value.timeZone = TimeZone(secondsFromGMT: 0)!; return value
+    }
     static func timestamp(_ value: String) -> Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

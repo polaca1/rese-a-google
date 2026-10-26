@@ -143,9 +143,10 @@ struct EditableReviewLinkView: View {
             metric("Totales", value.total); metric("7 días", value.last_7_days); metric("30 días", value.last_30_days)
         }.padding(.vertical, 6)
         if value.total > 0 {
-            Chart(value.daily.suffix(14)) { day in
+            Chart(value.daily.sorted { $0.day < $1.day }.suffix(14)) { day in
                 if let date = day.date { BarMark(x: .value("Día", date, unit: .day), y: .value("Aperturas", day.opens)).foregroundStyle(Color.blue.gradient) }
-            }.frame(height: 160).chartXAxis { AxisMarks(values: .stride(by: .day, count: 7)) }
+            }.environment(\.calendar, CardLinkDates.utcCalendar).environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+                .frame(height: 160).chartXAxis { AxisMarks(values: .stride(by: .day, count: 7)) }
             Text("Últimos 14 días · recuento diario en UTC").font(.caption).foregroundStyle(.secondary)
             if let text = value.last_opened_at, let date = CardLinkDates.timestamp(text) {
                 LabeledContent("Última apertura", value: date.formatted(date: .abbreviated, time: .shortened))
