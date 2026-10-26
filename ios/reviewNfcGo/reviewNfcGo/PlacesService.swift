@@ -203,13 +203,20 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
         do {
             let found = try await nearbyLookup(coordinate)
             guard !Task.isCancelled, searchRevision == revision else { return }
-            let results = NearbyBusinessSelection.ranked(found, latitude: coordinate.latitude, longitude: coordinate.longitude, accuracy: accuracy)
+            var reference = coordinate, referenceAccuracy = accuracy
+            if !focusResult, let fresh = latestLocation,
+               NearbyBusinessSelection.usableLocation(accuracy: fresh.horizontalAccuracy, timestamp: fresh.timestamp),
+               fresh.horizontalAccuracy < accuracy,
+               NearbyBusinessSelection.distance(latitude: coordinate.latitude, longitude: coordinate.longitude, toLatitude: fresh.coordinate.latitude, toLongitude: fresh.coordinate.longitude) <= 100 {
+                reference = fresh.coordinate; referenceAccuracy = fresh.horizontalAccuracy
+            }
+            let results = NearbyBusinessSelection.ranked(found, latitude: reference.latitude, longitude: reference.longitude, accuracy: referenceAccuracy)
             guard !results.isEmpty else {
                 status = "No se ha encontrado un local lo bastante cerca. Busca por nombre o toca su punto en el mapa."
                 return
             }
-            let cycle = NearbyBusinessCycle(candidates: results, latitude: coordinate.latitude, longitude: coordinate.longitude,
-                                            accuracy: accuracy, createdAt: Date())
+            let cycle = NearbyBusinessCycle(candidates: results, latitude: reference.latitude, longitude: reference.longitude,
+                                            accuracy: referenceAccuracy, createdAt: Date())
             nearbyCycle = cycle
             applyNearbySelection(cycle, advance: false, focus: focusResult)
         } catch {

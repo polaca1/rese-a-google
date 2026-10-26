@@ -31,7 +31,7 @@ struct GooglePlaceSearchResponse: Decodable {
 enum NearbyBusinessSelection {
     static let searchRadius = 250.0
     static let maximumAccuracy = 80.0
-    static let maximumLocationAge = 20.0
+    static let maximumLocationAge = 10.0
     static let cacheLifetime = 60.0
 
     static func validCoordinate(latitude: Double, longitude: Double) -> Bool {

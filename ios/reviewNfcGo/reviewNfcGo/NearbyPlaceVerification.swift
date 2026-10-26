@@ -82,6 +82,19 @@ import CoreLocation
             fixes.locationManager(CLLocationManager(), didUpdateLocations: [stale, fresh])
             try check(fixes.userLocation?.latitude == coordinate.latitude, "La posición reciente de la puerta gana a un punto antiguo más preciso")
 
+            var gpsReply: CheckedContinuation<[PlaceResult], Error>?
+            let improving = PlaceFinder(nearbyLookup: { _ in try await withCheckedThrowingContinuation { gpsReply = $0 } }); improving.prepareMapVerification()
+            let roughCoordinate = CLLocationCoordinate2D(latitude: coordinate.latitude + 40 / 111_195, longitude: coordinate.longitude)
+            let roughFix = CLLocation(coordinate: roughCoordinate, altitude: 0, horizontalAccuracy: 60, verticalAccuracy: 60, timestamp: Date())
+            improving.locationManager(CLLocationManager(), didUpdateLocations: [roughFix])
+            let request = Task { await improving.searchNearest(to: roughCoordinate, focusResult: false, accuracy: 60) }
+            for _ in 0..<50 { if gpsReply != nil { break }; try await Task.sleep(for: .milliseconds(10)) }
+            guard let answer = gpsReply else { throw NSError(domain: "NearbyVerification", code: 3) }
+            improving.locationManager(CLLocationManager(), didUpdateLocations: [fresh])
+            let previousDoor = PlaceResult(id: "previous-door", name: "Otra puerta", address: "Madrid", latitude: roughCoordinate.latitude, longitude: roughCoordinate.longitude, types: ["insurance_agency"], primaryType: "insurance_agency")
+            answer.resume(returning: [previousDoor, bar]); await request.value
+            try check(improving.selectedPlace?.id == bar.id && improving.nearbyChoices.isEmpty, "Una mejora del GPS durante la consulta reordena los locales antes de mostrarlos")
+
             display.prepareNearbyChoicesVerification([cafeB, cafeA], coordinate: coordinate)
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
         } catch {
