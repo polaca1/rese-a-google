@@ -28,6 +28,7 @@ xcrun simctl bootstatus "$task_device" -b
 xcrun simctl install "$task_device" "$task_sim_app"
 task_bundle=com.pablo.resenagoogle.20261004.watch
 task_container=$(xcrun simctl get_app_container "$task_device" "$task_bundle" data)
+xcrun swiftc -parse-as-library -swift-version 5 "$task_watch_root/Tests/WatchScreenshotTests.swift" -o "$task_output/watch-screen-check"
 for task_screen in visit businesses money; do
     xcrun simctl terminate "$task_device" "$task_bundle" >/dev/null 2>&1 || true
     xcrun simctl launch "$task_device" "$task_bundle" --verification-watch "--verification-watch-$task_screen"
@@ -43,4 +44,5 @@ print(r)
 PY
     sleep 3
     xcrun simctl io "$task_device" screenshot "$task_output/watch-$task_screen.png"
+    "$task_output/watch-screen-check" "$task_output/watch-$task_screen.png" "$task_screen" | tee "$task_output/watch-screen-$task_screen.log"
 done

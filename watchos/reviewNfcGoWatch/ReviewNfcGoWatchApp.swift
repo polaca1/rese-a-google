@@ -8,7 +8,14 @@ private func euros(_ cents: Int64) -> String { (Double(cents) / 100).formatted(.
 struct WatchRootView: View {
     @EnvironmentObject private var store: WatchStore
     @Environment(\.scenePhase) private var phase
-    @State private var tab = 0
+    @State private var tab: Int = {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("--verification-watch-money") { return 2 }
+        if args.contains("--verification-watch-businesses") { return 1 }
+        #endif
+        return 0
+    }()
     var body: some View {
         TabView(selection: $tab) {
             NavigationStack { WatchVisitView() }.tag(0)
@@ -20,8 +27,6 @@ struct WatchRootView: View {
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--verification-watch") {
                     store.verify()
-                    if ProcessInfo.processInfo.arguments.contains("--verification-watch-money") { tab = 2 }
-                    if ProcessInfo.processInfo.arguments.contains("--verification-watch-businesses") { tab = 1 }
                     return
                 }
                 #endif
