@@ -14,6 +14,15 @@
       "tintColor": "1976EC",
       "versions": [
         {
+          "version": "7.0.0",
+          "buildVersion": "36",
+          "date": "2026-10-26T17:42:16Z",
+          "localizedDescription": "reviewNfcGo 7.0: clientes, tarjetas y estadísticas.\n\nSitios reúne todos tus negocios, los clientes que han comprado y sus visitas registradas o previstas. Las fichas muestran el enlace NFC confirmado y su historial de escritura.\n\nLas tarjetas nuevas usan un enlace fijo con destino inicial a la reseña de Google de su Place ID. Desde Tarjeta y estadísticas puedes cambiar el destino, volver a Google, pausar y reactivar el mismo enlace, incluso con la etiqueta NFC bloqueada. Mis tarjetas mantiene el acceso a los enlaces aunque se elimine una ficha local.\n\nEstadísticas privadas de aperturas totales, últimos 7/30 días y gráfica diaria. Son aperturas del enlace, no personas únicas ni reseñas publicadas; empiezan al activar el contador y no inventan datos anteriores.\n\nLa app prepara el enlace antes de abrir Simply NFC y te pide confirmar la escritura al regresar. Las tarjetas antiguas con Google directo necesitan regrabarse; si están bloqueadas, requieren otra etiqueta.\n\nActualiza sin borrar la app. Actualiza también Mac a 3.0 para conservar las funciones y el historial nuevos. Capturas reales de la compilación disponibles en la fuente.",
+          "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-7.0.0-build36.ipa",
+          "size": 7155976,
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "6.0.5",
           "buildVersion": "35",
           "date": "2026-10-25T21:47:53Z",
@@ -239,11 +248,11 @@
           "minOSVersion": "16.1"
         }
       ],
-      "version": "6.0.5",
-      "versionDate": "2026-10-25T21:47:53Z",
-      "versionDescription": "reviewNfcGo 6.0.5: el widget muestra tu saldo real.\n\nCorregida la lectura de datos compartidos cuando SideStore vuelve a firmar la app. El widget identifica el grupo autorizado del perfil instalado, además de conservar compatibilidad con AltStore Classic. Al volver a abrir la app se actualizan los datos del widget.\n\nSi no puede cargar los datos, muestra «Abre reviewNfcGo» en lugar de inventar un saldo de 0 €. Se mantienen el saldo, ingresos, gastos y tarjetas de tu cuenta, sin cambiar los datos ni el inicio de sesión.\n\nActualiza sin borrar la app y ábrela una vez después de actualizar. Capturas de las pruebas de esta versión incluidas en la fuente.",
-      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/reviewnfcgo-6.0.5-build35/reviewNfcGo-6.0.5-build35.ipa",
-      "size": 6936346,
+      "version": "7.0.0",
+      "versionDate": "2026-10-26T17:42:16Z",
+      "versionDescription": "reviewNfcGo 7.0: clientes, tarjetas y estadísticas.\n\nSitios reúne todos tus negocios, los clientes que han comprado y sus visitas registradas o previstas. Las fichas muestran el enlace NFC confirmado y su historial de escritura.\n\nLas tarjetas nuevas usan un enlace fijo con destino inicial a la reseña de Google de su Place ID. Desde Tarjeta y estadísticas puedes cambiar el destino, volver a Google, pausar y reactivar el mismo enlace, incluso con la etiqueta NFC bloqueada. Mis tarjetas mantiene el acceso a los enlaces aunque se elimine una ficha local.\n\nEstadísticas privadas de aperturas totales, últimos 7/30 días y gráfica diaria. Son aperturas del enlace, no personas únicas ni reseñas publicadas; empiezan al activar el contador y no inventan datos anteriores.\n\nLa app prepara el enlace antes de abrir Simply NFC y te pide confirmar la escritura al regresar. Las tarjetas antiguas con Google directo necesitan regrabarse; si están bloqueadas, requieren otra etiqueta.\n\nActualiza sin borrar la app. Actualiza también Mac a 3.0 para conservar las funciones y el historial nuevos. Capturas reales de la compilación disponibles en la fuente.",
+      "downloadURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/ipas/reviewNfcGo-7.0.0-build36.ipa",
+      "size": 7155976,
       "appPermissions": {
         "entitlements": [
           "com.apple.security.application-groups"
@@ -263,16 +272,26 @@
         }
       ],
       "screenshotURLs": [
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/home-top-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/widget-money-small-30-dark.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/nearby-choices-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/suite-sale.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/money-light.png",
-        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/6.0.5-build35/inventory-light.png"
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.0.0-build36/home-top-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.0.0-build36/card-stats-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.0.0-build36/card-destination-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.0.0-build36/customers-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.0.0-build36/money-light.png",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/screenshots/7.0.0-build36/inventory-light.png"
       ]
     }
   ],
   "news": [
+    {
+      "title": "reviewNfcGo 7.0.0 (36)",
+      "identifier": "reviewnfcgo-7.0.0-build36",
+      "caption": "reviewNfcGo 7.0: clientes, tarjetas y estadísticas.",
+      "date": "2026-10-26T17:42:16Z",
+      "tintColor": "1976EC",
+      "notify": true,
+      "url": "https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-7.0.0-build36",
+      "appID": "com.pablo.resenagoogle.20261004"
+    },
     {
       "title": "reviewNfcGo 6.0.5 (35)",
       "identifier": "reviewnfcgo-6.0.5-build35",
