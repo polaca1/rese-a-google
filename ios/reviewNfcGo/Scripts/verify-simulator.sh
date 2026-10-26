@@ -79,7 +79,7 @@ cp "$task_container/Documents/nearby-verification.json" "$task_output_dir/nearby
 python3 - "$task_output_dir/nearby-verification.log" <<'PYCHECK'
 import json,sys
 result=json.load(open(sys.argv[1]));print(json.dumps(result,ensure_ascii=False,indent=2))
-assert result['passed'] and len(result['checks'])==10,result
+assert result['passed'] and len(result['checks'])>=14,result
 PYCHECK
 sleep 2
 xcrun simctl io "$task_device" screenshot "$task_output_dir/nearby-choices-light.png"
@@ -353,3 +353,10 @@ python3 - "$task_output_dir/phone-watch-verification.log" <<'PYPHONEWATCH'
 import json,sys
 r=json.load(open(sys.argv[1])); print(r); assert r['passed'] and r['realBalance'] and r['privateOwner'] and r['boundedPayload'],r
 PYPHONEWATCH
+
+# The wider real-candidate picker remains usable without extra provider requests.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-nearby-list
+sleep 4
+xcrun simctl io "$task_device" screenshot "$task_output_dir/nearby-list-light.png"

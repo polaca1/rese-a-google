@@ -17,5 +17,10 @@
 	</array>
 	<key>GooglePlacesAPIKey</key>
 	<string></string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>NearbyBusiness</key>
+		<string>Usamos la ubicación precisa para encontrar el negocio junto al que estás y distinguirlo de los locales vecinos.</string>
+	</dict>
 </dict>
 </plist>

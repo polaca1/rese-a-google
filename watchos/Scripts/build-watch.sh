@@ -9,13 +9,15 @@ xcrun swiftc -parse-as-library -swift-version 5 "$task_repo/ios/reviewNfcGo/revi
 xcodebuild -project "$task_watch_root/reviewNfcGoWatch.xcodeproj" -scheme reviewNfcGoWatch -configuration Release -sdk watchos -destination 'generic/platform=watchOS' -derivedDataPath "$task_output/Release" CODE_SIGNING_ALLOWED=NO build > "$task_output/watch-build.log" 2>&1 || { tail -n 80 "$task_output/watch-build.log"; exit 1; }
 task_app="$task_output/Release/Build/Products/Release-watchos/reviewNfcGoWatch.app"
 python3 - "$task_app" <<'PY'
-import pathlib,plistlib,sys
+import pathlib,plistlib,sys,subprocess
 p=pathlib.Path(sys.argv[1]);i=plistlib.loads((p/'Info.plist').read_bytes())
 assert i['CFBundleIdentifier']=='com.pablo.resenagoogle.20261004.watch' and i['WKCompanionAppBundleIdentifier']=='com.pablo.resenagoogle.20261004'
-assert i['CFBundleShortVersionString']=='7.2.0' and i['CFBundleVersion']=='38' and i['WKApplication']
+assert i['CFBundleShortVersionString']=='7.3.0' and i['CFBundleVersion']=='39' and i['WKApplication']
 assert b'--verification-' not in (p/i['CFBundleExecutable']).read_bytes()
+assert 'arm64_32' in subprocess.check_output(['xcrun','lipo','-archs',str(p/i['CFBundleExecutable'])],text=True)
+assert tuple(map(int,i['MinimumOSVersion'].split('.'))) <= (10,6,2)
 PY
-(cd "$(dirname -- "$task_app")" && /usr/bin/zip -qry "$task_output/reviewNfcGo-Watch-7.2.0-build38.zip" reviewNfcGoWatch.app)
+(cd "$(dirname -- "$task_app")" && /usr/bin/zip -qry "$task_output/reviewNfcGo-Watch-7.3.0-build39.zip" reviewNfcGoWatch.app)
 xcodebuild -project "$task_watch_root/reviewNfcGoWatch.xcodeproj" -scheme reviewNfcGoWatch -configuration Debug -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' -derivedDataPath "$task_output/Simulator" ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build > "$task_output/watch-simulator-build.log" 2>&1 || { tail -n 80 "$task_output/watch-simulator-build.log"; exit 1; }
 task_sim_app="$task_output/Simulator/Build/Products/Debug-watchsimulator/reviewNfcGoWatch.app"
 codesign --force --sign - "$task_sim_app"

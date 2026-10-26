@@ -1,13 +1,11 @@
-reviewNfcGo 7.2: vender y guardar sin pasos ocultos.
+reviewNfcGo 7.3: locales cercanos y paquete iPhone + Watch.
 
-Selecciona tarjetas NFC, stands y otros productos en una sola pantalla, indica cantidades y precio y pulsa Guardar venta. El botón permanece visible con el teclado abierto; también tienes Hecho y confirmación de venta guardada. No necesitas pulsar Añadir a la venta.
+La búsqueda combina dos consultas acotadas: inmediaciones de la puerta y negocios de un área algo mayor. Mantiene locales cuyo punto de Google está en el centro del edificio, pide confirmar resultados inciertos y permite elegir o filtrar todos los locales cercanos.
 
-Después de volver de Simply NFC, puedes indicar si has vendido y registrar los productos del mismo negocio. Elegir No he vendido no crea ingresos ni descuenta existencias. Abrir el escritor no confirma que se haya grabado una etiqueta.
+Mi ubicación solicita más precisión cuando hace falta, espera una posición reciente y evita conservar una lista basada en una posición GPS que ya ha mejorado. Las elecciones manuales se respetan.
 
-Los stands seleccionados junto a tarjetas NFC se incluyen gratis; se descuenta su stock y se conserva su coste en el beneficio.
+Se mantienen las ventas sencillas, stands incluidos con tarjetas y la pregunta de venta al volver de Simply NFC. Guardar y Hecho son accesibles con el teclado abierto. Las escrituras usan el enlace directo de Google.
 
-Se retira la gestión de enlaces de redirección. Las escrituras nuevas contienen directamente la reseña de Google del Place ID del negocio.
+Apple Watch: paquete separado iPhone + Watch para Sideloadly, compatible desde watchOS 10, con icono plano, negocios, próximas visitas y saldo. Incluirlo en el IPA no firma el reloj ni elimina los requisitos del instalador: Sideloadly 0.71.0 documenta firma de Watch para cuentas Apple Developer de pago; las cuentas gratuitas siguen pendientes de soporte.
 
-Incluye Mac 2.1.1, capturas de esta compilación y sincronización automática. Actualiza sin borrar la app.
-
-Apple Watch: complemento preparado para firmar e instalar con Xcode en un Mac compatible, con icono plano, próximas visitas, negocios y saldo. La cuenta gratuita requiere renovar la firma; no se anuncia renovación automática ni instalación desde SideStore.
+La fuente de SideStore conserva su IPA de iPhone compatible. El IPA combinado para Sideloadly se descarga desde esta release. Actualiza sin borrar la app.

@@ -68,6 +68,20 @@ import CoreLocation
             try check(failing.selectedPlace == nil && failing.errorMessage != nil && !failing.isLoading,
                       "Un fallo de conexión no se convierte en una selección aleatoria")
 
+            let centre = PlaceResult(id: "centre", name: "Centro de prueba", address: "Madrid", latitude: coordinate.latitude + 120 / 111_195, longitude: coordinate.longitude, types: ["store"], primaryType: "store")
+            let building = PlaceFinder(nearbyLookup: { _ in [bar, centre] }); building.prepareMapVerification()
+            await building.searchNearest(to: coordinate, accuracy: 5)
+            try check(building.nearbyCandidates.contains(where: { $0.id == centre.id }), "El local con punto en el centro del edificio sigue disponible en la lista")
+            building.chooseNearbyCandidate(centre)
+            try check(building.selectedPlace?.id == centre.id, "La lista completa permite confirmar el local de la puerta")
+            building.chooseSearchResult(cafeB); building.chooseNearbyCandidate(centre)
+            try check(building.selectedPlace?.id == cafeB.id, "Una lista completa antigua no pisa una búsqueda manual posterior")
+            let fixes = PlaceFinder(nearbyLookup: { _ in [] }); fixes.prepareMapVerification()
+            let stale = CLLocation(coordinate: CLLocationCoordinate2D(latitude: coordinate.latitude + 0.001, longitude: coordinate.longitude), altitude: 0, horizontalAccuracy: 3, verticalAccuracy: 3, timestamp: Date().addingTimeInterval(-15))
+            let fresh = CLLocation(coordinate: coordinate, altitude: 0, horizontalAccuracy: 6, verticalAccuracy: 6, timestamp: Date())
+            fixes.locationManager(CLLocationManager(), didUpdateLocations: [stale, fresh])
+            try check(fixes.userLocation?.latitude == coordinate.latitude, "La posición reciente de la puerta gana a un punto antiguo más preciso")
+
             display.prepareNearbyChoicesVerification([cafeB, cafeA], coordinate: coordinate)
             try JSONSerialization.data(withJSONObject: ["passed": true, "checks": checks], options: .prettyPrinted).write(to: output)
         } catch {
