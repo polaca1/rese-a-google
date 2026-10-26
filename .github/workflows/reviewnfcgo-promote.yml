@@ -1,0 +1,89 @@
+name: reviewNfcGo - Publicar compilacion verificada
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Ejecucion de iPhone y Mac que contiene los paquetes verificados
+        required: true
+      source_commit:
+        description: Commit exacto de las apps compiladas
+        required: true
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: reviewnfcgo-sidestore-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TASK_RUN: ${{ inputs.run_id }}
+      TASK_COMMIT: ${{ inputs.source_commit }}
+    steps:
+      - name: Comprobar ejecucion y esperar su resultado
+        run: |
+          python3 - <<'PY'
+          import json,os,re,subprocess,time
+          run=os.environ['TASK_RUN']; commit=os.environ['TASK_COMMIT']
+          assert re.fullmatch(r'[0-9]+',run) and re.fullmatch(r'[0-9a-f]{40}',commit)
+          base='repos/'+os.environ['GITHUB_REPOSITORY']
+          def api(path): return json.loads(subprocess.check_output(['gh','api',base+path]))
+          workflow=api('/actions/workflows/reviewnfcgo-ios.yml')['id']
+          for attempt in range(40):
+              result=api('/actions/runs/'+run)
+              assert result['workflow_id']==workflow and result['event']=='workflow_dispatch'
+              if result['status']=='completed': break
+              print('Esperando verificacion nativa de los paquetes existentes',flush=True); time.sleep(30)
+          assert result['status']=='completed' and result['conclusion']=='success',result['conclusion']
+          jobs=api('/actions/runs/'+run+'/jobs')['jobs']
+          for name in ['source','build','mac','server']:
+              job=next(x for x in jobs if x['name']==name);assert job['conclusion']=='success',name
+          source=next(x for x in jobs if x['name']=='source')
+          log=subprocess.check_output(['gh','api',base+'/actions/jobs/'+str(source['id'])+'/logs'],text=True)
+          assert commit in log,'El commit no coincide con la compilacion'
+          print('Compilacion completa y commit comprobados')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-IPA
+          path: release
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-verificacion
+          path: verification
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-Mac
+          path: desktop
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verificar capturas y publicar sin recompilar
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,subprocess,zipfile,plistlib
+          p=pathlib.Path('verification')
+          for name in ['card-stats-light.png','card-stats-dark.png','card-destination-light.png','customers-light.png','customer-visits-light.png','card-writes-light.png']:
+              assert (p/name).stat().st_size>1000,name
+          assert json.loads((p/'card-feature-verification.log').read_text())['passed']
+          assert json.loads(pathlib.Path('desktop/verification/verification.json').read_text())['passed']
+          files=list(pathlib.Path('release').glob('*.ipa'));assert len(files)==1
+          with zipfile.ZipFile(files[0]) as z:info=plistlib.loads(z.read('Payload/reviewNfcGo.app/Info.plist'))
+          tag='reviewnfcgo-'+info['CFBundleShortVersionString']+'-build'+info['CFBundleVersion']
+          previous=subprocess.run(['gh','release','view',tag,'--json','isDraft'],capture_output=True,text=True)
+          if previous.returncode==0 and json.loads(previous.stdout)['isDraft']:
+              subprocess.run(['gh','release','edit',tag,'--draft=false','--latest=false'],check=True)
+          subprocess.run(['python3','ios/reviewNfcGo/Scripts/publish-sidestore.py','--ipa',str(files[0]),'--source-commit',subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'--notes','ios/reviewNfcGo/RELEASE-NOTES.txt','--previews','verification'],check=True)
+          assets=list(pathlib.Path('desktop').glob('*.zip'))+list(pathlib.Path('desktop').glob('*.dmg'))+list(pathlib.Path('desktop/verification').glob('*.png'))+[pathlib.Path('macos/LEEME.txt')]
+          subprocess.run(['gh','release','upload',tag,*map(str,assets),'--clobber'],check=True)
+          print('Fuente y paquetes publicados:',tag)
+          PY
