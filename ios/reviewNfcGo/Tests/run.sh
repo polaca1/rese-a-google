@@ -82,6 +82,15 @@ xcrun swiftc -parse-as-library -swift-version 5 \
 "$task_test_dir/business-tools-tests"
 xcrun swiftc -parse-as-library -swift-version 5 \
     -module-cache-path "$task_test_dir/ModuleCache" \
+    "$task_project_dir/reviewNfcGo/VisitRecord.swift" \
+    "$task_project_dir/reviewNfcGo/MoneyLedger.swift" \
+    "$task_project_dir/reviewNfcGo/BusinessTools.swift" \
+    "$task_project_dir/reviewNfcGo/CardLinkModels.swift" \
+    "$task_project_dir/Tests/CardLinksTests.swift" \
+    -o "$task_test_dir/card-links-tests"
+"$task_test_dir/card-links-tests"
+xcrun swiftc -parse-as-library -swift-version 5 \
+    -module-cache-path "$task_test_dir/ModuleCache" \
     "$task_project_dir/reviewNfcGo/PlacesTransport.swift" \
     "$task_project_dir/Tests/PlacesTransportTests.swift" \
     -o "$task_test_dir/places-transport-tests"

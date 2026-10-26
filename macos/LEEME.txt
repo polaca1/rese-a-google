@@ -1,4 +1,4 @@
-reviewNfcGo para Mac 2.0.4
+reviewNfcGo para Mac 3.0.0
 
 Compatible con macOS Sonoma 14 y posteriores, Intel y Apple Silicon.
 

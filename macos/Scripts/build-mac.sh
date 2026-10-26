@@ -33,12 +33,12 @@ lipo "$task_app/Contents/MacOS/reviewNfcGoMac" -verify_arch arm64 x86_64
 python3 "$task_root/scripts/check-production-package.py" "$task_app" --platform macos
 codesign --force --sign - --timestamp=none "$task_app"
 codesign --verify --deep --strict "$task_app"
-ditto -c -k --sequesterRsrc --keepParent "$task_app" "$task_out/reviewNfcGo-Mac-2.0.4.zip"
+ditto -c -k --sequesterRsrc --keepParent "$task_app" "$task_out/reviewNfcGo-Mac-3.0.0.zip"
 mkdir -p "$task_out/Installer"
 ditto "$task_app" "$task_out/Installer/reviewNfcGo.app"
 ln -s /Applications "$task_out/Installer/Applications"
 cp "$task_root/macos/LEEME.txt" "$task_out/Installer/LEEME.txt"
-hdiutil create -volname reviewNfcGo -srcfolder "$task_out/Installer" -ov -format UDZO "$task_out/reviewNfcGo-Mac-2.0.4.dmg" >/dev/null
+hdiutil create -volname reviewNfcGo -srcfolder "$task_out/Installer" -ov -format UDZO "$task_out/reviewNfcGo-Mac-3.0.0.dmg" >/dev/null
 
 # The native app is exercised on the runner with an isolated data directory.
 xcodebuild -project "$task_root/macos/reviewNfcGo.xcodeproj" -scheme reviewNfcGoMac \
@@ -72,5 +72,5 @@ p=pathlib.Path(sys.argv[1]);assert p.exists(),'La app no termin√≥ la verificaci√
 v=json.loads(p.read_text());print(json.dumps(v,ensure_ascii=False));assert v['passed'],v.get('error')
 PY
 bash "$task_root/ios/reviewNfcGo/Scripts/package-xcode.sh" "$task_out"
-mv "$task_out/reviewNfcGo-6.0.5-Xcode.zip" "$task_out/reviewNfcGo-Mac-2.0.4-Xcode.zip"
+mv "$task_out/reviewNfcGo-7.0.0-Xcode.zip" "$task_out/reviewNfcGo-Mac-3.0.0-Xcode.zip"
 echo 'App universal para macOS 14 preparada y verificada.'

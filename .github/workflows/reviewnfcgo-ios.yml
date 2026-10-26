@@ -1,0 +1,177 @@
+name: reviewNfcGo - iPhone y Mac
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Rama o commit de las apps
+        required: true
+        default: features/reviewnfcgo-6.0
+      mac_only_verification:
+        description: Compilar solo Mac; publicar únicamente si publish está activado
+        type: boolean
+        default: false
+      publish:
+        description: Publicar los paquetes y la fuente tras verificar
+        type: boolean
+        default: true
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.pin.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - id: pin
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  mac:
+    needs: source
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      GOOGLE_PLACES_API_KEY: ${{ secrets.REVIEWNFCGO_GOOGLE_PLACES_API_KEY }}
+      GOOGLE_PLACES_FALLBACK_API_KEY: ${{ secrets.REVIEWNFCGO_GOOGLE_PLACES_FALLBACK_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.commit }}
+      - name: Seleccionar Xcode 26.2
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+      - name: App universal para macOS 14 y verificacion nativa
+        run: bash macos/Scripts/build-mac.sh "$RUNNER_TEMP/reviewNfcGo-mac"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reviewNfcGo-Mac
+          path: |
+            ${{ runner.temp }}/reviewNfcGo-mac/*.zip
+            ${{ runner.temp }}/reviewNfcGo-mac/*.dmg
+            ${{ runner.temp }}/reviewNfcGo-mac/*.log
+            ${{ runner.temp }}/reviewNfcGo-mac/verification/*.json
+            ${{ runner.temp }}/reviewNfcGo-mac/verification/*.png
+            ${{ runner.temp }}/reviewNfcGo-mac/verification/*.pdf
+          if-no-files-found: ignore
+  build:
+    if: ${{ !inputs.mac_only_verification }}
+    needs: source
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      GOOGLE_PLACES_API_KEY: ${{ secrets.REVIEWNFCGO_GOOGLE_PLACES_API_KEY }}
+      GOOGLE_PLACES_FALLBACK_API_KEY: ${{ secrets.REVIEWNFCGO_GOOGLE_PLACES_FALLBACK_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.commit }}
+      - name: Seleccionar Xcode 26.2
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+      - name: Tests y paquete de iPhone
+        run: bash ios/reviewNfcGo/Scripts/build-ipa.sh "$RUNNER_TEMP/reviewNfcGo-build"
+      - name: Preparar proyecto sin claves
+        run: bash ios/reviewNfcGo/Scripts/package-xcode.sh "$RUNNER_TEMP/reviewNfcGo-build"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reviewNfcGo-IPA
+          path: |
+            ${{ runner.temp }}/reviewNfcGo-build/*.ipa
+            ${{ runner.temp }}/reviewNfcGo-build/*.zip
+          if-no-files-found: error
+      - name: Verificacion nativa de iPhone
+        run: bash ios/reviewNfcGo/Scripts/verify-simulator.sh "$RUNNER_TEMP/reviewNfcGo-build"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reviewNfcGo-verificacion
+          path: |
+            ${{ runner.temp }}/reviewNfcGo-build/*.log
+            ${{ runner.temp }}/reviewNfcGo-build/*.png
+          if-no-files-found: ignore
+  server:
+    if: ${{ !inputs.mac_only_verification }}
+    needs: source
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.commit }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r server/requirements.txt -r server/requirements-dev.txt
+      - run: python -m pytest server/tests -q
+  publish:
+    if: ${{ inputs.publish }}
+    needs: [source, build, mac, server]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: reviewnfcgo-sidestore-publication
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.commit }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-IPA
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-verificacion
+          path: verification
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-Mac
+          path: desktop
+      - name: Publicar IPA verificado y fuente
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          task_ipa=$(python3 -c 'import pathlib; files=list(pathlib.Path("release").glob("*.ipa")); assert len(files)==1; print(files[0])')
+          python3 ios/reviewNfcGo/Scripts/publish-sidestore.py --ipa "$task_ipa" --source-commit "$(git rev-parse HEAD)" --notes ios/reviewNfcGo/RELEASE-NOTES.txt --previews verification
+          task_release_tag=$(python3 -c 'import zipfile,plistlib,sys; z=zipfile.ZipFile(sys.argv[1]); p=next(n for n in z.namelist() if n.startswith("Payload/") and n.endswith(".app/Info.plist") and n.count("/")==2); v=plistlib.loads(z.read(p)); print("reviewnfcgo-"+v["CFBundleShortVersionString"]+"-build"+v["CFBundleVersion"])' "$task_ipa")
+          echo "REVIEWNFCGO_RELEASE_TAG=$task_release_tag" >> "$GITHUB_ENV"
+      - name: Publicar Mac y guia del servidor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$REVIEWNFCGO_RELEASE_TAG" desktop/*.zip desktop/*.dmg desktop/verification/*.png --repo polaca1/rese-a-google --clobber
+          gh release upload "$REVIEWNFCGO_RELEASE_TAG" macos/LEEME.txt --repo polaca1/rese-a-google --clobber
+          if [ -f server/cloud/GUIA-SUPABASE.md ]; then
+            gh release upload "$REVIEWNFCGO_RELEASE_TAG" server/cloud/GUIA-SUPABASE.md server/cloud/downloads/GUIA-SUPABASE.pdf --repo polaca1/rese-a-google --clobber
+          else
+            gh release upload "$REVIEWNFCGO_RELEASE_TAG" server/INSTALAR-SERVIDOR.md --repo polaca1/rese-a-google --clobber
+          fi
+          if [ -f server/cloud/GUIA-GOOGLE.md ]; then
+            gh release upload "$REVIEWNFCGO_RELEASE_TAG" server/cloud/GUIA-GOOGLE.md --repo polaca1/rese-a-google --clobber
+          fi
+
+  publish-mac:
+    if: ${{ inputs.mac_only_verification && inputs.publish }}
+    needs: [source, mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: reviewnfcgo-mac-publication
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.commit }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: reviewNfcGo-Mac
+          path: desktop
+      - name: Publicar Mac verificado para Intel y Apple Silicon
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          task_tag=$(python3 -c 'import pathlib,zipfile,plistlib; p=next(p for p in pathlib.Path("desktop").glob("*.zip") if "Xcode" not in p.name); z=zipfile.ZipFile(p); i=next(n for n in z.namelist() if n.endswith(".app/Contents/Info.plist")); v=plistlib.loads(z.read(i)); print("reviewnfcgo-mac-"+v["CFBundleShortVersionString"]+"-build"+v["CFBundleVersion"])')
+          gh release view "$task_tag" --repo polaca1/rese-a-google >/dev/null 2>&1 || gh release create "$task_tag" --repo polaca1/rese-a-google --target "$(git rev-parse HEAD)" --title 'reviewNfcGo para Mac — Análisis de negocio' --notes-file macos/LEEME.txt --latest=false
+          gh release upload "$task_tag" desktop/*.zip desktop/*.dmg desktop/verification/*.png macos/LEEME.txt --repo polaca1/rese-a-google --clobber

@@ -17,6 +17,7 @@ struct HomeView: View {
     @FocusState private var searchFocused: Bool
     @State private var showSavedToast = false
     @State private var reminderPlace: PlaceResult?
+    @State private var writingRecord: VisitRecord?
     @EnvironmentObject private var portalRouter: PortalRouter
 
     var body: some View {
@@ -117,6 +118,9 @@ struct HomeView: View {
         }
         .onChange(of: portalRouter.pendingRecordID) { id in
             if id != nil { reminderPlace = nil }
+        }
+        .sheet(item: $writingRecord) { record in
+            NavigationStack { NFCCardWriteView(recordID: record.id) }
         }
         .sheet(item: $reminderPlace) { place in
             QuickReminderView(place: place)
@@ -267,7 +271,7 @@ struct HomeView: View {
 
             Button {
                 store.addOrUpdatePlace(place)
-                ExternalNFCWriter.write(reviewURL: place.reviewURL)
+                writingRecord = store.records.first { $0.place.id == place.id }
             } label: {
                 Label("Escribir NFC", systemImage: "wave.3.right")
                     .frame(maxWidth: .infinity)
