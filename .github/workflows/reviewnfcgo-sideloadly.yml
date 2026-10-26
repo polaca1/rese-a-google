@@ -15,7 +15,7 @@ permissions:
   actions: read
   contents: write
 concurrency:
-  group: reviewnfcgo-sidestore-publication
+  group: reviewnfcgo-sideloadly-assembly
   cancel-in-progress: false
 jobs:
   combine:
