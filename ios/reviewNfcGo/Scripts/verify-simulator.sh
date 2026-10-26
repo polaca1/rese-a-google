@@ -319,3 +319,24 @@ xcrun simctl ui "$task_device" appearance light
 xcrun simctl launch "$task_device" "$task_bundle_id" --verification-major-today
 sleep 3
 xcrun simctl io "$task_device" screenshot "$task_output_dir/major6-today.png"
+
+# Sales: keyboard-visible save, native confirmation, and the post-NFC question.
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl ui "$task_device" appearance light
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-suite-sale --verification-sale-save
+for task_attempt in $(seq 1 30); do
+    if [ -f "$task_container/Documents/easy-sale-verification.json" ]; then break; fi
+    sleep 1
+done
+cp "$task_container/Documents/easy-sale-verification.json" "$task_output_dir/easy-sale-verification.log"
+python3 - "$task_output_dir/easy-sale-verification.log" <<'PYSALE'
+import json,sys
+result=json.load(open(sys.argv[1])); print(result)
+assert result['passed'] and result['saleSavedOnce'] and result['standFree'] and result['stockUpdated'],result
+PYSALE
+sleep 2
+xcrun simctl io "$task_device" screenshot "$task_output_dir/sale-saved-light.png"
+xcrun simctl terminate "$task_device" "$task_bundle_id"
+xcrun simctl launch "$task_device" "$task_bundle_id" --verification-nfc-question
+sleep 3
+xcrun simctl io "$task_device" screenshot "$task_output_dir/nfc-sale-question-light.png"

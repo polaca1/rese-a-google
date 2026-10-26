@@ -191,3 +191,14 @@ enum NFCWriterLink {
         return URL(string: "simplynfc://writer?url=" + encoded)
     }
 }
+
+struct NFCSaleHandoff: Codable, Equatable {
+    var id = UUID()
+    var owner: String
+    var recordID: UUID
+    var launched = false
+    var leftApp = false
+    func shouldPrompt(owner: String?, recordIDs: Set<UUID>) -> Bool {
+        self.owner == owner && launched && leftApp && recordIDs.contains(recordID)
+    }
+}

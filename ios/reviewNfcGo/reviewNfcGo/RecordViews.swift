@@ -138,7 +138,7 @@ struct RecordDetailView: View {
 
                         VStack(spacing: 10) {
                             Button {
-                                ExternalNFCWriter.write(reviewURL: record.place.reviewURL)
+                                NFCSaleFollowUp.shared.begin(recordID: record.id, store: store)
                             } label: {
                                 Label("Escribir NFC", systemImage: "wave.3.right")
                                     .frame(maxWidth: .infinity)

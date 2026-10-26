@@ -99,6 +99,45 @@ struct QuickSaleInput: Identifiable, Equatable {
         return items + [QuickSaleInput(productID: productID, quantity: quantity, unitPrice: amount)]
     }
 }
+enum EasySaleError: LocalizedError {
+    case empty, zeroTotal, price(String), stock(String)
+    var errorDescription: String? {
+        switch self {
+        case .empty: return "Marca al menos un producto para guardar la venta."
+        case .zeroTotal: return "Introduce el precio cobrado. El total debe ser mayor que cero."
+        case .price(let name): return "Revisa el precio de \(name)."
+        case .stock(let name): return "No hay existencias suficientes de \(name)."
+        }
+    }
+}
+struct EasySaleLine: Identifiable, Equatable {
+    var productID: UUID
+    var selected = false
+    var quantity = 1
+    var price = "15"
+    var id: UUID { productID }
+    static func make(money: MoneyLedger) -> [EasySaleLine] {
+        let available = money.products.filter { money.stock($0.id) > 0 }
+        let preferred = available.first(where: { $0.kind == .nfcCard })?.id
+        return available.map { product in
+            let previous = (money.quickSales ?? []).filter { $0.voidedAt == nil }.reversed().flatMap(\.items).first { $0.productID == product.id && $0.unitPriceCents > 0 }?.unitPriceCents
+            return EasySaleLine(productID: product.id, selected: product.id == preferred, price: SaleAmountFormatting.text(for: Double(previous ?? (product.kind == .nfcCard ? 1500 : 0)) / 100))
+        }
+    }
+    static func inputs(_ draft: [EasySaleLine], money: MoneyLedger) throws -> [QuickSaleInput] {
+        let selected = draft.filter(\.selected)
+        guard !selected.isEmpty else { throw EasySaleError.empty }
+        guard selected.count <= 20, Set(selected.map(\.id)).count == selected.count else { throw MoneyError.invalidProduct }
+        let hasCard = selected.contains { line in money.products.contains { $0.id == line.id && $0.kind == .nfcCard } }
+        return try selected.map { line in
+            guard let product = money.products.first(where: { $0.id == line.id }) else { throw MoneyError.invalidProduct }
+            guard (1...100_000).contains(line.quantity), line.quantity <= money.stock(line.id) else { throw EasySaleError.stock(product.displayName) }
+            let included = hasCard && product.kind == .stand
+            guard let price = included ? 0 : SaleAmountFormatting.parse(line.price), let cents = MoneyLedger.cents(price), cents >= 0, cents * Int64(line.quantity) <= 1_000_000_000 else { throw EasySaleError.price(product.displayName) }
+            return QuickSaleInput(productID: line.id, quantity: line.quantity, unitPrice: price)
+        }
+    }
+}
 struct QuickSaleLine: Codable, Equatable {
     var productID: UUID
     var title: String

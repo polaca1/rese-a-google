@@ -85,7 +85,7 @@ def publish(args):
     app = source['apps'][0]
     assert app['bundleIdentifier'] == BUNDLE
     app['iconURL'] = RAW + '/icon.png'
-    app['localizedDescription'] = 'Organiza negocios, visitas, tarjetas NFC y dinero. Incluye copias de seguridad, ruta del día, beneficio por negocio, stock por color y deshacer con historial. Versión de escritorio para macOS 14 disponible en la release.'
+    app['localizedDescription'] = 'Organiza negocios, visitas, tarjetas NFC y dinero. Registra ventas de tarjetas y productos, con stands incluidos al vender tarjetas, inventario y beneficio. Después de escribir NFC puedes registrar la venta. Versión para macOS 14 disponible en la release.'
     entry = {'version': version, 'buildVersion': build, 'date': release['published_at'],
              'localizedDescription': notes, 'downloadURL': download_url,
              'size': ipa.stat().st_size, 'minOSVersion': max(minimums, key=version_key)}
@@ -128,8 +128,8 @@ def publish(args):
         for image in captured:
             if not image.name.startswith('icon-'):
                 files[screenshot_prefix + '/' + image.name] = image.read_bytes()
-        gallery = ['home-top-light.png', 'widget-money-small-30-dark.png', 'nearby-choices-light.png',
-                   'suite-sale.png', 'money-light.png', 'inventory-light.png']
+        gallery = ['home-top-light.png', 'sale-keyboard-light.png', 'sale-keyboard-dark.png',
+                   'nfc-sale-question-light.png', 'sale-saved-light.png', 'inventory-light.png']
         screenshots = [RAW + '/' + screenshot_prefix + '/' + name for name in gallery
                        if (previews / name).exists()]
         if screenshots and entry == newest:

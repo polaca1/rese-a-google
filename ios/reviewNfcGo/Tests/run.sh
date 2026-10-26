@@ -86,3 +86,12 @@ xcrun swiftc -parse-as-library -swift-version 5 \
     "$task_project_dir/Tests/PlacesTransportTests.swift" \
     -o "$task_test_dir/places-transport-tests"
 "$task_test_dir/places-transport-tests"
+
+xcrun swiftc -parse-as-library -swift-version 5 \
+    -module-cache-path "$task_test_dir/ModuleCache" \
+    "$task_project_dir/reviewNfcGo/VisitRecord.swift" \
+    "$task_project_dir/reviewNfcGo/MoneyLedger.swift" \
+    "$task_project_dir/reviewNfcGo/BusinessTools.swift" \
+    "$task_project_dir/Tests/EasySalesTests.swift" \
+    -o "$task_test_dir/easy-sales-tests"
+"$task_test_dir/easy-sales-tests"

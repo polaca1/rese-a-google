@@ -57,6 +57,7 @@ struct ReviewNfcGoApp: App {
     @StateObject private var auth = AuthStore()
     @StateObject private var store = AppStore.shared
     @StateObject private var photos = ProfilePhotoStore()
+    @StateObject private var nfcSale = NFCSaleFollowUp.shared
     @StateObject private var portalRouter = PortalRouter.shared
     @Environment(\.scenePhase) private var scenePhase
 
@@ -69,6 +70,9 @@ struct ReviewNfcGoApp: App {
                 .environmentObject(photos)
                 .environmentObject(portalRouter)
                 .tint(AppTheme.blue)
+                .sheet(item: $nfcSale.prompt, onDismiss: { nfcSale.finish() }) { prompt in
+                    NavigationStack { NFCSaleQuestionView(recordID: prompt.recordID) }.environmentObject(store)
+                }
                 .onOpenURL { url in
                     portalRouter.open(url: url)
                     if let id = PortalLink.recordID(from: url) { AlertHistoryStore.shared.openActivityPortal(recordID: id) }
@@ -78,6 +82,7 @@ struct ReviewNfcGoApp: App {
                     photos.switchUser(auth.currentUser?.email)
                     store.restorePhoto = { [weak photos] data in try? photos?.restoreBackupData(data) }
                     configureCloud()
+                    nfcSale.sceneChanged(.active, store: store)
                     Task { await auth.validateServerSession() }
                     #if DEBUG
                     // Simulator verification enters the same validated route without
@@ -95,8 +100,10 @@ struct ReviewNfcGoApp: App {
                 }
                 .onChange(of: auth.currentUser?.email) { email in
                     configureCloud()
+                    nfcSale.sceneChanged(.active, store: store)
                 }
                 .onChange(of: scenePhase) { phase in
+                    nfcSale.sceneChanged(phase, store: store)
                     cloud.requestSync(immediate: true)
                     if phase == .active {
                         store.refreshWidgets()
