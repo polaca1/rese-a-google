@@ -33,21 +33,56 @@ enum WatchBetaIssue: String, Codable {
     }
 }
 
+/// Fixed values only; raw server messages and identifiers cannot enter this report.
+struct WatchBetaProfileDiagnostic: Codable, Equatable {
+    enum Operation: String, Codable {
+        case listAppIDs, listDevices, registerDevice, downloadProfile, decodeProfile
+        var title: String {
+            switch self {
+            case .listAppIDs: return "Buscar el App ID existente"
+            case .listDevices: return "Consultar dispositivos de watchOS"
+            case .registerDevice: return "Registrar el Watch"
+            case .downloadProfile: return "Descargar el perfil de watchOS"
+            case .decodeProfile: return "Leer el perfil recibido"
+            }
+        }
+    }
+    enum Kind: String, Codable {
+        case appleAPI, network, invalidResponse, existingAppIDMissing, missingProfile, unknown
+    }
+    let operation: Operation
+    let kind: Kind
+    let code: Int?
+    var message: String {
+        var detail = operation.title
+        if let code { detail += " · Código: \(code)" }
+        switch kind {
+        case .existingAppIDMissing: detail += " · No se encontró el identificador de esta instalación. No se ha creado otro."
+        case .network: detail += " · Fallo de red al contactar con Apple."
+        case .invalidResponse, .missingProfile: detail += " · Apple no devolvió una respuesta de perfil válida."
+        case .appleAPI: detail += " · Apple rechazó la solicitud."
+        case .unknown: detail += " · Error no clasificado."
+        }
+        return detail
+    }
+}
+
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
-    var schema = 1
-    var beta = "0.7.0-build706"
+    var schema = 2
+    var beta = "0.7.0-build707"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?
     var issue: WatchBetaIssue?
+    var profileDiagnostic: WatchBetaProfileDiagnostic?
     var physicalInstallationVerified = false
     var renewalVerified = false
 
     mutating func set(_ stage: WatchBetaStage, _ status: WatchBetaStatus) { statuses[stage.rawValue] = status }
     func status(_ stage: WatchBetaStage) -> WatchBetaStatus { statuses[stage.rawValue] ?? .pending }
     mutating func invalidateProfile() {
-        set(.profile, .pending); issue = nil
+        set(.profile, .pending); issue = nil; profileDiagnostic = nil
     }
     func export() -> String {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

@@ -1,3 +1,5 @@
+Build 707: desglosa los fallos del perfil en búsqueda del App ID, consulta/registro de dispositivos, descarga y lectura del perfil. Exporta únicamente categorías fijas y códigos numéricos; nunca respuestas privadas de Apple. Corrige la falta de detalle de 706; aún no demuestra ni resuelve la causa del rechazo en el dispositivo.
+
 Beta personal e independiente basada en la app completa de SideStore. No es una versión oficial ni está respaldada por sus mantenedores.
 
 REUTILIZA EL IDENTIFICADOR DE SIDESTORE: se instala sobre el SideStore actual con la misma cuenta Apple. No borrar la app antes de actualizar ni cambiar su bundle ID al firmar. Conserva los IDs del host y extensiones. No ocupa una cuarta app activa. Reinstalar la versión oficial con la misma identidad permite volver a la base; no se ha probado esta transición en el dispositivo del usuario.

@@ -45,7 +45,7 @@ final class WatchBetaController: ObservableObject {
     func prepareProfile() {
         guard canPrepareProfile else { return }
         let selected = identifiers[selection]
-        report.issue = nil; report.set(.profile, .pending); report.set(.account, .running)
+        report.issue = nil; report.profileDiagnostic = nil; report.set(.profile, .pending); report.set(.account, .running)
         running = true
         task = Task {
             defer { running = false }
@@ -79,6 +79,13 @@ final class WatchBetaController: ObservableObject {
                 // Profile exists only in memory. This is not a signed or installed Watch app.
                 report.set(.profile, .passed)
             } catch is CancellationError { fail(.profile, .cancelled) }
+            catch let error as WatchBetaProfileFailure {
+                if let operation = WatchBetaProfileDiagnostic.Operation(rawValue: error.operation.rawValue),
+                   let kind = WatchBetaProfileDiagnostic.Kind(rawValue: error.kind.rawValue) {
+                    report.profileDiagnostic = WatchBetaProfileDiagnostic(operation: operation, kind: kind, code: error.code)
+                }
+                fail(.profile, .profileRequestFailed)
+            }
             catch {
                 if report.status(.discovery) == .running {
                     fail(.discovery, .discoveryFailed)

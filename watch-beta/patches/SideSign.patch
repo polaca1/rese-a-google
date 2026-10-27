@@ -1,10 +1,40 @@
 diff --git a/Sources/DeveloperPortal/WatchBeta.swift b/Sources/DeveloperPortal/WatchBeta.swift
 new file mode 100644
-index 0000000..438350b
+index 0000000..ab351e7
 --- /dev/null
 +++ b/Sources/DeveloperPortal/WatchBeta.swift
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,72 @@
 +import Foundation
++
++/// Contains only fixed categories and numeric codes, never Apple's raw response.
++public struct WatchBetaProfileFailure: Error, Sendable {
++    public enum Operation: String, Sendable {
++        case listAppIDs, listDevices, registerDevice, downloadProfile, decodeProfile
++    }
++    public enum Kind: String, Sendable {
++        case appleAPI, network, invalidResponse, existingAppIDMissing, missingProfile, unknown
++    }
++    public let operation: Operation
++    public let kind: Kind
++    public let code: Int?
++}
++
++private func watchBetaStep<T>(_ operation: WatchBetaProfileFailure.Operation,
++                              action: () async throws -> T) async throws -> T {
++    do { return try await action() }
++    catch is CancellationError { throw CancellationError() }
++    catch let failure as WatchBetaProfileFailure { throw failure }
++    catch let error as URLError {
++        throw WatchBetaProfileFailure(operation: operation, kind: .network, code: error.errorCode)
++    }
++    catch let error as ServerError {
++        if case .underlyingError(let code, _) = error {
++            throw WatchBetaProfileFailure(operation: operation, kind: .appleAPI, code: code)
++        }
++        throw WatchBetaProfileFailure(operation: operation, kind: .invalidResponse, code: nil)
++    }
++    catch { throw WatchBetaProfileFailure(operation: operation, kind: .unknown, code: nil) }
++}
 +
 +public extension DeveloperPortal {
 +    /// Experimental: reuse an existing App ID. Never creates App IDs or certificates.
@@ -12,31 +42,38 @@ index 0000000..438350b
 +    func prepareWatchBetaProfile(watchIdentifier: String, bundleIdentifier: String,
 +                                 team: Team, session: Session) async throws -> ProvisioningProfile {
 +        try Task.checkCancellation()
-+        // Fetch the user's existing iOS App IDs first; these are shared by the legacy Watch service.
-+        // Abort before any device registration if the installed SideStore ID cannot be found.
-+        let apps: ListAppIDsResponse = try await sendRequest(
-+            url: Constants.URLs.listAppIDs, session: session, team: team)
++        let apps: ListAppIDsResponse = try await watchBetaStep(.listAppIDs) {
++            try await sendRequest(url: Constants.URLs.listAppIDs, session: session, team: team)
++        }
 +        guard let app = (apps.appIds ?? []).first(where: { $0.bundleIdentifier == bundleIdentifier }),
 +              !app.identifier.isEmpty else {
-+            throw ServerError.badServerResponse(reason: "Existing SideStore App ID not found; no App ID was created", jsonPayload: "")
++            throw WatchBetaProfileFailure(operation: .listAppIDs, kind: .existingAppIDMissing, code: nil)
 +        }
 +        try Task.checkCancellation()
 +        let platform: [String: any Sendable] = ["DTDK_Platform": "watchos"]
-+        let devices: ListDevicesResponse = try await sendRequest(
-+            url: Constants.URLs.listDevices, additionalParameters: platform, session: session, team: team)
++        let devices: ListDevicesResponse = try await watchBetaStep(.listDevices) {
++            try await sendRequest(url: Constants.URLs.listDevices, additionalParameters: platform,
++                                  session: session, team: team)
++        }
 +        if !(devices.devices ?? []).contains(where: { $0.identifier == watchIdentifier }) {
 +            try Task.checkCancellation()
-+            let _: DeviceResponse = try await sendRequest(url: Constants.URLs.addDevice,
-+                additionalParameters: ["DTDK_Platform": "watchos", "deviceNumber": watchIdentifier, "name": "Watch Beta"],
-+                session: session, team: team)
++            let _: DeviceResponse = try await watchBetaStep(.registerDevice) {
++                try await sendRequest(url: Constants.URLs.addDevice,
++                    additionalParameters: ["DTDK_Platform": "watchos", "deviceNumber": watchIdentifier, "name": "Watch Beta"],
++                    session: session, team: team)
++            }
 +        }
 +        try Task.checkCancellation()
-+        let response: ProfileResponse = try await sendRequest(url: Constants.URLs.downloadProvisioningProfile,
-+            additionalParameters: ["DTDK_Platform": "watchos", "appIdId": app.identifier], session: session, team: team)
-+        guard let profile = try response.provisioningProfile?.toProvisioningProfile() else {
-+            throw ServerError.badServerResponse(reason: "Missing Watch profile", jsonPayload: "")
++        let response: ProfileResponse = try await watchBetaStep(.downloadProfile) {
++            try await sendRequest(url: Constants.URLs.downloadProvisioningProfile,
++                additionalParameters: ["DTDK_Platform": "watchos", "appIdId": app.identifier], session: session, team: team)
 +        }
-+        return profile
++        return try await watchBetaStep(.decodeProfile) {
++            guard let profile = try response.provisioningProfile?.toProvisioningProfile() else {
++                throw WatchBetaProfileFailure(operation: .decodeProfile, kind: .missingProfile, code: nil)
++            }
++            return profile
++        }
 +    }
 +}
 diff --git a/Sources/Models/ProvisioningProfile.swift b/Sources/Models/ProvisioningProfile.swift

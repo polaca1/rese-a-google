@@ -12,7 +12,7 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.0 (706)")
+                Text("Beta personal · 0.7.0 (707)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Esta primera beta todavía no instala ni renueva apps del Watch.")
                     .font(.subheadline)
@@ -29,6 +29,9 @@ struct WatchBetaView: View {
                     Picker("Reloj", selection: $model.selection) {
                         ForEach(0..<model.watchCount, id: \.self) { index in Text("Watch \(index + 1)").tag(index) }
                     }.disabled(model.running)
+                }
+                if let diagnostic = model.report.profileDiagnostic {
+                    Text(diagnostic.message).font(.footnote).foregroundColor(.secondary)
                 }
                 if let issue = model.report.issue {
                     Text(issue.message).font(.footnote).foregroundColor(.secondary)
@@ -48,7 +51,7 @@ struct WatchBetaView: View {
                 } label: { Label(copied ? "Diagnóstico copiado" : "Copiar diagnóstico", systemImage: "doc.on.doc") }
                     .disabled(model.running)
             } footer: {
-                Text("El informe solo contiene los estados de las pruebas. No incluye tu correo, identificadores de dispositivos, claves ni perfiles de firma.")
+                Text("El informe contiene los estados, el paso que falla y su código numérico. No incluye tu correo, identificadores de dispositivos, claves ni perfiles de firma.")
             }
         }
         .navigationTitle("Watch beta")

@@ -32,8 +32,18 @@ import Foundation
         check("profile failure never claims install", !decoded.physicalInstallationVerified && decoded.status(.installation) == .pending)
         check("no fake renewal", !decoded.renewalVerified && decoded.status(.renewal) == .pending)
         let object = try JSONSerialization.jsonObject(with: Data(report.export().utf8)) as! [String: Any]
-        check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "physicalInstallationVerified", "renewalVerified"]))
+        check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "profileDiagnostic", "physicalInstallationVerified", "renewalVerified"]))
+        report.profileDiagnostic = WatchBetaProfileDiagnostic(operation: .registerDevice, kind: .appleAPI, code: 1234)
+        let detailed = try JSONDecoder().decode(WatchBetaReport.self, from: Data(report.export().utf8))
+        check("preserves exact operation and numeric code", detailed.profileDiagnostic == report.profileDiagnostic)
+        check("diagnostic contains no raw message field", !report.export().contains("rawMessage"))
+        let diagnosticObject = try JSONSerialization.jsonObject(with: Data(report.export().utf8)) as! [String: Any]
+        let fields = diagnosticObject["profileDiagnostic"] as! [String: Any]
+        check("diagnostic fields whitelisted", Set(fields.keys) == ["operation", "kind", "code"])
+        check("explains missing existing ID", WatchBetaProfileDiagnostic(operation: .listAppIDs, kind: .existingAppIDMissing, code: nil).message.contains("No se ha creado otro"))
+        check("numeric code visible", report.profileDiagnostic!.message.contains("1234"))
         report.set(.profile, .passed); report.invalidateProfile()
+        check("changing Watch clears diagnostic", report.profileDiagnostic == nil)
         check("changing Watch invalidates previous profile", report.status(.profile) == .pending && report.issue == nil)
         var events: [String] = []
         let value = try await WatchBetaLocalSession.run(turnOff: { events.append("off") }, turnOn: { events.append("on") }, operation: { events.append("operation"); return 42 })
