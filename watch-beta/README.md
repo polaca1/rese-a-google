@@ -6,10 +6,10 @@ Esta rama es una variante independiente de SideStore para pruebas personales, no
 
 1. Obtén el repositorio en el commit del manifiesto con `git clone --recurse-submodules` y selecciona esta rama.
 2. Ejecuta `python3 watch-beta/bootstrap.py`. Los parches solo se aplican a los submódulos fijados por este commit.
-3. Compila el esquema `SideStore - Release` con Xcode, sin firma para generar el archivo que firmará el instalador. El workflow `watch-beta.yml` contiene los argumentos exactos.
+3. Ejecuta `python3 watch-beta/build-idevice.py` en un Mac con Rust y Xcode. Compila el soporte companion_proxy ausente del binario oficial para iPhone y verifica sus símbolos. Después compila el esquema `SideStore - Release` con Xcode, sin firma para generar el archivo que firmará el instalador. El workflow `watch-beta.yml` contiene los argumentos exactos.
 4. `watch-beta/package.py` prepara el IPA y manifiesto. Una firma ad hoc no permite ejecutar la app en un dispositivo; el instalador debe firmarla con la cuenta del usuario.
 
-## Alcance 0.7.0 (703)
+## Alcance 0.7.0 (704)
 
 Detección del reloj por companion_proxy y prueba explícita de obtención de un perfil para watchOS reutilizando el identificador existente del SideStore instalado. No crea identificadores ni certificados. Puede registrar el reloj como dispositivo de desarrollo tras pulsar el botón de prueba. No es un instalador de watchOS ni un store autónomo del reloj. Los pasos de instalación/renovación se muestran pendientes.
 
@@ -33,3 +33,5 @@ Se reutiliza `com.SideStore.SideStore`, sus App Groups, espacio de llavero y esq
 Se conservan los App Intents `RefreshAllAppsIntent` e `InstallIPAIntent` y el flujo `CellularRefreshManager`, con nombres de atajos configurables. La identidad original evita enviar el retorno de los atajos a otra copia de SideStore. Las pruebas por software no prueban refirma física con datos móviles.
 
 El usuario confirmó el 27 de octubre de 2026 que su SideStore 0.7.0 y LocalDevVPN renuevan apps usando 5G. También indicó que ya tiene tres apps activas y agotó los App IDs. Por ello se cambió el plan inicial de app separada por una actualización sobre SideStore y se eliminó cualquier creación de App IDs. El objetivo final sigue siendo una tienda autónoma en watchOS; esta primera herramienta de diagnóstico no la implementa.
+
+La reconstrucción FFI conserva los slices originales de otras plataformas; solo se ha añadido el soporte experimental al slice iPhone arm64. No añade soporte watchOS ni al simulador. El manifiesto de procedencia registra el compilador y SHA exactos.

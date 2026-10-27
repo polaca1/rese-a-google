@@ -21,6 +21,20 @@ index 0a581fb..7fbdfb7 100644
      func start(pairingFileContent: String, preferred: PairingProtocol? = nil) async throws {
          try await start(pairingFileContent: pairingFileContent, preferred: preferred)
      }
+diff --git a/DeviceGateway/Package.swift b/DeviceGateway/Package.swift
+index e71fb03..aea6b23 100644
+--- a/DeviceGateway/Package.swift
++++ b/DeviceGateway/Package.swift
+@@ -40,8 +40,7 @@ let package = Package(
+     targets: [
+          .binaryTarget(
+              name: "IDevice",
+-             url: "https://github.com/SideStore/idevice/releases/download/v0.1.68-ss-3e55c84/idevice-xcframework-v0.1.68-ss-3e55c84.zip#DeviceGateway",
+-             checksum: "445702d53942597deb4cdec2c4122d16a3f4ac124ce26cd75b68dab3dad92416"
++             path: "WatchBetaIDevice.xcframework"
+          ),
+ //        .binaryTarget(
+ //            name: "IDevice",
 diff --git a/DeviceGateway/idevice/IdeviceGateway.swift b/DeviceGateway/idevice/IdeviceGateway.swift
 index e9310d0..524771c 100644
 --- a/DeviceGateway/idevice/IdeviceGateway.swift
