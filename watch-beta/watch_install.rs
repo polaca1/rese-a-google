@@ -71,7 +71,7 @@ const ZIP_EXTRA: &[u8] = &[
 /// watchOS exposes `streaming_zip_conduit`, which accepts the signed Watch `.app` directly
 /// and finalizes it as an installed application. Existing applications are never removed first.
 async fn install_watch_apps(
-    device_provider: &(impl IdeviceProvider + ?Sized),
+    device_provider: &dyn IdeviceProvider,
     watch_apps: &[Bundle],
     host_name: &str,
     progress_callback: impl Fn(u64) + Send + Sync,
@@ -160,7 +160,7 @@ async fn install_watch_apps(
 }
 
 async fn connect_forwarded_watch_port(
-    device_provider: &(impl IdeviceProvider + ?Sized),
+    device_provider: &dyn IdeviceProvider,
     forwarded_port: u16,
     service: &str,
 ) -> Result<Idevice, Report> {
@@ -204,7 +204,7 @@ async fn connect_forwarded_watch_port(
     unreachable!("bounded forwarded-port retry loop must return")
 }
 async fn install_watch_app_zip_conduit(
-    device_provider: &(impl IdeviceProvider + ?Sized),
+    device_provider: &dyn IdeviceProvider,
     watch_lockdown: &mut LockdownClient,
     watch_pairing: &PairingFile,
     legacy: bool,

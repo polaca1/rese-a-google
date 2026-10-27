@@ -23,7 +23,7 @@ environment['IPHONEOS_DEPLOYMENT_TARGET']='15.0'
 environment['CARGO_PROFILE_RELEASE_LTO']='false'
 environment['RUSTFLAGS']='-C embed-bitcode=no'
 environment['SDKROOT']=subprocess.check_output(['xcrun','--sdk','iphoneos','--show-sdk-path'],text=True).strip()
-subprocess.run(['cargo','+1.99.1','build','--manifest-path',str(source/'ffi/Cargo.toml'),'--locked','--release','--target','aarch64-apple-ios','--features','companion_proxy'],check=True,env=environment)
+subprocess.run(['cargo','+1.99.1','build','--manifest-path',str(source/'ffi/Cargo.toml'),'--locked','--release','--target','aarch64-apple-ios','--features','companion_proxy,pair'],check=True,env=environment)
 # Compile the actual framing/CRC routines into a small host test executable.
 rust=(root/'watch-beta/watch_install.rs').read_text()
 framing=rust[rust.index('fn zip_header('):rust.index('fn insert_string(')] + rust[rust.index('fn crc32_ieee('):]
@@ -67,5 +67,5 @@ shutil.copy2(binary,target/'ios-arm64/libidevice_ffi.a')
 header=target/'ios-arm64/Headers/idevice.h'
 if not header.exists(): header=next((target/'ios-arm64').rglob('*.h'))
 header.write_text(header.read_text()+'\nint32_t sidestore_watch_install(struct IdeviceProviderHandle *provider, const char *watch, const char *path);\n')
-(root/'build/watch-ffi/PROVENANCE.json').write_text(__import__('json').dumps({'repository':'https://github.com/SideStore/idevice','commit':commit,'features':'upstream defaults + companion_proxy','lto':False,'embedBitcode':False,'target':'aarch64-apple-ios','rustc':subprocess.check_output(['rustc','+1.99.1','--version'],text=True).strip(),'sha256':hashlib.sha256(binary.read_bytes()).hexdigest()},indent=2)+'\n')
+(root/'build/watch-ffi/PROVENANCE.json').write_text(__import__('json').dumps({'repository':'https://github.com/SideStore/idevice','commit':commit,'features':'upstream defaults + companion_proxy + pair','lto':False,'embedBitcode':False,'target':'aarch64-apple-ios','rustc':subprocess.check_output(['rustc','+1.99.1','--version'],text=True).strip(),'sha256':hashlib.sha256(binary.read_bytes()).hexdigest()},indent=2)+'\n')
 print('Verified iPhone Watch service exports; other upstream platform slices preserved.')
