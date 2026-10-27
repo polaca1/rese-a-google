@@ -22,16 +22,25 @@ jobs:
       - name: Apply pinned dependency patches
         run: python3 watch-beta/bootstrap.py
       - name: Install Rust compiler
-        run: rustup update stable
-      - uses: actions/cache@v4
+        run: rustup toolchain install 1.99.1 --profile minimal
+      - uses: actions/cache/restore@v4
+        id: rustcache
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            build/watch-ffi/source/target
-          key: watch-beta-ffi-3e55c84-companion-v1
+            build/watch-ffi/source
+          key: watch-beta-ffi-3e55c84-rust1991-nolto-v2
       - name: Build and verify Watch service exports
         run: python3 watch-beta/build-idevice.py > build-ffi.log 2>&1 || { tail -n 90 build-ffi.log; exit 1; }
+      - uses: actions/cache/save@v4
+        if: always() && steps.rustcache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            build/watch-ffi/source
+          key: watch-beta-ffi-3e55c84-rust1991-nolto-v2
       - name: Verify validation and diagnostic report
         run: |
           mkdir -p build/watch-beta
@@ -60,6 +69,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=sidestore-watch-beta-0.7.0-build704
+          tag=sidestore-watch-beta-0.7.0-build705
           git archive --format=zip --output=build/watch-beta/SideStore-Watch-Beta-Source.zip HEAD
-          gh release create "$tag" build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch Beta 0.7.0 (704) — detección y perfil' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"
+          gh release create "$tag" build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch Beta 0.7.0 (705) — detección y perfil' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"

@@ -12,11 +12,13 @@ source=work/'source'
 if not source.exists(): subprocess.run(['git','clone','--depth','1','--branch',release,'https://github.com/SideStore/idevice.git',str(source)],check=True)
 commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,text=True).strip()
 assert commit.startswith('3e55c84')
-subprocess.run(['rustup','target','add','aarch64-apple-ios'],check=True)
+subprocess.run(['rustup','target','add','--toolchain','1.99.1','aarch64-apple-ios'],check=True)
 environment=dict(os.environ)
 environment['IPHONEOS_DEPLOYMENT_TARGET']='15.0'
+environment['CARGO_PROFILE_RELEASE_LTO']='false'
+environment['RUSTFLAGS']='-C embed-bitcode=no'
 environment['SDKROOT']=subprocess.check_output(['xcrun','--sdk','iphoneos','--show-sdk-path'],text=True).strip()
-subprocess.run(['cargo','build','--manifest-path',str(source/'ffi/Cargo.toml'),'--locked','--release','--target','aarch64-apple-ios','--features','companion_proxy'],check=True,env=environment)
+subprocess.run(['cargo','+1.99.1','build','--manifest-path',str(source/'ffi/Cargo.toml'),'--locked','--release','--target','aarch64-apple-ios','--features','companion_proxy'],check=True,env=environment)
 binary=source/'target/aarch64-apple-ios/release/libidevice_ffi.a';assert binary.exists()
 # Detect missing binary exports before spending time building the entire iPhone app.
 names=subprocess.check_output(['xcrun','nm','-gU',str(binary)],text=True)
@@ -27,5 +29,5 @@ with zipfile.ZipFile(archive) as z:
     z.extractall(work/'upstream')
 shutil.copytree(work/'upstream/swift/IDevice.xcframework',target)
 shutil.copy2(binary,target/'ios-arm64/libidevice_ffi.a')
-(root/'build/watch-ffi/PROVENANCE.json').write_text(__import__('json').dumps({'repository':'https://github.com/SideStore/idevice','commit':commit,'features':'upstream defaults + companion_proxy','target':'aarch64-apple-ios','rustc':subprocess.check_output(['rustc','--version'],text=True).strip(),'sha256':hashlib.sha256(binary.read_bytes()).hexdigest()},indent=2)+'\n')
+(root/'build/watch-ffi/PROVENANCE.json').write_text(__import__('json').dumps({'repository':'https://github.com/SideStore/idevice','commit':commit,'features':'upstream defaults + companion_proxy','lto':False,'embedBitcode':False,'target':'aarch64-apple-ios','rustc':subprocess.check_output(['rustc','+1.99.1','--version'],text=True).strip(),'sha256':hashlib.sha256(binary.read_bytes()).hexdigest()},indent=2)+'\n')
 print('Verified iPhone Watch service exports; other upstream platform slices preserved.')
