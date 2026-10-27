@@ -187,7 +187,8 @@ final class WatchBetaController: ObservableObject {
             } catch is CancellationError { fail(.installation, .cancelled) }
             catch {
                 fail(.installation, .installationFailed)
-                installMessage = "No se completó la firma o instalación (\(String(describing: error))). Comprueba el emparejamiento TCP, el perfil de watchOS y el estado del reloj."
+                let failure = error as NSError
+                installMessage = "No se completó la firma o instalación. Dominio: \(failure.domain), código: \(failure.code). Comprueba el emparejamiento TCP, el perfil de watchOS y el estado del reloj."
             }
         }
     }
