@@ -12,7 +12,7 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.0 (702)")
+                Text("Beta personal · 0.7.0 (703)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Esta primera beta todavía no instala ni renueva apps del Watch.")
                     .font(.subheadline)
