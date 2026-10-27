@@ -63,8 +63,11 @@ final class WatchBetaController: ObservableObject {
                 let fresh = try await minimuxer.core.fetchPairedWatchIdentifiers()
                 try Task.checkCancellation()
                 guard fresh.contains(selected) else { fail(.discovery, .watchChanged); identifiers = []; return }
-                // Stable per-team ID makes repeated explicit tests idempotent at the App ID level.
-                let bundle = "com.polaca1.watchbetaprobe." + team.identifier.lowercased() + ".watch"
+                // Reuse the actual signed SideStore ID, including any team suffix added by the installer.
+                guard let bundle = Bundle.main.bundleIdentifier,
+                      bundle.hasPrefix("com.SideStore.SideStore") else {
+                    fail(.profile, .invalidProfile); return
+                }
                 report.set(.profile, .running)
                 let profile = try await ALTAppleAPI.shared.prepareWatchBetaProfile(
                     watchIdentifier: selected, bundleIdentifier: bundle, team: team, session: session)

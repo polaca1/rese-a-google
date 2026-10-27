@@ -12,7 +12,7 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta independiente · 0.1.0")
+                Text("Beta personal · 0.7.0 (701)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Esta primera beta todavía no instala ni renueva apps del Watch.")
                     .font(.subheadline)
@@ -37,10 +37,10 @@ struct WatchBetaView: View {
             Section {
                 SwiftUI.Button(action: model.detect) { Label("Detectar Watch", systemImage: "antenna.radiowaves.left.and.right") }
                     .disabled(model.running)
-                SwiftUI.Button(action: model.prepareProfile) { Label("Probar perfil de firma", systemImage: "checkmark.shield") }
+                SwiftUI.Button(action: model.prepareProfile) { Label("Probar perfil con ID de SideStore", systemImage: "checkmark.shield") }
                     .disabled(!model.canPrepareProfile)
             } footer: {
-                Text("Probar el perfil puede registrar este reloj y consumir 1 identificador de app de tu cuota de Apple. No revoca certificados ni instala apps. Una solicitud enviada puede completarse aunque cierres esta pantalla.")
+                Text("Se reutiliza el identificador ya existente de este SideStore. No crea App IDs ni revoca certificados. La prueba puede registrar el reloj como dispositivo de desarrollo y solicitar un perfil nuevo. No instala apps. Una solicitud enviada puede completarse aunque cierres esta pantalla.")
             }
             Section {
                 SwiftUI.Button {

@@ -41,7 +41,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>Watch Beta</string>
+	<string>SideStore β</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -57,7 +57,7 @@
 			<string>SideStore General</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>sidestore-watch-beta</string>
+				<string>sidestore</string>
 			</array>
 		</dict>
 		<dict>

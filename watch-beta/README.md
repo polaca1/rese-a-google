@@ -9,9 +9,9 @@ Esta rama es una variante independiente de SideStore para pruebas personales, no
 3. Compila el esquema `SideStore - Release` con Xcode, sin firma para generar el archivo que firmará el instalador. El workflow `watch-beta.yml` contiene los argumentos exactos.
 4. `watch-beta/package.py` prepara el IPA y manifiesto. Una firma ad hoc no permite ejecutar la app en un dispositivo; el instalador debe firmarla con la cuenta del usuario.
 
-## Alcance 0.1.0
+## Alcance 0.7.0 (701)
 
-Detección del reloj por companion_proxy y prueba explícita de obtención de un perfil para watchOS. No es un instalador de watchOS ni un store autónomo del reloj. Los pasos de instalación/renovación se muestran pendientes.
+Detección del reloj por companion_proxy y prueba explícita de obtención de un perfil para watchOS reutilizando el identificador existente del SideStore instalado. No crea identificadores ni certificados. Puede registrar el reloj como dispositivo de desarrollo tras pulsar el botón de prueba. No es un instalador de watchOS ni un store autónomo del reloj. Los pasos de instalación/renovación se muestran pendientes.
 
 La prueba de perfil utiliza la ruta iOS de Developer Services con `DTDK_Platform=watchos`, siguiendo la implementación experimental de Rzbck/isideload. No utiliza una ruta watchos inventada. El perfil se valida contra reloj, app, equipo, plataforma, expiración y presencia de certificados.
 
@@ -25,3 +25,11 @@ La consulta del registro se ejecuta en la cola FFI serial del motor Idevice. No 
 - https://github.com/Rzbck/iloader-watch-companion
 
 Código bajo las licencias originales incluidas en el repositorio y dependencias; los cambios de esta variante se distribuyen bajo AGPL-3.0, de acuerdo con la base SideStore.
+
+## Identidad y compatibilidad con datos móviles
+
+Se reutiliza `com.SideStore.SideStore`, sus App Groups, espacio de llavero y esquemas URL originales para una actualización sobre la instalación actual con la misma cuenta Apple. La variante no debe renombrar IDs de widgets/SideBackup ni usar un identificador de otra app. La prueba de perfil emplea el bundle ID real leído del ejecutable ya firmado, incluyendo sufijos del instalador.
+
+Se conservan los App Intents `RefreshAllAppsIntent` e `InstallIPAIntent` y el flujo `CellularRefreshManager`, con nombres de atajos configurables. La identidad original evita enviar el retorno de los atajos a otra copia de SideStore. Las pruebas por software no prueban refirma física con datos móviles.
+
+El usuario confirmó el 27 de octubre de 2026 que su SideStore 0.7.0 y LocalDevVPN renuevan apps usando 5G. También indicó que ya tiene tres apps activas y agotó los App IDs. Por ello se cambió el plan inicial de app separada por una actualización sobre SideStore y se eliminó cualquier creación de App IDs. El objetivo final sigue siendo una tienda autónoma en watchOS; esta primera herramienta de diagnóstico no la implementa.

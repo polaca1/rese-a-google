@@ -1,17 +1,27 @@
 diff --git a/Sources/DeveloperPortal/WatchBeta.swift b/Sources/DeveloperPortal/WatchBeta.swift
 new file mode 100644
-index 0000000..72d8698
+index 0000000..438350b
 --- /dev/null
 +++ b/Sources/DeveloperPortal/WatchBeta.swift
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,35 @@
 +import Foundation
 +
 +public extension DeveloperPortal {
-+    /// Experimental, explicit action: may register one device and one App ID; never revokes certificates.
++    /// Experimental: reuse an existing App ID. Never creates App IDs or certificates.
++    /// Explicit user action may register the paired Watch as a development device.
 +    func prepareWatchBetaProfile(watchIdentifier: String, bundleIdentifier: String,
 +                                 team: Team, session: Session) async throws -> ProvisioningProfile {
-+        let platform: [String: any Sendable] = ["DTDK_Platform": "watchos"]
 +        try Task.checkCancellation()
++        // Fetch the user's existing iOS App IDs first; these are shared by the legacy Watch service.
++        // Abort before any device registration if the installed SideStore ID cannot be found.
++        let apps: ListAppIDsResponse = try await sendRequest(
++            url: Constants.URLs.listAppIDs, session: session, team: team)
++        guard let app = (apps.appIds ?? []).first(where: { $0.bundleIdentifier == bundleIdentifier }),
++              !app.identifier.isEmpty else {
++            throw ServerError.badServerResponse(reason: "Existing SideStore App ID not found; no App ID was created", jsonPayload: "")
++        }
++        try Task.checkCancellation()
++        let platform: [String: any Sendable] = ["DTDK_Platform": "watchos"]
 +        let devices: ListDevicesResponse = try await sendRequest(
 +            url: Constants.URLs.listDevices, additionalParameters: platform, session: session, team: team)
 +        if !(devices.devices ?? []).contains(where: { $0.identifier == watchIdentifier }) {
@@ -19,22 +29,6 @@ index 0000000..72d8698
 +            let _: DeviceResponse = try await sendRequest(url: Constants.URLs.addDevice,
 +                additionalParameters: ["DTDK_Platform": "watchos", "deviceNumber": watchIdentifier, "name": "Watch Beta"],
 +                session: session, team: team)
-+        }
-+        try Task.checkCancellation()
-+        let apps: ListAppIDsResponse = try await sendRequest(
-+            url: Constants.URLs.listAppIDs, additionalParameters: platform, session: session, team: team)
-+        let app: AppID
-+        if let existing = (apps.appIds ?? []).first(where: { $0.bundleIdentifier == bundleIdentifier }) {
-+            app = existing
-+        } else {
-+            try Task.checkCancellation()
-+            let added: AppIDResponse = try await sendRequest(url: Constants.URLs.addAppID,
-+                additionalParameters: ["DTDK_Platform": "watchos", "name": "Watch Beta Probe", "identifier": bundleIdentifier],
-+                session: session, team: team)
-+            guard let value = added.appId, !value.identifier.isEmpty else {
-+                throw ServerError.badServerResponse(reason: "Missing Watch App ID", jsonPayload: "")
-+            }
-+            app = value
 +        }
 +        try Task.checkCancellation()
 +        let response: ProfileResponse = try await sendRequest(url: Constants.URLs.downloadProvisioningProfile,

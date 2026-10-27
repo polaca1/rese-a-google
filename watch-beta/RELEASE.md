@@ -1,9 +1,11 @@
-Beta independiente y experimental basada en SideStore. No es una versión oficial ni está respaldada por sus mantenedores.
+Beta personal e independiente basada en la app completa de SideStore. No es una versión oficial ni está respaldada por sus mantenedores.
 
-Se instala en el iPhone con el nombre «Watch Beta», identificador propio y almacenamiento de cuenta separado. En Ajustes, el icono del reloj abre las pruebas de detección y perfil de watchOS.
+REUTILIZA EL IDENTIFICADOR DE SIDESTORE: se instala sobre el SideStore actual con la misma cuenta Apple. No borrar la app antes de actualizar ni cambiar su bundle ID al firmar. Conserva los IDs del host y extensiones. No ocupa una cuarta app activa. Reinstalar la versión oficial con la misma identidad permite volver a la base; no se ha probado esta transición en el dispositivo del usuario.
 
-«Detectar Watch» realiza una consulta real mediante la conexión local de SideStore. «Probar perfil de firma» usa la sesión Apple de esta beta para solicitar un perfil específico de watchOS; puede registrar un dispositivo y un App ID, consumiendo cuota. No revoca certificados ni instala apps en el Watch.
+Conserva login Apple ID, fuentes, instalación, refirma, autorrenovación y los atajos existentes para datos móviles. No requiere cambiar los nombres TurnOffData y TurnOnData si ya funcionan. Las preferencias de datos móviles están en Settings → User Customizations → Cellular Refresh.
 
-Esta primera beta no incluye una tienda nativa de watchOS. La instalación y renovación del Watch siguen pendientes y no están verificadas en hardware. No puede sustituir la conexión inicial de emparejamiento que necesite SideStore. Iniciar sesión o instalar esta beta puede alcanzar las cuotas ordinarias de apps, identificadores o certificados de tu cuenta Apple.
+En Settings, el icono del reloj abre pruebas reales de detección y perfil. «Probar perfil con ID de SideStore» busca el identificador ya registrado de la instalación actual: nunca crea App IDs ni revoca certificados. Puede registrar el Watch como dispositivo de desarrollo y solicitar un perfil con el indicador watchos. El resultado se acepta solo si declara watchOS y corresponde al ID, equipo y reloj correctos. Reutilizar un ID iOS no garantiza que Apple entregue un perfil válido de watchOS.
 
-Fuente completa y parches de dependencias incluidos en el ZIP, con licencia y atribuciones originales. Sigue los pasos de watch-beta/README.md para reproducir la compilación. Ninguna credencial ni archivo de emparejamiento forma parte del código distribuido.
+ESTA PRIMERA BETA NO INCLUYE UNA TIENDA NATIVA NI REFIRMA AUTÓNOMA EN EL WATCH. La instalación y renovación del reloj siguen pendientes. Es una herramienta de diagnóstico en iPhone para estudiar esa vía; todavía no cumple el objetivo final del usuario.
+
+El ZIP incluye fuente, licencia, atribuciones y parches de dependencias. Ninguna credencial ni archivo de emparejamiento forma parte del código distribuido.
