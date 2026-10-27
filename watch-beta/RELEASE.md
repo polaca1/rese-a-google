@@ -9,3 +9,5 @@ En Settings, el icono del reloj abre pruebas reales de detección y perfil. «Pr
 ESTA PRIMERA BETA NO INCLUYE UNA TIENDA NATIVA NI REFIRMA AUTÓNOMA EN EL WATCH. La instalación y renovación del reloj siguen pendientes. Es una herramienta de diagnóstico en iPhone para estudiar esa vía; todavía no cumple el objetivo final del usuario.
 
 El ZIP incluye fuente, licencia, atribuciones y parches de dependencias. Ninguna credencial ni archivo de emparejamiento forma parte del código distribuido.
+
+La prueba del Watch utiliza el flujo de datos móviles existente y restaura la conexión también ante errores o cancelación. Se conserva la firma normal de SideStore.

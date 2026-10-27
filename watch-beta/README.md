@@ -9,7 +9,7 @@ Esta rama es una variante independiente de SideStore para pruebas personales, no
 3. Compila el esquema `SideStore - Release` con Xcode, sin firma para generar el archivo que firmará el instalador. El workflow `watch-beta.yml` contiene los argumentos exactos.
 4. `watch-beta/package.py` prepara el IPA y manifiesto. Una firma ad hoc no permite ejecutar la app en un dispositivo; el instalador debe firmarla con la cuenta del usuario.
 
-## Alcance 0.7.0 (701)
+## Alcance 0.7.0 (702)
 
 Detección del reloj por companion_proxy y prueba explícita de obtención de un perfil para watchOS reutilizando el identificador existente del SideStore instalado. No crea identificadores ni certificados. Puede registrar el reloj como dispositivo de desarrollo tras pulsar el botón de prueba. No es un instalador de watchOS ni un store autónomo del reloj. Los pasos de instalación/renovación se muestran pendientes.
 

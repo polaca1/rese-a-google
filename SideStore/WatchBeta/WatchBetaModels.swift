@@ -36,7 +36,7 @@ enum WatchBetaIssue: String, Codable {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 1
-    var beta = "0.7.0-build701"
+    var beta = "0.7.0-build702"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?
@@ -69,5 +69,19 @@ enum WatchBetaValidation {
         identifiers.count <= 32 && Set(identifiers).count == identifiers.count
         && identifiers.allSatisfy { !$0.isEmpty && $0.utf8.count <= 128
             && $0.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) || $0 == "-" } }
+    }
+}
+
+/// Restore cellular data after successful, failed and cancelled device operations.
+@MainActor
+enum WatchBetaLocalSession {
+    static func run<T>(turnOff: () async -> Void, turnOn: () async -> Void,
+                       operation: () async throws -> T) async throws -> T {
+        await turnOff()
+        let result: Result<T, Error>
+        do { try Task.checkCancellation(); result = .success(try await operation()) }
+        catch { result = .failure(error) }
+        await turnOn()
+        return try result.get()
     }
 }

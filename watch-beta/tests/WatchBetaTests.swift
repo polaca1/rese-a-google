@@ -1,7 +1,7 @@
 import Foundation
 
 @main struct WatchBetaTests {
-    static func main() throws {
+    @MainActor static func main() async throws {
         var count = 0
         func check(_ name: String, _ result: Bool) { precondition(result, name); count += 1; print("PASS: \(name)") }
         let now = Date(timeIntervalSince1970: 1000)
@@ -35,6 +35,24 @@ import Foundation
         check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "physicalInstallationVerified", "renewalVerified"]))
         report.set(.profile, .passed); report.invalidateProfile()
         check("changing Watch invalidates previous profile", report.status(.profile) == .pending && report.issue == nil)
+        var events: [String] = []
+        let value = try await WatchBetaLocalSession.run(turnOff: { events.append("off") }, turnOn: { events.append("on") }, operation: { events.append("operation"); return 42 })
+        check("preserves result after network restoration", value == 42)
+        check("restores data after success", events == ["off", "operation", "on"])
+        events = []
+        struct ExpectedFailure: Error {}
+        do {
+            let _: Int = try await WatchBetaLocalSession.run(turnOff: { events.append("off") }, turnOn: { events.append("on") }, operation: { events.append("operation"); throw ExpectedFailure() })
+            preconditionFailure("Expected operation failure")
+        } catch is ExpectedFailure {}
+        check("restores data after failure", events == ["off", "operation", "on"])
+        events = []
+        let cancelled = Task { @MainActor in
+            try await WatchBetaLocalSession.run(turnOff: { events.append("off") }, turnOn: { events.append("on") }, operation: { events.append("operation"); return 1 })
+        }
+        cancelled.cancel()
+        do { _ = try await cancelled.value; preconditionFailure("Expected cancellation") } catch is CancellationError {}
+        check("restores data on cancellation without running operation", events == ["off", "on"])
         print("Watch beta: \(count) checks passed")
     }
 }

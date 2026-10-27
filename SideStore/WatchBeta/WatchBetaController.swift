@@ -27,22 +27,18 @@ final class WatchBetaController: ObservableObject {
             guard minimuxer.core.isPairingFileLoaded else {
                 fail(.connection, .connectionUnavailable); return
             }
-            switch await minimuxer.core.isReady(withNetworkCheck: true, withDDIMountCheck: false) {
-            case .success(let ready):
-                guard ready else { fail(.connection, .connectionUnavailable); return }
-            case .failure: fail(.connection, .connectionUnavailable); return
-            }
-            guard !Task.isCancelled else { fail(.connection, .cancelled); return }
-            report.set(.connection, .passed); report.set(.discovery, .running)
             do {
-                let found = try await minimuxer.core.fetchPairedWatchIdentifiers()
+                let found = try await readRegistry()
                 try Task.checkCancellation()
                 guard WatchBetaValidation.validRegistry(found) else { fail(.discovery, .discoveryFailed); return }
                 guard !found.isEmpty else { report.pairedWatchCount = 0; fail(.discovery, .noWatch); return }
                 identifiers = found; watchCount = found.count; report.pairedWatchCount = found.count
                 report.set(.discovery, .passed)
             } catch is CancellationError { fail(.discovery, .cancelled) }
-            catch { fail(.discovery, .discoveryFailed) }
+            catch {
+                let stage: WatchBetaStage = report.status(.connection) == .passed ? .discovery : .connection
+                fail(stage, stage == .connection ? .connectionUnavailable : .discoveryFailed)
+            }
         }
     }
 
@@ -60,7 +56,8 @@ final class WatchBetaController: ObservableObject {
                 try Task.checkCancellation()
                 report.freeAccount = team.type == .free
                 report.set(.account, .passed)
-                let fresh = try await minimuxer.core.fetchPairedWatchIdentifiers()
+                let fresh = try await readRegistry()
+                report.set(.discovery, .passed)
                 try Task.checkCancellation()
                 guard fresh.contains(selected) else { fail(.discovery, .watchChanged); identifiers = []; return }
                 // Reuse the actual signed SideStore ID, including any team suffix added by the installer.
@@ -83,10 +80,27 @@ final class WatchBetaController: ObservableObject {
                 report.set(.profile, .passed)
             } catch is CancellationError { fail(.profile, .cancelled) }
             catch {
-                let stage: WatchBetaStage = report.status(.account) == .passed ? .profile : .account
-                fail(stage, stage == .account ? .accountUnavailable : .profileRequestFailed)
+                if report.status(.discovery) == .running {
+                    fail(.discovery, .discoveryFailed)
+                } else {
+                    let stage: WatchBetaStage = report.status(.account) == .passed ? .profile : .account
+                    fail(stage, stage == .account ? .accountUnavailable : .profileRequestFailed)
+                }
             }
         }
+    }
+
+    private func readRegistry() async throws -> [String] {
+        try await WatchBetaLocalSession.run(
+            turnOff: { _ = await CellularRefreshManager.shared.turnOffDataIfNeeded() },
+            turnOn: { _ = await CellularRefreshManager.shared.turnOnDataIfNeeded(addOnDelay: 2.0) },
+            operation: {
+                try await ensureMinimuxerReady()
+                try Task.checkCancellation()
+                self.report.set(.connection, .passed)
+                self.report.set(.discovery, .running)
+                return try await minimuxer.core.fetchPairedWatchIdentifiers()
+            })
     }
 
     func cancel() { task?.cancel() }
