@@ -1,0 +1,105 @@
+diff --git a/DeviceGateway/DeviceGatewayAPI.swift b/DeviceGateway/DeviceGatewayAPI.swift
+index 0a581fb..7fbdfb7 100644
+--- a/DeviceGateway/DeviceGatewayAPI.swift
++++ b/DeviceGateway/DeviceGatewayAPI.swift
+@@ -37,6 +37,7 @@ public protocol DeviceGatewayAPI: AnyObject, Sendable {
+     func setDeviceEndpointIp(_ ip: String?)
+     func setLogging(_ enabled: Bool)
+ 
++    func fetchPairedWatchIdentifiers() async throws -> [String]
+     func fetchUDID() async throws -> String
+     func getLockdownValue(key: String) async throws -> String
+ 
+@@ -84,6 +85,10 @@ public protocol DeviceGatewayAPI: AnyObject, Sendable {
+ }
+ 
+ public extension DeviceGatewayAPI {
++    func fetchPairedWatchIdentifiers() async throws -> [String] {
++        throw DeviceGatewayError(.unsupportedOperation, reason: "Apple Watch probe requires the Idevice backend")
++    }
++
+     func start(pairingFileContent: String, preferred: PairingProtocol? = nil) async throws {
+         try await start(pairingFileContent: pairingFileContent, preferred: preferred)
+     }
+diff --git a/DeviceGateway/idevice/IdeviceGateway.swift b/DeviceGateway/idevice/IdeviceGateway.swift
+index e9310d0..524771c 100644
+--- a/DeviceGateway/idevice/IdeviceGateway.swift
++++ b/DeviceGateway/idevice/IdeviceGateway.swift
+@@ -2299,6 +2299,48 @@ extension IdeviceGateway {
+         }
+     }
+ 
++    public func fetchPairedWatchIdentifiers() async throws -> [String] {
++        try await withFFIDispatch {
++            try self.verifyInitialized()
++            return try self.performWithEitherService(
++                connectRP: companion_proxy_connect_rsd,
++                connectLockdown: companion_proxy_connect,
++                cleanup: companion_proxy_client_free,
++                serviceName: "companion_proxy"
++            ) { client in
++                var entries: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>? = nil
++                var count: UInt = 0
++                if let error = companion_proxy_get_device_registry(client, &entries, &count) {
++                    defer { self.safeFreeError(error) }
++                    // Never log or surface the library's raw message: it can contain identifiers.
++                    throw IdeviceGatewayError(.serviceError, reason: "Apple Watch registry request failed")
++                }
++                guard let entries else {
++                    guard count == 0 else { throw IdeviceGatewayError(.serviceError, reason: "Invalid Watch registry") }
++                    return []
++                }
++                defer {
++                    for index in 0..<Int(count) { if let entry = entries[index] { idevice_string_free(entry) } }
++                    idevice_outer_slice_free(entries, count)
++                }
++                guard count <= 32 else {
++                    throw IdeviceGatewayError(.serviceError, reason: "Unexpected Watch registry size")
++                }
++                var identifiers = Set<String>()
++                for index in 0..<Int(count) {
++                    guard let value = entries[index] else { continue }
++                    let identifier = String(cString: value)
++                    guard !identifier.isEmpty, identifier.utf8.count <= 128,
++                          identifier.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || $0 == "-" }) else {
++                        throw IdeviceGatewayError(.serviceError, reason: "Invalid Watch identifier")
++                    }
++                    identifiers.insert(identifier)
++                }
++                return identifiers.sorted()
++            }
++        }
++    }
++
+     public func fetchUDID() async throws -> String {
+         try await withFFIDispatch {
+             try self.syncFetchUDID()
+diff --git a/Sources/MinimuxerApi.swift b/Sources/MinimuxerApi.swift
+index 419b667..0c1f6ee 100644
+--- a/Sources/MinimuxerApi.swift
++++ b/Sources/MinimuxerApi.swift
+@@ -106,6 +106,7 @@ public protocol MinimuxerAPI: AnyObject {
+     func mountDDI(docsPath: String) async throws -> Bool
+     func isDDIMounted() async throws -> Bool
+ 
++    func fetchPairedWatchIdentifiers() async throws -> [String]
+     func fetchUDID() async throws -> String
+     func testDeviceConnection(ifaddr: String, timeout: Int) -> Bool
+ 
+diff --git a/Sources/MinimuxerImpl.swift b/Sources/MinimuxerImpl.swift
+index 4c05971..2c296c4 100644
+--- a/Sources/MinimuxerImpl.swift
++++ b/Sources/MinimuxerImpl.swift
+@@ -412,6 +412,12 @@ final internal class MinimuxerImpl: MinimuxerAPI {
+         }
+     }
+ 
++    func fetchPairedWatchIdentifiers() async throws(MinimuxerError) -> [String] {
++        try await runWithChecks("while detecting paired Apple Watch", catchAll: MinimuxerError.fetchUDID) {
++            try await self.gateway.fetchPairedWatchIdentifiers()
++        }
++    }
++
+     func fetchUDID() async throws(MinimuxerError) -> String {
+         try await runWithChecks("while fetching device UDID", catchAll: MinimuxerError.fetchUDID) {
+             try await self.gateway.fetchUDID()

@@ -1,0 +1,62 @@
+diff --git a/Sources/DeveloperPortal/WatchBeta.swift b/Sources/DeveloperPortal/WatchBeta.swift
+new file mode 100644
+index 0000000..72d8698
+--- /dev/null
++++ b/Sources/DeveloperPortal/WatchBeta.swift
+@@ -0,0 +1,41 @@
++import Foundation
++
++public extension DeveloperPortal {
++    /// Experimental, explicit action: may register one device and one App ID; never revokes certificates.
++    func prepareWatchBetaProfile(watchIdentifier: String, bundleIdentifier: String,
++                                 team: Team, session: Session) async throws -> ProvisioningProfile {
++        let platform: [String: any Sendable] = ["DTDK_Platform": "watchos"]
++        try Task.checkCancellation()
++        let devices: ListDevicesResponse = try await sendRequest(
++            url: Constants.URLs.listDevices, additionalParameters: platform, session: session, team: team)
++        if !(devices.devices ?? []).contains(where: { $0.identifier == watchIdentifier }) {
++            try Task.checkCancellation()
++            let _: DeviceResponse = try await sendRequest(url: Constants.URLs.addDevice,
++                additionalParameters: ["DTDK_Platform": "watchos", "deviceNumber": watchIdentifier, "name": "Watch Beta"],
++                session: session, team: team)
++        }
++        try Task.checkCancellation()
++        let apps: ListAppIDsResponse = try await sendRequest(
++            url: Constants.URLs.listAppIDs, additionalParameters: platform, session: session, team: team)
++        let app: AppID
++        if let existing = (apps.appIds ?? []).first(where: { $0.bundleIdentifier == bundleIdentifier }) {
++            app = existing
++        } else {
++            try Task.checkCancellation()
++            let added: AppIDResponse = try await sendRequest(url: Constants.URLs.addAppID,
++                additionalParameters: ["DTDK_Platform": "watchos", "name": "Watch Beta Probe", "identifier": bundleIdentifier],
++                session: session, team: team)
++            guard let value = added.appId, !value.identifier.isEmpty else {
++                throw ServerError.badServerResponse(reason: "Missing Watch App ID", jsonPayload: "")
++            }
++            app = value
++        }
++        try Task.checkCancellation()
++        let response: ProfileResponse = try await sendRequest(url: Constants.URLs.downloadProvisioningProfile,
++            additionalParameters: ["DTDK_Platform": "watchos", "appIdId": app.identifier], session: session, team: team)
++        guard let profile = try response.provisioningProfile?.toProvisioningProfile() else {
++            throw ServerError.badServerResponse(reason: "Missing Watch profile", jsonPayload: "")
++        }
++        return profile
++    }
++}
+diff --git a/Sources/Models/ProvisioningProfile.swift b/Sources/Models/ProvisioningProfile.swift
+index cc2118a..5cae160 100644
+--- a/Sources/Models/ProvisioningProfile.swift
++++ b/Sources/Models/ProvisioningProfile.swift
+@@ -23,6 +23,10 @@ public struct ProvisioningProfile: Sendable, Codable, Equatable, Hashable, Ident
+     public var isFreeProvisioningProfile: Bool
+     public var data: Data
+ 
++    public var watchBetaPlatforms: [String] {
++        (try? Self.dictionary(fromEncodedData: data)["Platform"] as? [String]) ?? []
++    }
++
+     public var entitlements: [String: any Sendable] {
+         guard let dict = try? Self.dictionary(fromEncodedData: data),
+               let ents = dict["Entitlements"] as? [String: any Sendable] else 
