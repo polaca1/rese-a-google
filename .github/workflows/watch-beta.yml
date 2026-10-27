@@ -25,24 +25,18 @@ jobs:
         run: |
           rustup toolchain install 1.99.1 --profile minimal
           rustup component add llvm-tools-preview --toolchain 1.99.1
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache@v4
         id: rustcache
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             build/watch-ffi/source
-          key: watch-beta-ffi-3e55c84-rust1991-nolto-v2
+          key: watch-beta-ffi-3e55c84-rust1991-nolto-v3-${{ hashFiles('watch-beta/watch_install.rs', 'watch-beta/build-idevice.py') }}
+          restore-keys: |
+            watch-beta-ffi-3e55c84-rust1991-nolto-v3-
       - name: Build and verify Watch service exports
         run: python3 watch-beta/build-idevice.py > build-ffi.log 2>&1 || { tail -n 90 build-ffi.log; exit 1; }
-      - uses: actions/cache/save@v4
-        if: always() && steps.rustcache.outputs.cache-hit != 'true'
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            build/watch-ffi/source
-          key: watch-beta-ffi-3e55c84-rust1991-nolto-v2
       - name: Verify validation and diagnostic report
         run: |
           mkdir -p build/watch-beta
