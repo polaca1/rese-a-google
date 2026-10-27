@@ -187,7 +187,7 @@ final class WatchBetaController: ObservableObject {
             } catch is CancellationError { fail(.installation, .cancelled) }
             catch {
                 fail(.installation, .installationFailed)
-                installMessage = "No se completó la firma o instalación. Esta beta requiere emparejamiento TCP, un único Watch enlazado y un perfil de watchOS válido."
+                installMessage = "No se completó la firma o instalación (\(String(describing: error))). Comprueba el emparejamiento TCP, el perfil de watchOS y el estado del reloj."
             }
         }
     }
