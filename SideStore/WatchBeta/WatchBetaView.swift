@@ -35,15 +35,15 @@ struct WatchBetaView: View {
                 }
             }
             Section {
-                Button(action: model.detect) { Label("Detectar Watch", systemImage: "antenna.radiowaves.left.and.right") }
+                SwiftUI.Button(action: model.detect) { Label("Detectar Watch", systemImage: "antenna.radiowaves.left.and.right") }
                     .disabled(model.running)
-                Button(action: model.prepareProfile) { Label("Probar perfil de firma", systemImage: "checkmark.shield") }
+                SwiftUI.Button(action: model.prepareProfile) { Label("Probar perfil de firma", systemImage: "checkmark.shield") }
                     .disabled(!model.canPrepareProfile)
             } footer: {
                 Text("Probar el perfil puede registrar este reloj y consumir 1 identificador de app de tu cuota de Apple. No revoca certificados ni instala apps. Una solicitud enviada puede completarse aunque cierres esta pantalla.")
             }
             Section {
-                Button {
+                SwiftUI.Button {
                     UIPasteboard.general.string = model.report.export(); copied = true
                 } label: { Label(copied ? "Diagnóstico copiado" : "Copiar diagnóstico", systemImage: "doc.on.doc") }
                     .disabled(model.running)
@@ -53,7 +53,7 @@ struct WatchBetaView: View {
         }
         .navigationTitle("Watch beta")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { dismiss() } } }
+        .toolbar { ToolbarItem(placement: .cancellationAction) { SwiftUI.Button("Cerrar") { dismiss() } } }
         .onDisappear { model.cancel() }
     }
 
