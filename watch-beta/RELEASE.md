@@ -1,15 +1,9 @@
-Build 707: desglosa los fallos del perfil en búsqueda del App ID, consulta/registro de dispositivos, descarga y lectura del perfil. Exporta únicamente categorías fijas y códigos numéricos; nunca respuestas privadas de Apple. Corrige la falta de detalle de 706; aún no demuestra ni resuelve la causa del rechazo en el dispositivo.
+Build 708 — instalación experimental desde el iPhone al Watch.
 
-Beta personal e independiente basada en la app completa de SideStore. No es una versión oficial ni está respaldada por sus mantenedores.
+Añade Elegir IPA y Firmar e instalar. Acepta un IPA con una sola app watchOS, sin extensiones, valida y acota el archivo antes de extraerlo, solicita un perfil con el App ID ya registrado de esa app y reutiliza el certificado activo. No crea App IDs ni revoca certificados. Debe haber un único Watch enlazado y un emparejamiento TCP.
 
-REUTILIZA EL IDENTIFICADOR DE SIDESTORE: se instala sobre el SideStore actual con la misma cuenta Apple. No borrar la app antes de actualizar ni cambiar su bundle ID al firmar. Conserva los IDs del host y extensiones. No ocupa una cuarta app activa. Reinstalar la versión oficial con la misma identidad permite volver a la base; no se ha probado esta transición en el dispositivo del usuario.
+El envío utiliza companion_proxy → lockdown → streaming_zip_conduit. No elimina primero la instalación anterior. Solo declara la instalación completada tras DataComplete de watchOS. Esta vía sigue necesitando prueba física con la cuenta del usuario; Apple puede rechazar el perfil. La cuenta del usuario falló en el perfil con 706; 707/708 muestran paso y código para resolverlo.
 
-Conserva login Apple ID, fuentes, instalación, refirma, autorrenovación y los atajos existentes para datos móviles. No requiere cambiar los nombres TurnOffData y TurnOnData si ya funcionan. Las preferencias de datos móviles están en Settings → User Customizations → Cellular Refresh.
+La app sigue ejecutándose en el iPhone. No incluye tienda autónoma ni autorrenovación dentro del Watch. Tampoco instala un IPA arbitrario de iPhone como si fuera watchOS. No garantiza compatibilidad de las cuentas gratuitas.
 
-En Settings, el icono del reloj abre pruebas reales de detección y perfil. «Probar perfil con ID de SideStore» busca el identificador ya registrado de la instalación actual: nunca crea App IDs ni revoca certificados. Puede registrar el Watch como dispositivo de desarrollo y solicitar un perfil con el indicador watchos. El resultado se acepta solo si declara watchOS y corresponde al ID, equipo y reloj correctos. Reutilizar un ID iOS no garantiza que Apple entregue un perfil válido de watchOS.
-
-ESTA PRIMERA BETA NO INCLUYE UNA TIENDA NATIVA NI REFIRMA AUTÓNOMA EN EL WATCH. La instalación y renovación del reloj siguen pendientes. Es una herramienta de diagnóstico en iPhone para estudiar esa vía; todavía no cumple el objetivo final del usuario.
-
-El ZIP incluye fuente, licencia, atribuciones y parches de dependencias. Ninguna credencial ni archivo de emparejamiento forma parte del código distribuido.
-
-La prueba del Watch utiliza el flujo de datos móviles existente y restaura la conexión también ante errores o cancelación. Se conserva la firma normal de SideStore.
+Actualiza sobre SideStore con la misma cuenta Apple, sin borrar la app. Variante personal independiente basada en SideStore; código completo, licencias y atribuciones en la rama beta/sidestore-watch y ZIP de fuentes de la release.

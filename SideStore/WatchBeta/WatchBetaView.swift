@@ -1,20 +1,22 @@
 #if os(iOS)
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct WatchBetaView: View {
     @StateObject private var model = WatchBetaController()
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
+    @State private var importing = false
 
     var body: some View {
         List {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.0 (707)")
+                Text("Beta personal · 0.7.0 (708)")
                     .font(.subheadline).foregroundColor(.secondary)
-                Text("Comprueba la conexión real y solicita un perfil para el reloj. Esta primera beta todavía no instala ni renueva apps del Watch.")
+                Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)
             }
             Section(header: Text("Comprobación")) {
@@ -45,6 +47,18 @@ struct WatchBetaView: View {
             } footer: {
                 Text("Se reutiliza el identificador ya existente de este SideStore. No crea App IDs ni revoca certificados. La prueba puede registrar el reloj como dispositivo de desarrollo y solicitar un perfil nuevo. No instala apps. Una solicitud enviada puede completarse aunque cierres esta pantalla.")
             }
+            Section(header: Text("Instalar en el Watch")) {
+                SwiftUI.Button { importing = true } label: { Label("Elegir IPA…", systemImage: "square.and.arrow.down") }
+                    .disabled(model.running)
+                if let name = model.importedName {
+                    Text(name)
+                    SwiftUI.Button("Firmar e instalar", action: model.installImportedApp)
+                        .disabled(!model.canPrepareProfile || model.watchCount != 1)
+                }
+                if let message = model.installMessage { Text(message).font(.footnote).foregroundColor(.secondary) }
+            } footer: {
+                Text("Un único Watch enlazado, desbloqueado y cerca. Requiere emparejamiento TCP. El IPA debe contener una sola app watchOS sin extensiones y usar un App ID ya registrado en tu cuenta. No crea IDs ni elimina apps antes de actualizar.")
+            }
             Section {
                 SwiftUI.Button {
                     UIPasteboard.general.string = model.report.export(); copied = true
@@ -57,6 +71,9 @@ struct WatchBetaView: View {
         .navigationTitle("Watch beta")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { SwiftUI.Button("Cerrar") { dismiss() } } }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first { model.importIPA(url) }
+        }
         .onDisappear { model.cancel() }
     }
 

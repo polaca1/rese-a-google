@@ -18,7 +18,7 @@ enum WatchBetaStage: String, Codable, CaseIterable, Identifiable {
 enum WatchBetaStatus: String, Codable { case pending, running, passed, failed }
 enum WatchBetaIssue: String, Codable {
     case connectionUnavailable, discoveryFailed, noWatch, watchChanged, accountUnavailable
-    case profileRequestFailed, invalidProfile, cancelled
+    case profileRequestFailed, invalidProfile, cancelled, installationFailed
     var message: String {
         switch self {
         case .connectionUnavailable: return "Activa la VPN local y configura el archivo de emparejamiento en esta beta."
@@ -28,6 +28,7 @@ enum WatchBetaIssue: String, Codable {
         case .accountUnavailable: return "Inicia sesión con tu cuenta Apple en los ajustes de esta beta."
         case .profileRequestFailed: return "Apple no ha entregado el perfil. Puede deberse a la cuota, la sesión o al soporte de esta cuenta. No demuestra que la cuenta gratuita sea incompatible."
         case .invalidProfile: return "El perfil recibido no cumple los requisitos de este Watch. No se ha instalado nada."
+        case .installationFailed: return "No se completó la instalación real en el Watch. No se ha borrado la app anterior."
         case .cancelled: return "Comprobación cancelada. Si se había solicitado un registro a Apple, puede haberse completado."
         }
     }
@@ -70,7 +71,7 @@ struct WatchBetaProfileDiagnostic: Codable, Equatable {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 2
-    var beta = "0.7.0-build707"
+    var beta = "0.7.0-build708"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?

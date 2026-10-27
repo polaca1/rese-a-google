@@ -9,7 +9,7 @@ Esta rama es una variante independiente de SideStore para pruebas personales, no
 3. Ejecuta `python3 watch-beta/build-idevice.py` en un Mac con Rust 1.99.1 (incluido llvm-tools-preview) y Xcode. Compila el soporte companion_proxy ausente del binario oficial para iPhone y verifica sus símbolos. Después compila el esquema `SideStore - Release` con Xcode, sin firma para generar el archivo que firmará el instalador. El workflow `watch-beta.yml` contiene los argumentos exactos.
 4. `watch-beta/package.py` prepara el IPA y manifiesto. Una firma ad hoc no permite ejecutar la app en un dispositivo; el instalador debe firmarla con la cuenta del usuario.
 
-## Alcance 0.7.0 (707)
+## Alcance 0.7.0 (708)
 
 Detección del reloj por companion_proxy y prueba explícita de obtención de un perfil para watchOS reutilizando el identificador existente del SideStore instalado. No crea identificadores ni certificados. Puede registrar el reloj como dispositivo de desarrollo tras pulsar el botón de prueba. No es un instalador de watchOS ni un store autónomo del reloj. Los pasos de instalación/renovación se muestran pendientes.
 
@@ -35,3 +35,6 @@ Se conservan los App Intents `RefreshAllAppsIntent` e `InstallIPAIntent` y el fl
 El usuario confirmó el 27 de octubre de 2026 que su SideStore 0.7.0 y LocalDevVPN renuevan apps usando 5G. También indicó que ya tiene tres apps activas y agotó los App IDs. Por ello se cambió el plan inicial de app separada por una actualización sobre SideStore y se eliminó cualquier creación de App IDs. El objetivo final sigue siendo una tienda autónoma en watchOS; esta primera herramienta de diagnóstico no la implementa.
 
 La reconstrucción FFI conserva los slices originales de otras plataformas; solo se ha añadido el soporte experimental al slice iPhone arm64. No añade soporte watchOS ni al simulador. El manifiesto de procedencia registra el compilador y SHA exactos.
+
+
+Build 708 añade instalación real experimental desde un IPA: único Watch, backend TCP, una app watchOS sin extensiones, App ID ya registrado, certificado activo y perfil válido. El transporte no desinstala primero. No equivale a ejecución autónoma ni prueba física de cuenta gratuita. La app importada conserva su identificador; no se reemplaza por uno arbitrario.

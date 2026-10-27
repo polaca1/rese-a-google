@@ -1,19 +1,24 @@
 diff --git a/DeviceGateway/DeviceGatewayAPI.swift b/DeviceGateway/DeviceGatewayAPI.swift
-index 0a581fb..7fbdfb7 100644
+index 0a581fb..650a026 100644
 --- a/DeviceGateway/DeviceGatewayAPI.swift
 +++ b/DeviceGateway/DeviceGatewayAPI.swift
-@@ -37,6 +37,7 @@ public protocol DeviceGatewayAPI: AnyObject, Sendable {
+@@ -37,6 +37,8 @@ public protocol DeviceGatewayAPI: AnyObject, Sendable {
      func setDeviceEndpointIp(_ ip: String?)
      func setLogging(_ enabled: Bool)
  
++    func installWatchBundle(at url: URL, watchIdentifier: String) async throws
 +    func fetchPairedWatchIdentifiers() async throws -> [String]
      func fetchUDID() async throws -> String
      func getLockdownValue(key: String) async throws -> String
  
-@@ -84,6 +85,10 @@ public protocol DeviceGatewayAPI: AnyObject, Sendable {
+@@ -84,6 +86,14 @@ public protocol DeviceGatewayAPI: AnyObject, Sendable {
  }
  
  public extension DeviceGatewayAPI {
++    func installWatchBundle(at url: URL, watchIdentifier: String) async throws {
++        throw DeviceGatewayError(.unsupportedOperation, reason: "Watch installation requires the Idevice TCP backend")
++    }
++
 +    func fetchPairedWatchIdentifiers() async throws -> [String] {
 +        throw DeviceGatewayError(.unsupportedOperation, reason: "Apple Watch probe requires the Idevice backend")
 +    }
@@ -36,13 +41,33 @@ index e71fb03..aea6b23 100644
  //        .binaryTarget(
  //            name: "IDevice",
 diff --git a/DeviceGateway/idevice/IdeviceGateway.swift b/DeviceGateway/idevice/IdeviceGateway.swift
-index e9310d0..524771c 100644
+index e9310d0..44e37cf 100644
 --- a/DeviceGateway/idevice/IdeviceGateway.swift
 +++ b/DeviceGateway/idevice/IdeviceGateway.swift
-@@ -2299,6 +2299,48 @@ extension IdeviceGateway {
+@@ -2299,6 +2299,68 @@ extension IdeviceGateway {
          }
      }
  
++    public func installWatchBundle(at url: URL, watchIdentifier: String) async throws {
++        try await withFFIDispatch {
++            try self.verifyInitialized()
++            guard self.pairingFileType != .rppairing else {
++                throw IdeviceGatewayError(.unsupportedOperation, reason: "Watch installer currently requires a TCP pairing file")
++            }
++            var result: Int32 = -1
++            try self.performWithTcpService(connect: { provider, output in
++                result = sidestore_watch_install(provider, watchIdentifier, url.path)
++                // Borrow provider as the service token; its existing defer owns cleanup.
++                output?.pointee = provider
++                return nil
++            }, cleanup: { _ in }, serviceName: "Watch installation") { _ in
++                guard result == 0 else {
++                    throw IdeviceGatewayError(.serviceError, reason: "Watch installation failed (stage code \(result)); no existing app was removed")
++                }
++            }
++        }
++    }
++
 +    public func fetchPairedWatchIdentifiers() async throws -> [String] {
 +        try await withFFIDispatch {
 +            try self.verifyInitialized()
@@ -89,25 +114,32 @@ index e9310d0..524771c 100644
          try await withFFIDispatch {
              try self.syncFetchUDID()
 diff --git a/Sources/MinimuxerApi.swift b/Sources/MinimuxerApi.swift
-index 419b667..0c1f6ee 100644
+index 419b667..bb59f1c 100644
 --- a/Sources/MinimuxerApi.swift
 +++ b/Sources/MinimuxerApi.swift
-@@ -106,6 +106,7 @@ public protocol MinimuxerAPI: AnyObject {
+@@ -106,6 +106,8 @@ public protocol MinimuxerAPI: AnyObject {
      func mountDDI(docsPath: String) async throws -> Bool
      func isDDIMounted() async throws -> Bool
  
++    func installWatchBundle(at url: URL, watchIdentifier: String) async throws
 +    func fetchPairedWatchIdentifiers() async throws -> [String]
      func fetchUDID() async throws -> String
      func testDeviceConnection(ifaddr: String, timeout: Int) -> Bool
  
 diff --git a/Sources/MinimuxerImpl.swift b/Sources/MinimuxerImpl.swift
-index 4c05971..2c296c4 100644
+index 4c05971..6b5db8e 100644
 --- a/Sources/MinimuxerImpl.swift
 +++ b/Sources/MinimuxerImpl.swift
-@@ -412,6 +412,12 @@ final internal class MinimuxerImpl: MinimuxerAPI {
+@@ -412,6 +412,18 @@ final internal class MinimuxerImpl: MinimuxerAPI {
          }
      }
  
++    func installWatchBundle(at url: URL, watchIdentifier: String) async throws(MinimuxerError) {
++        try await runWithChecks("while installing Watch app", catchAll: MinimuxerError.installApp) {
++            try await self.gateway.installWatchBundle(at: url, watchIdentifier: watchIdentifier)
++        }
++    }
++
 +    func fetchPairedWatchIdentifiers() async throws(MinimuxerError) -> [String] {
 +        try await runWithChecks("while detecting paired Apple Watch", catchAll: MinimuxerError.fetchUDID) {
 +            try await self.gateway.fetchPairedWatchIdentifiers()
