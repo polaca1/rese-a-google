@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..ab351e7
 --- /dev/null
 +++ b/Sources/DeveloperPortal/WatchBeta.swift
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,81 @@
 +import Foundation
 +
 +/// Contains only fixed categories and numeric codes, never Apple's raw response.
