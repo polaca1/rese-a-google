@@ -22,7 +22,9 @@ jobs:
       - name: Apply pinned dependency patches
         run: python3 watch-beta/bootstrap.py
       - name: Install Rust compiler
-        run: rustup toolchain install 1.99.1 --profile minimal
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal
+          rustup component add llvm-tools-preview --toolchain 1.99.1
       - uses: actions/cache/restore@v4
         id: rustcache
         with:
@@ -69,6 +71,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=sidestore-watch-beta-0.7.0-build705
+          tag=sidestore-watch-beta-0.7.0-build706
           git archive --format=zip --output=build/watch-beta/SideStore-Watch-Beta-Source.zip HEAD
-          gh release create "$tag" build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch Beta 0.7.0 (705) — detección y perfil' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"
+          gh release create "$tag" build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch Beta 0.7.0 (706) — detección y perfil' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"

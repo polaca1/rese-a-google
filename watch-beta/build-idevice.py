@@ -21,9 +21,18 @@ environment['SDKROOT']=subprocess.check_output(['xcrun','--sdk','iphoneos','--sh
 subprocess.run(['cargo','+1.99.1','build','--manifest-path',str(source/'ffi/Cargo.toml'),'--locked','--release','--target','aarch64-apple-ios','--features','companion_proxy'],check=True,env=environment)
 binary=source/'target/aarch64-apple-ios/release/libidevice_ffi.a';assert binary.exists()
 # Detect missing binary exports before spending time building the entire iPhone app.
-names=subprocess.check_output(['xcrun','nm','-gU',str(binary)],text=True)
+sysroot=pathlib.Path(subprocess.check_output(['rustc','+1.99.1','--print','sysroot'],text=True).strip())
+host=next(line.split(': ',1)[1] for line in subprocess.check_output(['rustc','+1.99.1','-vV'],text=True).splitlines() if line.startswith('host: '))
+nm=sysroot/'lib/rustlib'/host/'bin/llvm-nm'
+assert nm.exists(), 'Install llvm-tools-preview for the pinned Rust compiler'
+names=subprocess.check_output([str(nm),'--defined-only','-g',str(binary)],text=True)
 for symbol in ['_companion_proxy_connect','_companion_proxy_connect_rsd','_companion_proxy_get_device_registry','_companion_proxy_client_free']:
     assert any(line.split()[-1:]==[symbol] for line in names.splitlines()),'Missing required export: '+symbol
+# Link the actual service functions with the selected iPhone SDK before the full app build.
+probe=work/'link-probe.c'
+probe.write_text('extern void companion_proxy_connect(void);\nextern void companion_proxy_connect_rsd(void);\nextern void companion_proxy_get_device_registry(void);\nextern void companion_proxy_client_free(void);\ntypedef void (*Fn)(void);\nFn volatile symbols[] = {companion_proxy_connect, companion_proxy_connect_rsd, companion_proxy_get_device_registry, companion_proxy_client_free};\nint main(void) { return symbols[0] == 0; }\n')
+subprocess.run(['xcrun','clang','-target','arm64-apple-ios15.0','-isysroot',environment['SDKROOT'],str(probe),str(binary),'-framework','Security','-framework','CoreFoundation','-framework','SystemConfiguration','-framework','CFNetwork','-liconv','-lresolv','-lz','-lc++','-o',str(work/'link-probe')],check=True)
+print('Native iPhone SDK link probe passed for all four Watch service exports.')
 if target.exists():shutil.rmtree(target)
 with zipfile.ZipFile(archive) as z:
     z.extractall(work/'upstream')

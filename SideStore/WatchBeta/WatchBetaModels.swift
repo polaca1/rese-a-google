@@ -36,7 +36,7 @@ enum WatchBetaIssue: String, Codable {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 1
-    var beta = "0.7.0-build705"
+    var beta = "0.7.0-build706"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?
