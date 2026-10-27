@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..ab351e7
 --- /dev/null
 +++ b/Sources/DeveloperPortal/WatchBeta.swift
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,80 @@
 +import Foundation
 +
 +/// Contains only fixed categories and numeric codes, never Apple's raw response.
@@ -45,8 +45,17 @@ index 0000000..ab351e7
 +        let apps: ListAppIDsResponse = try await watchBetaStep(.listAppIDs) {
 +            try await sendRequest(url: Constants.URLs.listAppIDs, session: session, team: team)
 +        }
-+        guard let app = (apps.appIds ?? []).first(where: { $0.bundleIdentifier == bundleIdentifier }),
-+              !app.identifier.isEmpty else {
++        // A signed SideStore bundle can carry a team suffix while the portal
++        // retains the original App ID. Match only an existing, unique ID.
++        let existing = apps.appIds ?? []
++        let exact = existing.filter { $0.bundleIdentifier == bundleIdentifier && !$0.identifier.isEmpty }
++        let suffix = "." + team.identifier
++        let unsuffixed = bundleIdentifier.hasSuffix(suffix)
++            ? String(bundleIdentifier.dropLast(suffix.count)) : bundleIdentifier
++        let matches = exact.isEmpty
++            ? existing.filter { $0.bundleIdentifier == unsuffixed && !$0.identifier.isEmpty }
++            : exact
++        guard matches.count == 1, let app = matches.first else {
 +            throw WatchBetaProfileFailure(operation: .listAppIDs, kind: .existingAppIDMissing, code: nil)
 +        }
 +        try Task.checkCancellation()
