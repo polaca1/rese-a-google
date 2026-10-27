@@ -1,7 +1,7 @@
 name: SideStore Watch Beta - build and verify
 on:
   push:
-    branches: [beta/sidestore-watch]
+    branches: [beta/sidestore-watch, development/watch-installation-v709]
   workflow_dispatch:
 permissions:
   contents: write
@@ -68,6 +68,7 @@ jobs:
             build-ffi.log
             build/watch-ffi/PROVENANCE.json
       - name: Publish beta
+        if: github.ref == 'refs/heads/beta/sidestore-watch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
