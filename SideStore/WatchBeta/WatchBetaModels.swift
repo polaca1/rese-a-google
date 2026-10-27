@@ -92,6 +92,13 @@ struct WatchBetaReport: Codable, Equatable {
 }
 
 enum WatchBetaValidation {
+    static func safeArchiveEntry(name: String, size: Int64, attributes: UInt32) -> Bool {
+        !name.isEmpty && !name.hasPrefix("/") && !name.contains("\\")
+        && !name.split(separator: "/").contains("..") && !name.contains("\0")
+        && size >= 0 && size <= 100_000_000
+        && (attributes >> 16) & 0o170000 != 0o120000
+    }
+
     static func validProfile(platforms: [String], bundle: String, expectedBundle: String,
                              team: String, expectedTeam: String, devices: [String], selectedWatch: String,
                              expires: Date, certificateCount: Int, now: Date = Date()) -> Bool {

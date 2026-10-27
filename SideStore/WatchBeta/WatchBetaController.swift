@@ -221,11 +221,10 @@ enum WatchBetaImport {
         var names = Set<String>()
         for entry in entries {
             let path = entry.filename
-            guard !path.isEmpty, !path.hasPrefix("/"), !path.contains("\\"),
-                  !path.split(separator: "/").contains(".."), !path.contains("\0"),
-                  names.insert(path).inserted,
-                  entry.uncompressedSize >= 0, entry.uncompressedSize <= 100_000_000,
-                  (entry.externalAttributes >> 16) & 0o170000 != 0o120000 else { throw WatchBetaImportError.invalidArchive }
+            guard WatchBetaValidation.safeArchiveEntry(name: path, size: entry.uncompressedSize,
+                      attributes: entry.externalAttributes), names.insert(path).inserted else {
+                throw WatchBetaImportError.invalidArchive
+            }
             total += entry.uncompressedSize
             guard total <= 300_000_000 else { throw WatchBetaImportError.invalidArchive }
         }

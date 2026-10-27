@@ -4,6 +4,11 @@ import Foundation
     @MainActor static func main() async throws {
         var count = 0
         func check(_ name: String, _ result: Bool) { precondition(result, name); count += 1; print("PASS: \(name)") }
+        check("archive traversal rejected", !WatchBetaValidation.safeArchiveEntry(name: "Payload/../../secret", size: 1, attributes: 0))
+        check("absolute archive paths rejected", !WatchBetaValidation.safeArchiveEntry(name: "/secret", size: 1, attributes: 0))
+        check("archive symlink rejected", !WatchBetaValidation.safeArchiveEntry(name: "Payload/link", size: 1, attributes: 0o120777 << 16))
+        check("archive large entry rejected", !WatchBetaValidation.safeArchiveEntry(name: "Payload/app", size: 100_000_001, attributes: 0))
+        check("normal app resource accepted", WatchBetaValidation.safeArchiveEntry(name: "Payload/Watch.app/main", size: 1024, attributes: 0o100755 << 16))
         let now = Date(timeIntervalSince1970: 1000)
         func valid(platforms: [String] = ["watchOS"], bundle: String = "test.watch", team: String = "TEAM",
                    devices: [String] = ["WATCH-ID"], expires: Date = Date(timeIntervalSince1970: 2000), certs: Int = 1) -> Bool {

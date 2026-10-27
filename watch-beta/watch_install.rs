@@ -234,7 +234,7 @@ async fn install_watch_app_zip_conduit(
             .context("Failed to forward Apple Watch streaming_zip_conduit")?
     };
 
-    let result = tokio::time::timeout(Duration::from_secs(120), async {
+    let result = tokio::time::timeout(Duration::from_secs(90), async {
         let mut connection = connect_forwarded_watch_port(
             device_provider,
             forwarded_port,
