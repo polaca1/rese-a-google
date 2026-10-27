@@ -47,7 +47,7 @@ struct WatchBetaView: View {
             } footer: {
                 Text("Se reutiliza el identificador ya existente de este SideStore. No crea App IDs ni revoca certificados. La prueba puede registrar el reloj como dispositivo de desarrollo y solicitar un perfil nuevo. No instala apps. Una solicitud enviada puede completarse aunque cierres esta pantalla.")
             }
-            Section(header: Text("Instalar en el Watch")) {
+            Section {
                 SwiftUI.Button { importing = true } label: { Label("Elegir IPA…", systemImage: "square.and.arrow.down") }
                     .disabled(model.running)
                 if let name = model.importedName {
@@ -56,6 +56,8 @@ struct WatchBetaView: View {
                         .disabled(!model.canPrepareProfile || model.watchCount != 1)
                 }
                 if let message = model.installMessage { Text(message).font(.footnote).foregroundColor(.secondary) }
+            } header: {
+                Text("Instalar en el Watch")
             } footer: {
                 Text("Un único Watch enlazado, desbloqueado y cerca. Requiere emparejamiento TCP. El IPA debe contener una sola app watchOS sin extensiones y usar un App ID ya registrado en tu cuenta. No crea IDs ni elimina apps antes de actualizar.")
             }
