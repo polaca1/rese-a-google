@@ -15,7 +15,8 @@ use std::{
 };
 macro_rules! quiet_log { ($($arg:tt)*) => {}; }
 
-// Adapted from Rzbck/isideload watch installation research (f7b9f3d), AGPL-3.0.
+// Adapted from Rzbck/isideload (f7b9f3d), MIT; see THIRD-PARTY-NOTICES.txt.
+// This personal variant is distributed under the SideStore AGPL-3.0 terms.
 // SideStore personal beta: no deletion of existing apps, exact single-Watch selection.
 use crate::{provider::IdeviceProviderHandle, run_sync_local};
 use std::ffi::{CStr, c_char};

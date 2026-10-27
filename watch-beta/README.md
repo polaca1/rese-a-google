@@ -11,7 +11,7 @@ Esta rama es una variante independiente de SideStore para pruebas personales, no
 
 ## Alcance 0.7.0 (708)
 
-Detección del reloj por companion_proxy y prueba explícita de obtención de un perfil para watchOS reutilizando el identificador existente del SideStore instalado. No crea identificadores ni certificados. Puede registrar el reloj como dispositivo de desarrollo tras pulsar el botón de prueba. No es un instalador de watchOS ni un store autónomo del reloj. Los pasos de instalación/renovación se muestran pendientes.
+Detección del reloj por companion_proxy y prueba explícita de obtención de un perfil para watchOS reutilizando el identificador existente del SideStore instalado. No crea identificadores ni certificados. Puede registrar el reloj como dispositivo de desarrollo tras pulsar el botón de prueba. Incluye un instalador experimental desde iPhone, detallado más abajo. No es una tienda autónoma del reloj; la renovación sigue pendiente.
 
 La prueba de perfil utiliza la ruta iOS de Developer Services con `DTDK_Platform=watchos`, siguiendo la implementación experimental de Rzbck/isideload. No utiliza una ruta watchos inventada. El perfil se valida contra reloj, app, equipo, plataforma, expiración y presencia de certificados.
 
@@ -38,3 +38,5 @@ La reconstrucción FFI conserva los slices originales de otras plataformas; solo
 
 
 Build 708 añade instalación real experimental desde un IPA: único Watch, backend TCP, una app watchOS sin extensiones, App ID ya registrado, certificado activo y perfil válido. El transporte no desinstala primero. No equivale a ejecución autónoma ni prueba física de cuenta gratuita. La app importada conserva su identificador; no se reemplaza por uno arbitrario.
+
+El transporte se adapta de Rzbck/isideload, con licencia MIT conservada en THIRD-PARTY-NOTICES.txt.

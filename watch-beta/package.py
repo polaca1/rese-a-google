@@ -7,6 +7,7 @@ assert info['CFBundleDisplayName'] == 'SideStore β'
 assert info['CFBundleVersion'] == '708'
 payload=output/'Payload';payload.mkdir(exist_ok=True);target=payload/app.name
 shutil.copytree(app,target,dirs_exist_ok=True)
+shutil.copyfile(pathlib.Path(__file__).parent/'THIRD-PARTY-NOTICES.txt',target/'WatchInstaller-LICENSE.txt')
 # Preserve the embedded SideBackup helper's app-group entitlement, as upstream's
 # fakesign-sidebackup does. The helper is an IPA resource, not an embedded .app.
 helper = target/'SideBackup.ipa'
