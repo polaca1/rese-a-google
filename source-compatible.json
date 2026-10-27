@@ -1,0 +1,50 @@
+{
+  "name": "SideStore Watch · Beta",
+  "identifier": "com.polaca1.sidestorewatch.beta",
+  "sourceURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/source-compatible.json",
+  "subtitle": "Beta personal para pruebas del Watch",
+  "description": "Fuente independiente. Actualmente contiene diagnóstico de watchOS en iPhone; la tienda autónoma del Watch sigue en desarrollo.",
+  "website": "https://github.com/polaca1/rese-a-google/tree/beta/sidestore-watch",
+  "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/icon.png",
+  "tintColor": "9B20EB",
+  "apps": [
+    {
+      "name": "SideStore Watch · Beta",
+      "bundleIdentifier": "com.SideStore.SideStore",
+      "developerName": "Variante personal · basada en SideStore Team",
+      "subtitle": "Diagnóstico Watch · iPhone",
+      "localizedDescription": "Beta 0.7.0 (706). Diagnóstico del Watch en iPhone: comprueba la conexión, el reloj enlazado y la solicitud del perfil. Conserva Apple ID, fuentes, instalación, refirma y atajos de datos móviles de SideStore. Todavía NO instala ni renueva apps del Watch. Actualiza sobre SideStore, con la misma cuenta Apple y sin borrar la app. No crea App IDs.",
+      "iconURL": "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/icon.png",
+      "tintColor": "9B20EB",
+      "version": "0.7.0",
+      "buildVersion": "706",
+      "versionDate": "2026-10-27T00:00:00Z",
+      "versionDescription": "Beta 0.7.0 (706). Diagnóstico del Watch en iPhone: comprueba la conexión, el reloj enlazado y la solicitud del perfil. Conserva Apple ID, fuentes, instalación, refirma y atajos de datos móviles de SideStore. Todavía NO instala ni renueva apps del Watch. Actualiza sobre SideStore, con la misma cuenta Apple y sin borrar la app. No crea App IDs.",
+      "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.0-build706/SideStore-Watch-Beta-0.7.0-build706.ipa",
+      "size": 31093290,
+      "minOSVersion": "15.0",
+      "versions": [
+        {
+          "version": "0.7.0",
+          "buildVersion": "706",
+          "date": "2026-10-27T00:00:00Z",
+          "localizedDescription": "Beta 0.7.0 (706). Diagnóstico del Watch en iPhone: comprueba la conexión, el reloj enlazado y la solicitud del perfil. Conserva Apple ID, fuentes, instalación, refirma y atajos de datos móviles de SideStore. Todavía NO instala ni renueva apps del Watch. Actualiza sobre SideStore, con la misma cuenta Apple y sin borrar la app. No crea App IDs.",
+          "downloadURL": "https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.0-build706/SideStore-Watch-Beta-0.7.0-build706.ipa",
+          "size": 31093290,
+          "minOSVersion": "15.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [
+          "com.apple.security.application-groups"
+        ],
+        "privacy": {
+          "NSLocalNetworkUsageDescription": "SideStore can use local network access to discover Bonjour (mDNS) services on your network. This is not required for core functionality.",
+          "NSLocationAlwaysAndWhenInUseUsageDescription": "SideStore uses location updates to keep background operations active.",
+          "NSLocationWhenInUseUsageDescription": "SideStore uses location updates to keep background operations active."
+        }
+      }
+    }
+  ],
+  "news": []
+}
