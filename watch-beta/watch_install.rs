@@ -44,7 +44,7 @@ pub unsafe extern "C" fn sidestore_watch_install(provider: *mut IdeviceProviderH
         if watches.len() != 1 || watches[0] != expected { return 3; }
         drop(proxy);
         let app = Bundle { bundle_dir: PathBuf::from(path) };
-        match install_watch_apps(provider, &[app], "SideStore Watch Beta", |_| {}).await {
+        match install_watch_apps(provider, &[app], "SideStore Watch Beta", expected, |_| {}).await {
             Ok(()) => 0,
             Err(_) => 4,
         }
@@ -74,6 +74,7 @@ async fn install_watch_apps(
     device_provider: &dyn IdeviceProvider,
     watch_apps: &[Bundle],
     host_name: &str,
+    expected_watch: &str,
     progress_callback: impl Fn(u64) + Send + Sync,
 ) -> Result<(), Report> {
     if watch_apps.is_empty() {
@@ -126,6 +127,14 @@ async fn install_watch_apps(
             .await
             
             .context("Failed to start Apple Watch lockdown session")?;
+
+        let actual = watch_lockdown.get_value(Some("UniqueDeviceID"), None).await?;
+        // The registry can change during forwarding; verify the endpoint itself.
+        let mut proxy = CompanionProxy::connect(device_provider).await?;
+        let current = proxy.get_device_registry().await?;
+        if current.len() != 1 || current[0] != expected_watch || actual.as_string() != Some(expected_watch) {
+            bail!("Watch endpoint changed");
+        }
 
         for watch_app in watch_apps {
             install_watch_app_zip_conduit(
