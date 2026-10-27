@@ -9,7 +9,9 @@ final class WatchBetaController: ObservableObject {
     @Published private(set) var report = WatchBetaReport()
     @Published private(set) var running = false
     @Published private(set) var watchCount = 0
-    @Published var selection = 0
+    @Published var selection = 0 {
+        didSet { if selection != oldValue { report.invalidateProfile() } }
+    }
     private var identifiers: [String] = []
     private var task: Task<Void, Never>?
 

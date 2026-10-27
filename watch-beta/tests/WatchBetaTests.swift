@@ -33,6 +33,8 @@ import Foundation
         check("no fake renewal", !decoded.renewalVerified && decoded.status(.renewal) == .pending)
         let object = try JSONSerialization.jsonObject(with: Data(report.export().utf8)) as! [String: Any]
         check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "physicalInstallationVerified", "renewalVerified"]))
+        report.set(.profile, .passed); report.invalidateProfile()
+        check("changing Watch invalidates previous profile", report.status(.profile) == .pending && report.issue == nil)
         print("Watch beta: \(count) checks passed")
     }
 }

@@ -46,6 +46,9 @@ struct WatchBetaReport: Codable, Equatable {
 
     mutating func set(_ stage: WatchBetaStage, _ status: WatchBetaStatus) { statuses[stage.rawValue] = status }
     func status(_ stage: WatchBetaStage) -> WatchBetaStatus { statuses[stage.rawValue] ?? .pending }
+    mutating func invalidateProfile() {
+        set(.profile, .pending); issue = nil
+    }
     func export() -> String {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return String(data: (try? encoder.encode(self)) ?? Data(), encoding: .utf8) ?? "{}"
