@@ -42,10 +42,18 @@ struct WatchBetaView: View {
             Section {
                 SwiftUI.Button(action: model.detect) { Label("Detectar Watch", systemImage: "antenna.radiowaves.left.and.right") }
                     .disabled(model.running)
-                SwiftUI.Button(action: model.prepareProfile) { Label("Probar perfil con ID de SideStore", systemImage: "checkmark.shield") }
-                    .disabled(!model.canPrepareProfile)
+                if !model.appIDs.isEmpty {
+                    Picker("App ID existente", selection: $model.selectedAppID) {
+                        Text("Seleccionar…").tag("")
+                        ForEach(model.appIDs, id: \.identifier) { app in
+                            Text(app.bundleIdentifier).tag(app.bundleIdentifier)
+                        }
+                    }.disabled(model.running)
+                }
+                SwiftUI.Button(action: model.prepareProfile) { Label("Probar perfil con el ID seleccionado", systemImage: "checkmark.shield") }
+                    .disabled(!model.canPrepareProfile || model.selectedAppID.isEmpty)
             } footer: {
-                Text("Se reutiliza el identificador ya existente de este SideStore. No crea App IDs ni revoca certificados. La prueba puede registrar el reloj como dispositivo de desarrollo y solicitar un perfil nuevo. No instala apps. Una solicitud enviada puede completarse aunque cierres esta pantalla.")
+                Text("Selecciona un App ID que Apple haya devuelto para tu cuenta. Se reutiliza sin modificar la identidad de tu SideStore. No crea App IDs ni revoca certificados. La prueba puede registrar el reloj como dispositivo de desarrollo y solicitar un perfil nuevo. No instala apps. Una solicitud enviada puede completarse aunque cierres esta pantalla.")
             }
             Section {
                 SwiftUI.Button { importing = true } label: { Label("Elegir IPA…", systemImage: "square.and.arrow.down") }

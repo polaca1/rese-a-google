@@ -12,6 +12,10 @@ final class WatchBetaController: ObservableObject {
     @Published var selection = 0 {
         didSet { if selection != oldValue { report.invalidateProfile() } }
     }
+    @Published private(set) var appIDs: [ALTAppID] = []
+    @Published var selectedAppID = "" {
+        didSet { if selectedAppID != oldValue { report.invalidateProfile() } }
+    }
     private var identifiers: [String] = []
     private var task: Task<Void, Never>?
 
@@ -34,6 +38,12 @@ final class WatchBetaController: ObservableObject {
                 guard !found.isEmpty else { report.pairedWatchCount = 0; fail(.discovery, .noWatch); return }
                 identifiers = found; watchCount = found.count; report.pairedWatchCount = found.count
                 report.set(.discovery, .passed)
+                let team = try await AuthManager.shared.getAuthenticatedTeam()
+                let session = try await AuthManager.shared.getAuthenticatedSession()
+                appIDs = try await ALTAppleAPI.shared.fetchAppIDs(for: team, session: session)
+                report.freeAccount = team.type == .free
+                let runtimeID = Bundle.main.bundleIdentifier ?? ""
+                selectedAppID = appIDs.contains(where: { $0.bundleIdentifier == runtimeID }) ? runtimeID : ""
             } catch is CancellationError { fail(.discovery, .cancelled) }
             catch {
                 let stage: WatchBetaStage = report.status(.connection) == .passed ? .discovery : .connection
@@ -60,9 +70,9 @@ final class WatchBetaController: ObservableObject {
                 report.set(.discovery, .passed)
                 try Task.checkCancellation()
                 guard fresh.contains(selected) else { fail(.discovery, .watchChanged); identifiers = []; return }
-                // Reuse the actual signed SideStore ID, including any team suffix added by the installer.
-                guard let bundle = Bundle.main.bundleIdentifier,
-                      bundle.hasPrefix("com.SideStore.SideStore") else {
+                // Use a portal ID explicitly selected from this account; never guess or create one.
+                let bundle = selectedAppID
+                guard appIDs.contains(where: { $0.bundleIdentifier == bundle }) else {
                     fail(.profile, .invalidProfile); return
                 }
                 report.set(.profile, .running)
