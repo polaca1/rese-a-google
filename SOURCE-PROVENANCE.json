@@ -1,10 +1,10 @@
 {
   "manifest": {
     "version": "0.7.1",
-    "build": "711",
-    "sha256": "86b67ceeecb92219429d1a8e5aedf18bb704dc67a4731189e49191228747ddaf",
-    "size": 32300089,
-    "sourceCommit": "415146c926d97b25d77eed3f22cc48cd95cd21cc",
+    "build": "712",
+    "sha256": "fe64736c61055a447b9f5e9cb228a0b1ebc13800c87b6877161a6937c2d679e6",
+    "size": 32308186,
+    "sourceCommit": "9c69ee1540740903384ee2a8ace01706cec7365b",
     "stage": "automatic-embedded-watch-and-native-bootstrap",
     "signingRequired": true,
     "physicalWatchDetectionVerified": false,
@@ -16,7 +16,7 @@
     "reusesExistingSideStoreIdentity": true,
     "createsNewAppIDs": false
   },
-  "releaseURL": "https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build711/SideStore-Watch-Beta-0.7.1-build711.ipa",
+  "releaseURL": "https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build712/SideStore-Watch-Beta-0.7.1-build712.ipa",
   "verifiedPublicDownload": true,
   "watchMinimumOS": "10.0"
 }
