@@ -1,28 +1,22 @@
 {
   "manifest": {
-    "version": "0.7.0",
-    "build": "707",
-    "sha256": "a97035992d682858f82b67d401637164a1c6db4af800c7f23a881d7e03554485",
-    "size": 31104966,
-    "sourceCommit": "e4b6428715f88144d0ad3a173dbcdfc3012990be",
-    "stage": "iphone-watch-detection-and-profile-probe",
+    "version": "0.7.1",
+    "build": "710",
+    "sha256": "29eae2863a5d54dca40f9a9363bc21cf416fedc7e347c43e8791688d11b6fbc4",
+    "size": 32298054,
+    "sourceCommit": "b130dbee2b626ea67bd6adf885810cc75ed2a1f9",
+    "stage": "automatic-embedded-watch-and-native-bootstrap",
     "signingRequired": true,
     "physicalWatchDetectionVerified": false,
     "physicalWatchInstallationVerified": false,
     "renewalVerified": false,
     "nativeWatchStoreIncluded": false,
+    "nativeWatchBootstrapIncluded": true,
+    "watchMinimumOS": "10.0",
     "reusesExistingSideStoreIdentity": true,
     "createsNewAppIDs": false
   },
-  "releaseURL": "https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.0-build707/SideStore-Watch-Beta-0.7.0-build707.ipa",
-  "checks": [
-    "public-download",
-    "sha256",
-    "size",
-    "zip-crc",
-    "bundle-id",
-    "version",
-    "build",
-    "no-watch-bundle"
-  ]
+  "releaseURL": "https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build710/SideStore-Watch-Beta-0.7.1-build710.ipa",
+  "verifiedPublicDownload": true,
+  "watchMinimumOS": "10.0"
 }
