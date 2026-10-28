@@ -1,6 +1,7 @@
 #if os(iOS)
 import Foundation
 import Combine
+import UIKit
 import Minimuxer
 import SideSign
 
@@ -256,6 +257,166 @@ enum WatchBetaImport {
             if ["appex", "app"].contains(item.pathExtension) { throw WatchBetaImportError.unsupportedExtensions }
         }
         return watches[0]
+    }
+}
+#endif
+
+#if os(iOS)
+/// Persist signed Watch components before installing the phone host. A self-update
+/// can terminate this process; only an acknowledged host install activates its jobs.
+@MainActor
+final class WatchPackageCoordinator: ObservableObject {
+    static let shared = WatchPackageCoordinator()
+    @Published private(set) var message: String?
+    private var working = false
+    private var observer: NSObjectProtocol?
+    private struct Job: Codable {
+        var hostBundle: String
+        var hostVersion: String
+        var hostBuild: String
+        var ready: Bool
+        var apps: [String]
+    }
+    private var root: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("AutomaticWatchJobs", isDirectory: true)
+    }
+
+    func start() {
+        guard observer == nil else { return }
+        observer = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification,
+            object: nil, queue: .main) { _ in Task { @MainActor in self.runPending() } }
+        runPending()
+    }
+
+    func prepare(host: URL, team: ALTTeam, certificate: ALTCertificate) async throws {
+        let fm = FileManager.default
+        let directory = host.appendingPathComponent("Watch", isDirectory: true)
+        guard fm.fileExists(atPath: directory.path) else { return }
+        let apps = try fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "app" }
+        guard !apps.isEmpty else { return }
+        guard apps.count <= 8 else { throw WatchBetaImportError.invalidArchive }
+        let session = try await AuthManager.shared.getAuthenticatedSession()
+        // Network restoration is mandatory before contacting Apple.
+        let watches = try await WatchBetaLocalSession.run(
+            turnOff: { _ = await CellularRefreshManager.shared.turnOffDataIfNeeded() },
+            turnOn: { _ = await CellularRefreshManager.shared.turnOnDataIfNeeded(addOnDelay: 2) },
+            operation: {
+                try await ensureMinimuxerReady()
+                return try await minimuxer.core.fetchPairedWatchIdentifiers()
+            })
+        guard watches.count == 1, let watch = watches.first else {
+            throw WatchBetaImportError.noSingleWatchApp
+        }
+        for app in apps {
+            let info = NSDictionary(contentsOf: app.appendingPathComponent("Info.plist"))
+            guard (info?["CFBundleSupportedPlatforms"] as? [String])?.contains("WatchOS") == true else {
+                throw WatchBetaImportError.invalidArchive
+            }
+            var targets = [app]
+            if let nested = fm.enumerator(at: app, includingPropertiesForKeys: nil) {
+                for case let target as URL in nested where target.pathExtension == "appex" { targets.append(target) }
+            }
+            guard targets.count <= 32 else { throw WatchBetaImportError.unsupportedExtensions }
+            var profiles: [ALTProvisioningProfile] = []
+            for target in targets {
+                guard let id = NSDictionary(contentsOf: target.appendingPathComponent("Info.plist"))?["CFBundleIdentifier"] as? String else {
+                    throw WatchBetaImportError.invalidArchive
+                }
+                let profile = try await ALTAppleAPI.shared.prepareWatchBetaProfile(watchIdentifier: watch,
+                    bundleIdentifier: id, team: team, session: session)
+                guard WatchBetaValidation.validProfile(platforms: profile.watchBetaPlatforms, bundle: profile.bundleIdentifier,
+                    expectedBundle: id, team: profile.teamIdentifier, expectedTeam: team.identifier,
+                    devices: profile.deviceIDs, selectedWatch: watch, expires: profile.expirationDate,
+                    certificateCount: profile.certificates.count) else { throw WatchBetaImportError.invalidArchive }
+                profiles.append(profile)
+            }
+            try await ALTSigner(team: team, certificate: certificate).signApp(at: app, provisioningProfiles: profiles)
+        }
+        guard let info = NSDictionary(contentsOf: host.appendingPathComponent("Info.plist")),
+              let id = info["CFBundleIdentifier"] as? String,
+              let version = info["CFBundleShortVersionString"] as? String,
+              let build = info["CFBundleVersion"] as? String else { throw WatchBetaImportError.invalidArchive }
+        let destination = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        do {
+            var names: [String] = []
+            for (index, app) in apps.enumerated() {
+                let name = "\(index).app"
+                try fm.copyItem(at: app, to: destination.appendingPathComponent(name))
+                names.append(name)
+            }
+            let job = Job(hostBundle: id, hostVersion: version, hostBuild: build, ready: false, apps: names)
+            try JSONEncoder().encode(job).write(to: destination.appendingPathComponent("job.json"), options: .atomic)
+        } catch {
+            try? fm.removeItem(at: destination)
+            throw error
+        }
+    }
+
+    func hostInstalled(bundle: String, version: String, build: String) {
+        for directory in directories() {
+            guard var job = read(directory), job.hostBundle == bundle,
+                  job.hostVersion == version, job.hostBuild == build else { continue }
+            job.ready = true
+            try? JSONEncoder().encode(job).write(to: directory.appendingPathComponent("job.json"), options: .atomic)
+        }
+    }
+
+    private func directories() -> [URL] {
+        (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+    }
+    private func read(_ directory: URL) -> Job? {
+        guard let data = try? Data(contentsOf: directory.appendingPathComponent("job.json")) else { return nil }
+        return try? JSONDecoder().decode(Job.self, from: data)
+    }
+
+    func runPending() {
+        guard !working, UIApplication.shared.applicationState == .active else { return }
+        working = true
+        Task {
+            defer { working = false }
+            for directory in directories() {
+                guard var job = read(directory) else { continue }
+                // A SideStore self-update may have killed the old process before hostInstalled.
+                if !job.ready, job.hostBundle == Bundle.main.bundleIdentifier,
+                   job.hostVersion == Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+                   job.hostBuild == Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
+                    job.ready = true
+                }
+                guard job.ready else { continue }
+                do {
+                    message = "Instalando el componente de Apple Watch…"
+                    try await WatchBetaLocalSession.run(
+                        turnOff: { _ = await CellularRefreshManager.shared.turnOffDataIfNeeded() },
+                        turnOn: { _ = await CellularRefreshManager.shared.turnOnDataIfNeeded(addOnDelay: 2) },
+                        operation: {
+                            try await ensureMinimuxerReady()
+                            let watches = try await minimuxer.core.fetchPairedWatchIdentifiers()
+                            guard watches.count == 1, let watch = watches.first else { throw WatchBetaImportError.noSingleWatchApp }
+                            for name in job.apps {
+                                guard !name.contains("/"), name.hasSuffix(".app") else { throw WatchBetaImportError.invalidArchive }
+                                let app = directory.appendingPathComponent(name)
+                                let info = NSDictionary(contentsOf: app.appendingPathComponent("Info.plist"))
+                                guard let id = info?["CFBundleIdentifier"] as? String else { throw WatchBetaImportError.invalidArchive }
+                                let profile = try ALTProvisioningProfile(data: Data(contentsOf: app.appendingPathComponent("embedded.mobileprovision")))
+                                guard WatchBetaValidation.validProfile(platforms: profile.watchBetaPlatforms, bundle: profile.bundleIdentifier,
+                                    expectedBundle: id, team: profile.teamIdentifier, expectedTeam: profile.teamIdentifier,
+                                    devices: profile.deviceIDs, selectedWatch: watch, expires: profile.expirationDate,
+                                    certificateCount: profile.certificates.count) else { throw WatchBetaImportError.invalidArchive }
+                                try await minimuxer.core.installWatchBundle(at: app, watchIdentifier: watch)
+                            }
+                        })
+                    try FileManager.default.removeItem(at: directory)
+                    message = "watchOS ha confirmado la instalación."
+                } catch {
+                    message = "La instalación del Watch queda pendiente. Comprueba el perfil, el emparejamiento TCP y que el reloj está desbloqueado y cerca."
+                    // Keep the signed package for the next foreground opportunity.
+                    break
+                }
+            }
+        }
     }
 }
 #endif

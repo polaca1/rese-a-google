@@ -40,6 +40,7 @@ final class ResignAppOperation: BasePipelineOperation<InstallAppOperationContext
         let effectiveBundleId = self.context.targetBundleIdentifier
         let appBundleURL = try await self.prepareAppBundle(for: appBundle, profiles: profiles, appexBundleIds: context.appexBundleIds ?? [:])
         
+        try await WatchPackageCoordinator.shared.prepare(host: appBundleURL, team: team, certificate: certificate)
         self.setProgress(40)
         
         let resignedAppURL = try await self.resignAppBundle(at: appBundleURL, team: team, certificate: certificate, profiles: Array(profiles.values))

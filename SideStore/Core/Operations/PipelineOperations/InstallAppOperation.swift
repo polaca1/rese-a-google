@@ -68,7 +68,14 @@ final class InstallAppOperation: BasePipelineOperation<InstallAppOperationContex
                 authTeam: authTeam
             )
             self.context.installedApp = installedApp
+            let hostInfo = resignedAppBundle.infoPlist
+            if let version = hostInfo["CFBundleShortVersionString"] as? String,
+               let build = hostInfo["CFBundleVersion"] as? String {
+                await WatchPackageCoordinator.shared.hostInstalled(bundle: resignedAppBundle.bundleIdentifier,
+                    version: version, build: build)
+            }
             await CellularRefreshManager.shared.turnOnDataIfNeeded()
+            await WatchPackageCoordinator.shared.runPending()
             return installedApp
         } catch {
             await CellularRefreshManager.shared.turnOnDataIfNeeded()

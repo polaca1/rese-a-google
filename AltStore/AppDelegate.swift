@@ -192,6 +192,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
                 // Perform one-time maintenance tasks after database is started
                 await MaintenanceManager.shared.performMaintenanceIfNeeded()
+                await WatchPackageCoordinator.shared.start()
             }
             catch
             {

@@ -8,6 +8,7 @@ struct WatchBetaView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
     @State private var importing = false
+    @ObservedObject private var automaticWatch = WatchPackageCoordinator.shared
 
     var body: some View {
         List {
@@ -18,6 +19,10 @@ struct WatchBetaView: View {
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)
+            }
+            Section {
+                Text(automaticWatch.message ?? "Las apps incluidas en Watch/ dentro del IPA se firmarán y enviarán al reloj automáticamente.")
+                    .font(.footnote).foregroundColor(.secondary)
             }
             Section(header: Text("Comprobación")) {
                 ForEach(WatchBetaStage.allCases) { stage in
