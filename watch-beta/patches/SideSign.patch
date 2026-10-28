@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..ab351e7
 --- /dev/null
 +++ b/Sources/DeveloperPortal/WatchBeta.swift
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,89 @@
 +import Foundation
 +
 +/// Contains only fixed categories and numeric codes, never Apple's raw response.
@@ -52,9 +52,17 @@ index 0000000..ab351e7
 +        let suffix = "." + team.identifier
 +        let unsuffixed = bundleIdentifier.hasSuffix(suffix)
 +            ? String(bundleIdentifier.dropLast(suffix.count)) : bundleIdentifier
-+        let matches = exact.isEmpty
-+            ? existing.filter { $0.bundleIdentifier == unsuffixed && !$0.identifier.isEmpty }
-+            : exact
++        let baseMatches = existing.filter { $0.bundleIdentifier == unsuffixed && !$0.identifier.isEmpty }
++        // Free-account installations can register an additional opaque suffix,
++        // unrelated to the team identifier (e.g. com.SideStore.SideStore.XYZ).
++        // Restrict this fallback to SideStore itself and require uniqueness.
++        let sideStoreMatches = bundleIdentifier.hasPrefix("com.SideStore.SideStore")
++            ? existing.filter {
++                $0.bundleIdentifier.hasPrefix("com.SideStore.SideStore.")
++                && String($0.bundleIdentifier.dropFirst("com.SideStore.SideStore.".count)).contains(".") == false
++                && !$0.identifier.isEmpty
++            } : []
++        let matches = !exact.isEmpty ? exact : (!baseMatches.isEmpty ? baseMatches : sideStoreMatches)
 +        guard matches.count == 1, let app = matches.first else {
 +            throw WatchBetaProfileFailure(operation: .listAppIDs, kind: .existingAppIDMissing, code: nil)
 +        }
