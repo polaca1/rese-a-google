@@ -101,6 +101,7 @@ manifest+='rsa={version="='+locked_version('rsa')+'", features=["sha2"]}\n'
 manifest+='sha2={version="='+locked_version('sha2')+'", features=["oid"]}\n'
 manifest+='x509-cert={version="='+locked_version('x509-cert')+'", default-features=false, features=["builder","pem"]}\n'
 (certificate_tests/'Cargo.toml').write_text(manifest)
+shutil.copyfile(source/'Cargo.lock', certificate_tests/'Cargo.lock')
 subprocess.run(['cargo','+1.99.1','run','--offline','--quiet','--release','--manifest-path',str(certificate_tests/'Cargo.toml')],check=True)
 
 # Compile the actual framing/CRC routines into a small host test executable.
