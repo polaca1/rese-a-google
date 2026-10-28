@@ -8,6 +8,7 @@ struct WatchBetaView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
     @State private var importing = false
+    @AppStorage("watchBetaAutomaticUpdates") private var automaticUpdates = true
     @ObservedObject private var automaticWatch = WatchPackageCoordinator.shared
 
     var body: some View {
@@ -22,6 +23,11 @@ struct WatchBetaView: View {
             }
             Section {
                 Text(automaticWatch.message ?? "Las apps incluidas en Watch/ dentro del IPA se firmarán y enviarán al reloj automáticamente.")
+                    .font(.footnote).foregroundColor(.secondary)
+            }
+            Section {
+                Toggle("Actualizar esta beta automáticamente", isOn: $automaticUpdates)
+                Text("Busca versiones nuevas al abrir SideStore y las instala desde esta fuente cuando la cuenta, la conexión y la firma lo permiten. iOS puede impedir la ejecución en segundo plano.")
                     .font(.footnote).foregroundColor(.secondary)
             }
             Section(header: Text("Comprobación")) {

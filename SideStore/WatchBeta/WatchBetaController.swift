@@ -44,7 +44,11 @@ final class WatchBetaController: ObservableObject {
                 appIDs = try await ALTAppleAPI.shared.fetchAppIDs(for: team, session: session)
                 report.freeAccount = team.type == .free
                 let runtimeID = Bundle.main.bundleIdentifier ?? ""
-                selectedAppID = appIDs.contains(where: { $0.bundleIdentifier == runtimeID }) ? runtimeID : ""
+                let embedded = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision")
+                    .flatMap { try? Data(contentsOf: $0) }
+                    .flatMap { try? ALTProvisioningProfile(data: $0) }
+                let preferred = embedded?.teamIdentifier == team.identifier ? embedded!.bundleIdentifier : runtimeID
+                selectedAppID = appIDs.contains(where: { $0.bundleIdentifier == preferred }) ? preferred : ""
             } catch is CancellationError { fail(.discovery, .cancelled) }
             catch {
                 let stage: WatchBetaStage = report.status(.connection) == .passed ? .discovery : .connection
@@ -376,7 +380,11 @@ final class WatchPackageCoordinator: ObservableObject {
         guard !working, UIApplication.shared.applicationState == .active else { return }
         working = true
         Task {
-            defer { working = false }
+            defer { working = false; BetaUpdateCoordinator.shared.check() }
+            for _ in 0..<10 where AppManager.shared.isActivelyManagingAnyApp {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            guard !AppManager.shared.isActivelyManagingAnyApp else { return }
             for directory in directories() {
                 guard var job = read(directory) else { continue }
                 // A SideStore self-update may have killed the old process before hostInstalled.
@@ -414,6 +422,56 @@ final class WatchPackageCoordinator: ObservableObject {
                     message = "La instalación del Watch queda pendiente. Comprueba el perfil, el emparejamiento TCP y que el reloj está desbloqueado y cerca."
                     // Keep the signed package for the next foreground opportunity.
                     break
+                }
+            }
+        }
+    }
+}
+#endif
+
+#if os(iOS)
+@MainActor
+final class BetaUpdateCoordinator {
+    static let shared = BetaUpdateCoordinator()
+    private var running = false
+    private var lastCheck = Date.distantPast
+    private let sources: Set<String> = [
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/source-compatible.json",
+        "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/source.json"
+    ]
+    func check() {
+        guard !running, UIApplication.shared.applicationState == .active,
+              !AppManager.shared.isActivelyManagingAnyApp,
+              AuthManager.shared.isAuthenticated,
+              Date().timeIntervalSince(lastCheck) > 300,
+              UserDefaults.standard.object(forKey: "watchBetaAutomaticUpdates") as? Bool != false else { return }
+        let context = DatabaseManager.shared.viewContext
+        guard let app = InstalledApp.fetchAltStore(in: context),
+              let source = app.storeApp?._source?.sourceURL.absoluteString,
+              sources.contains(source) else { return }
+        running = true; lastCheck = Date()
+        AppManager.shared.updateAllSources { result in
+            Task { @MainActor in
+                guard case .success = result,
+                      UIApplication.shared.applicationState == .active,
+                      !AppManager.shared.isActivelyManagingAnyApp,
+                      let current = InstalledApp.fetchAltStore(in: context),
+                      let source = current.storeApp?._source?.sourceURL.absoluteString, self.sources.contains(source),
+                      let latest = current.storeApp?.latestSupportedVersion,
+                      latest.downloadURL.absoluteString.hasPrefix("https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-") else {
+                    self.running = false; return
+                }
+                let currentBuild = Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "") ?? 0
+                let newerBuild = latest.version == current.version && (Int(latest.buildVersion ?? "") ?? 0) > currentBuild
+                guard current.hasUpdate || newerBuild,
+                      let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
+                        .flatMap({ $0.windows }).first(where: { $0.isKeyWindow }),
+                      var controller = window.rootViewController else { self.running = false; return }
+                while let presented = controller.presentedViewController { controller = presented }
+                guard !(controller is UIAlertController),
+                      !String(describing: type(of: controller)).contains("WatchBeta") else { self.running = false; return }
+                AppManager.shared.update(current, to: latest, presentingViewController: controller) { _ in
+                    Task { @MainActor in self.running = false }
                 }
             }
         }
