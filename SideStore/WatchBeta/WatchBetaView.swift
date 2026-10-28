@@ -94,8 +94,11 @@ struct WatchBetaView: View {
                     var report = model.report
                     report.automaticProfileChecks = automaticWatch.profileChecks
                     report.automaticInstallationDiagnostic = automaticWatch.installationDiagnostic
-                    report.physicalInstallationVerified = automaticWatch.nativeOpened
-                    if automaticWatch.nativeOpened { report.set(.installation, .passed) }
+                    // A bootstrap launch is not proof that the imported app installed or opened.
+                    if model.importedName == nil {
+                        report.physicalInstallationVerified = automaticWatch.nativeOpened
+                        if automaticWatch.nativeOpened { report.set(.installation, .passed) }
+                    }
                     UIPasteboard.general.string = report.export(); copied = true
                 } label: { Label(copied ? "Diagnóstico copiado" : "Copiar diagnóstico", systemImage: "doc.on.doc") }
                     .disabled(model.running || automaticWatch.working)
