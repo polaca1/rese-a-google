@@ -2,7 +2,7 @@ import hashlib, json, pathlib, plistlib, shutil, subprocess, sys, zipfile, tempf
 app = pathlib.Path(sys.argv[1]); output = pathlib.Path(sys.argv[2]); output.mkdir(parents=True, exist_ok=True)
 info = plistlib.loads((app/'Info.plist').read_bytes())
 assert info['CFBundleIdentifier'] == 'com.SideStore.SideStore'
-assert info['CFBundleShortVersionString'] == '0.7.0'
+assert info['CFBundleShortVersionString'] == '0.7.1'
 assert info['CFBundleDisplayName'] == 'SideStore β'
 assert info['CFBundleVersion'] == '709'
 payload=output/'Payload';payload.mkdir(exist_ok=True);target=payload/app.name
@@ -41,11 +41,11 @@ for bundle in sorted([*target.rglob('*.appex'), *target.rglob('*.app'), target],
     details=plistlib.loads((bundle/'Info.plist').read_bytes())
     ent=output/'template.plist';ent.write_bytes(plistlib.dumps({'application-identifier':'XYZ0123456.'+details['CFBundleIdentifier'],'com.apple.developer.team-identifier':'XYZ0123456','com.apple.security.application-groups':['group.com.SideStore.SideStore'],'get-task-allow':True}))
     subprocess.run(['codesign','--force','--sign','-','--entitlements',str(ent),str(bundle)],check=True)
-ipa=output/'SideStore-Watch-Beta-0.7.0-build709.ipa'
+ipa=output/'SideStore-Watch-Beta-0.7.1-build709.ipa'
 subprocess.run(['ditto','-c','-k','--sequesterRsrc','--keepParent',str(payload),str(ipa)],check=True)
 with zipfile.ZipFile(ipa) as z: assert z.testzip() is None
 sha=hashlib.sha256(ipa.read_bytes()).hexdigest()
 (output/'SHA256SUMS').write_text(sha+'  '+ipa.name+'\n')
-(output/'BETA-MANIFEST.json').write_text(json.dumps({'version':'0.7.0','build':'709','sha256':sha,'size':ipa.stat().st_size,'sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'stage':'automatic-embedded-watch-and-native-bootstrap','signingRequired':True,'physicalWatchDetectionVerified':False,'physicalWatchInstallationVerified':False,'renewalVerified':False,'nativeWatchStoreIncluded':False,'nativeWatchBootstrapIncluded':True,'watchMinimumOS':'10.0','reusesExistingSideStoreIdentity':True,'createsNewAppIDs':False},indent=2)+'\n')
+(output/'BETA-MANIFEST.json').write_text(json.dumps({'version':'0.7.1','build':'709','sha256':sha,'size':ipa.stat().st_size,'sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'stage':'automatic-embedded-watch-and-native-bootstrap','signingRequired':True,'physicalWatchDetectionVerified':False,'physicalWatchInstallationVerified':False,'renewalVerified':False,'nativeWatchStoreIncluded':False,'nativeWatchBootstrapIncluded':True,'watchMinimumOS':'10.0','reusesExistingSideStoreIdentity':True,'createsNewAppIDs':False},indent=2)+'\n')
 shutil.rmtree(payload);(output/'template.plist').unlink()
 print('IPA packaged:',ipa.name,sha)

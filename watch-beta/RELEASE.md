@@ -1,4 +1,4 @@
-Beta personal 0.7.0 (709), independiente del proyecto oficial SideStore.
+Beta personal 0.7.1 (709), independiente del proyecto oficial SideStore.
 
 La instalación normal del IPA de iPhone detecta sus componentes Watch/, obtiene sus perfiles y los firma antes del host. Los componentes firmados se conservan en una cola para enviarlos al reloj al completar la instalación. Una autoactualización que cierre SideStore conserva la cola y la retoma al abrir la nueva versión.
 
