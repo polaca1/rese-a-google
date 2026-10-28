@@ -521,7 +521,7 @@ extension WatchPackageCoordinator {
         if identifier.isEmpty, let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
            let profile = try? ALTProvisioningProfile(data: Data(contentsOf: url)),
            profile.teamIdentifier == team.identifier { identifier = profile.bundleIdentifier }
-        guard apps.contains(where: { $0.bundleIdentifier == identifier }),
+        guard !identifier.isEmpty, !identifier.contains("*"), apps.contains(where: { $0.bundleIdentifier == identifier }),
               let certificate = CertificateManager.shared.activeCertificate else {
             message = "Selecciona un App ID existente en Watch beta y comprueba su perfil. No se creará ninguno nuevo."
             return

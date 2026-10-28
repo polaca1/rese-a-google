@@ -1,4 +1,4 @@
-name: Watch automatic integration - verify only
+name: SideStore Watch Beta - build and verify
 on:
   push:
     branches: [work/watch-automatic]
@@ -68,5 +68,15 @@ jobs:
             build/watch-beta/SHA256SUMS
             build/watch-beta/*.log
             build-ffi.log
-            build/native-watch/*.log
             build/watch-ffi/PROVENANCE.json
+      - name: Publish beta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=sidestore-watch-beta-0.7.1-build709
+          git archive --format=zip --output=build/watch-beta/SideStore-Watch-Beta-Source.zip HEAD
+          gh release create "$tag" build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch Beta 0.7.1 (709) — componentes Watch automáticos' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"
+      - name: Verify public release and publish the source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 watch-beta/publish-source.py
