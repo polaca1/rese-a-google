@@ -28,8 +28,15 @@ if needle in lockdown_text:
     marker='    pub async fn build_pair_request('
     exchange="""    /// Personal Watch bridge: exchange an already-generated identity without logging it.
     pub async fn watch_beta_pair_exchange(
-        &mut self, request: plist::Value,
+        &mut self, mut request: plist::Value,
     ) -> Result<plist::Dictionary, IdeviceError> {
+        // Match libimobiledevice: private keys belong only to the local pair record.
+        if let Some(record) = request.as_dictionary_mut()
+            .and_then(|root| root.get_mut("PairRecord")).and_then(plist::Value::as_dictionary_mut) {
+            record.remove("RootPrivateKey");
+            record.remove("HostPrivateKey");
+            record.remove("DevicePublicKey");
+        }
         let mut bytes = Vec::new();
         request.to_writer_xml(&mut bytes)?;
         let size = u32::try_from(bytes.len()).map_err(|_| IdeviceError::IntegerOverflow)?;
@@ -43,10 +50,13 @@ if needle in lockdown_text:
         let response: plist::Dictionary = plist::from_bytes(&self.idevice.read_raw(length).await?)?;
         if let Some(error) = response.get("Error") {
             let Some(error) = error.as_string() else {
-                return Err(IdeviceError::UnexpectedResponse("invalid pair error type".into()));
+                return Err(IdeviceError::UnknownErrorType("WatchPairErrorType".into()));
             };
             return Err(IdeviceError::from_device_error_type(error, &response)
-                .unwrap_or_else(|| IdeviceError::UnknownErrorType(String::new())));
+                .unwrap_or_else(|| IdeviceError::UnknownErrorType(match error {
+                    "MissingPairRecord" | "InvalidPairRecord" | "InvalidCertificate" | "PairingProhibitedOverThisConnection" | "SavePairRecordFailed" | "PairingFailed" | "MCChallengeRequired" | "EscrowLocked" | "SessionInactive" | "InvalidResponse" | "NoRunningSession" | "ServiceProhibited" | "GetProhibited" | "MissingHostID" | "InvalidArgument" => error.to_owned(),
+                    _ => String::new(),
+                })));
         }
         Ok(response)
     }
@@ -66,7 +76,7 @@ environment['SDKROOT']=subprocess.check_output(['xcrun','--sdk','iphoneos','--sh
 subprocess.run(['cargo','+1.99.1','build','--manifest-path',str(source/'ffi/Cargo.toml'),'--locked','--release','--target','aarch64-apple-ios','--features','companion_proxy,pair'],check=True,env=environment)
 # Compile the actual framing/CRC routines into a small host test executable.
 rust=(root/'watch-beta/watch_install.rs').read_text()
-framing=rust[rust.index('fn valid_remote_host_id('):rust.index("enum PhoneTransport")] + rust[rust.index('fn retry_pair_connection('):rust.index('async fn verify_watch_endpoint(')] + rust[rust.index('fn zip_header('):rust.index('fn insert_string(')] + rust[rust.index('fn crc32_ieee('):] + rust[rust.index('fn watch_rejection_kind('):rust.index('fn collect_files(')]
+framing=rust[rust.index('fn valid_remote_host_id('):rust.index("enum PhoneTransport")] + rust[rust.index('fn watch_pair_rejection_kind('):rust.index('fn pairing_failure(')] + rust[rust.index('fn retry_pair_connection('):rust.index('async fn verify_watch_endpoint(')] + rust[rust.index('fn zip_header('):rust.index('fn insert_string(')] + rust[rust.index('fn crc32_ieee('):] + rust[rust.index('fn watch_rejection_kind('):rust.index('fn collect_files(')]
 checks=work/'protocol-tests.rs'
 checks.write_text(rust[rust.index('type Report ='):rust.index('macro_rules! bail')]+framing+"""
 fn main() {
@@ -81,6 +91,10 @@ fn main() {
     assert!(!valid_remote_host_id(""));
     assert!(!valid_remote_host_id("BAD\\nPRIVATE"));
     assert!(!valid_remote_host_id(&"x".repeat(129)));
+    assert_eq!(watch_pair_rejection_kind("InvalidPairRecord"), 51);
+    assert_eq!(watch_pair_rejection_kind("PairingProhibitedOverThisConnection"), 53);
+    assert_eq!(watch_pair_rejection_kind("MCChallengeRequired"), 56);
+    assert_eq!(watch_pair_rejection_kind("PRIVATE_DATA"), 43);
     assert!(retry_pair_connection(44, 0));
     assert!(retry_pair_connection(44, 1));
     assert!(!retry_pair_connection(44, 2));

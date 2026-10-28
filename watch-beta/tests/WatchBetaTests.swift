@@ -105,6 +105,10 @@ import Foundation
         check("disconnect distinguishes trust stage", WatchBetaInstallationDiagnostic.native(44)?.operation == .pairWatch)
         check("unknown pairing response has a fixed category", WatchBetaInstallationDiagnostic.native(43)?.kind == .nativeFailure)
         check("unallocated pairing code rejected", WatchBetaInstallationDiagnostic.native(48) == nil)
+        check("protocol prohibition explained", WatchBetaInstallationDiagnostic.native(53)?.message.contains("no permite emparejar") == true)
+        check("invalid pair record distinguished", WatchBetaInstallationDiagnostic.native(51)?.operation == .pairWatch)
+        check("supervision challenge distinguished", WatchBetaInstallationDiagnostic.native(56)?.operation == .pairWatch)
+        check("unknown future pairing code rejected", WatchBetaInstallationDiagnostic.native(66) == nil)
         var report = WatchBetaReport()
         report.set(.discovery, .passed); report.pairedWatchCount = 1; report.freeAccount = true
         report.issue = .profileRequestFailed; report.set(.profile, .failed)

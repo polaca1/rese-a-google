@@ -265,12 +265,34 @@ async fn install_watch_apps(
 }
 
 
+fn watch_pair_rejection_kind(error: &str) -> i32 {
+    match error {
+        "MissingPairRecord" => 50,
+        "InvalidPairRecord" => 51,
+        "InvalidCertificate" => 52,
+        "PairingProhibitedOverThisConnection" => 53,
+        "SavePairRecordFailed" => 54,
+        "PairingFailed" => 55,
+        "MCChallengeRequired" => 56,
+        "EscrowLocked" => 57,
+        "SessionInactive" => 58,
+        "InvalidResponse" => 59,
+        "NoRunningSession" => 60,
+        "ServiceProhibited" => 61,
+        "GetProhibited" => 62,
+        "MissingHostID" => 63,
+        "InvalidArgument" => 64,
+        "WatchPairErrorType" => 65,
+        _ => 43,
+    }
+}
 fn pairing_failure(error: &IdeviceError) -> i32 {
     match error {
         IdeviceError::UserDeniedPairing => 40,
         IdeviceError::PasswordProtected | IdeviceError::DeviceLocked => 41,
         IdeviceError::InvalidHostID => 42,
-        IdeviceError::UnexpectedResponse(_) | IdeviceError::UnknownErrorType(_) => 43,
+        IdeviceError::UnknownErrorType(error) => watch_pair_rejection_kind(error),
+        IdeviceError::UnexpectedResponse(_) => 43,
         IdeviceError::Socket(_) | IdeviceError::NoEstablishedConnection | IdeviceError::NotEnoughBytes(_, _) => 44,
         IdeviceError::PairingDialogResponsePending => 46,
         _ => 47,

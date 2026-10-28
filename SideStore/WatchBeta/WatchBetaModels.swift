@@ -151,6 +151,19 @@ struct WatchBetaInstallationDiagnostic: Codable, Equatable {
         case 45: result += " · No se ha podido preparar el registro de confianza."
         case 46: result += " · La confirmación de confianza sigue pendiente."
         case 47: result += " · No se ha completado el intercambio de confianza."
+        case 50: result += " · Falta el registro de emparejamiento."
+        case 51: result += " · watchOS ha rechazado el registro de emparejamiento."
+        case 52: result += " · watchOS ha rechazado el certificado de confianza."
+        case 53: result += " · watchOS no permite emparejar a través de esta conexión."
+        case 54: result += " · El Watch no ha podido guardar la confianza."
+        case 55: result += " · watchOS ha devuelto PairingFailed."
+        case 56: result += " · El dispositivo solicita una identidad de supervisión."
+        case 57: result += " · El acceso protegido del Watch está bloqueado."
+        case 58, 60: result += " · La sesión de confianza no está activa."
+        case 59, 65: result += " · La respuesta de emparejamiento no tiene el formato esperado."
+        case 61, 62: result += " · watchOS ha prohibido esta operación."
+        case 63: result += " · Falta la identidad del equipo."
+        case 64: result += " · watchOS ha rechazado un argumento del intercambio."
         case 101: result += " · La asociación con la app del iPhone no es válida."
         case 102, 108: result += " · La firma y el identificador de la app no coinciden."
         case 103: result += " · watchOS rechazó el perfil incluido."
@@ -170,7 +183,7 @@ struct WatchBetaInstallationDiagnostic: Codable, Equatable {
         case 10: operation = .pairingFile
         case 11: operation = .forwardLockdown
         case 12: operation = .connectLockdown
-        case 13, 40...47: operation = .pairWatch
+        case 13, 40...47, 50...65: operation = .pairWatch
         case 14: operation = .watchSession
         case 15, 26: operation = .verifyWatch
         case 16: operation = .startInstaller
@@ -209,7 +222,7 @@ struct WatchBetaInstallFailure: Error {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 5
-    var beta = "0.7.1-build716"
+    var beta = "0.7.1-build717"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?

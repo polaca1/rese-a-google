@@ -1,13 +1,11 @@
-Beta personal 0.7.1 (716), independiente del proyecto oficial SideStore.
+Beta personal 0.7.1 (717).
 
-El diagnóstico real de 715 llegó al Watch y mostró «Confiar», pero falló en Pair (código 13). No demuestra instalación ni incompatibilidad de la cuenta gratuita.
+El informe real de 716 confirma un perfil y certificado válidos, pero falla Pair con código 43. Ese código agrupaba rechazos distintos; no identifica aún el motivo concreto.
 
-Nuevo botón «Instalar SideStore en el Watch»: detecta, elige únicamente un ID secundario ya existente de SideStore, prepara el perfil, firma el paquete incluido y lo envía. No hay que importar un IPA ni escribir una IP. El intento automático al abrir sigue disponible; los trabajos manuales no se solapan.
+El intercambio de confianza ahora sigue la separación de libimobiledevice: RootPrivateKey y HostPrivateKey permanecen únicamente en el registro local. Tampoco se envía DevicePublicKey, que no forma parte del registro de certificados enviado por esa implementación de referencia. Se conservan los certificados, HostID y SystemBUID reales. Esto es una corrección de compatibilidad y manejo de claves, no una instalación física verificada.
 
-El emparejamiento prepara una sola identidad criptográfica y la conserva al repetir el mismo intercambio tras una desconexión de transporte (máximo dos reconexiones). No reintenta una denegación de confianza ni un rechazo del protocolo. Guarda únicamente el registro aceptado del Watch, separado por reloj e identidad, en Application Support privado, con protección del dispositivo, permisos restringidos y exclusión de copias de seguridad. Reutiliza ese registro en siguientes sesiones. No desinstala apps ni crea App IDs o certificados.
+El diagnóstico distingue una lista cerrada de rechazos de watchOS: registro/certificado inválido, emparejamiento prohibido en esa conexión, fallo al guardar confianza, desafío de supervisión y otros estados fijos. Respuestas desconocidas siguen siendo código 43; nunca se exportan textos libres ni datos privados. No se eluden rechazos o confianza denegada.
 
-El diagnóstico distingue confianza rechazada, reloj bloqueado, respuesta no admitida, desconexión y preparación del registro; nunca exporta claves, perfiles, identificadores ni respuestas completas.
+Se mantiene el botón Instalar SideStore en el Watch, el paquete incluido, la detección automática, los IDs existentes y el SideStore completo del iPhone.
 
-Se conserva el SideStore completo de iPhone, fuente y actualización, widgets, SideBackup, anisette remoto predeterminado y atajos de datos móviles. El componente nativo de watchOS 10 incluido sigue siendo una prueba de apertura/servicio local: no es todavía una tienda autónoma ni ejecuta firma desde el reloj.
-
-Instalación física y renovación pendientes de prueba en el reloj del usuario. No se presenta esta beta como definitiva.
+El componente nativo del Watch todavía es una prueba y no una tienda autónoma. Instalación física y renovación pendientes.
