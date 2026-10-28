@@ -1,0 +1,27 @@
+name: Package published reviewNfcGo Watch only
+on:
+  push:
+    branches: [work/review-watch-only-39]
+    paths: [.github/workflows/review-watch-only.yml, packaging/watch-only.py]
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract and verify the published Watch binary
+        run: python3 packaging/watch-only.py
+      - name: Publish standalone Watch IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload reviewnfcgo-7.3.0-build39 output/reviewNfcGo-Watch-7.3.0-build39.ipa output/WATCH-ONLY-MANIFEST.json output/SHA256-WATCH-ONLY.txt
+          gh release download reviewnfcgo-7.3.0-build39 --pattern reviewNfcGo-Watch-7.3.0-build39.ipa --dir verified
+          cd verified
+          sha256sum --check ../output/SHA256-WATCH-ONLY.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reviewNfcGo-Watch-only
+          path: output/*
