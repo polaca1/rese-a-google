@@ -2,19 +2,21 @@
 
 ## Publicado
 
-- Variante personal: 0.7.1, build 713.
-- Código compilado: 94d74dbb68f16a14451460e7414300c94420076a.
-- GitHub Actions: https://github.com/polaca1/rese-a-google/actions/runs/40720462359
-- SHA-256 del IPA: d27d152785d76538f10a7e65d931fb6d8e4c9d940701adeb5e9d82f3ac2cf570
-- Tamaño: 32310300 bytes.
-- Descarga: https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build713/SideStore-Watch-Beta-0.7.1-build713.ipa
+- Variante personal: 0.7.1, build 714.
+- Código compilado: f693c62a5d4efeb1aac3c91303e434b0f631121d.
+- GitHub Actions: https://github.com/polaca1/rese-a-google/actions/runs/40728252552
+- SHA-256 del IPA: a7109cb49d70094ef5010241b7b569a20a1ab76202e0b729abd049a58003825d
+- Tamaño: 32324153 bytes.
+- Descarga: https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build714/SideStore-Watch-Beta-0.7.1-build714.ipa
 - Fuente compatible: https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/source-compatible.json
 - Ambas fuentes y SOURCE-PROVENANCE.json se comprobaron después de publicar.
 - La publicación comprueba los bytes públicos por tamaño, SHA-256, CRC ZIP e identidad del host, y valida el payload nativo.
-- 70 comprobaciones de modelos/validación y pruebas del framing ZIP; compilaciones reales de iPhone y watchOS 10, incluida arm64_32.
-- No hay prueba física de instalación de esta versión ni perfil de watchOS aceptado por la cuenta gratuita del usuario.
+- 89 comprobaciones de modelos/validación y pruebas del framing ZIP; compilaciones reales de iPhone y watchOS 10, incluida arm64_32.
+- El usuario ha confirmado un perfil válido para su Watch con cuenta gratuita y el ID existente de reviewNfcGo .liveactivity. La instalación falla después. Aún no hay instalación física ni renovación verificadas.
 
 ## Implementado
+
+714: diagnóstico schema 5 con pasos separados de firma, conexión y transporte. El Rust FFI ya no colapsa todo a 4: conserva códigos fijos para emparejamiento, sesión, apertura de streaming_zip_conduit, envío/confirmación, timeout y una lista de rechazos de watchOS. Swift solo interpreta el formato fijo completo del bridge, nunca exporta mensajes arbitrarios. Se comprueba por DER que el certificado activo está incluido en el perfil; no se crean/revocan certificados. Se bloquean solapamientos entre cola automática y pantalla/operación manual. El bootstrap de SideStore elige únicamente un hijo existente de su ID (.watch/.SideBackup/.AltWidget), no el ID manual de reviewNfcGo. La apertura del bootstrap no sobrescribe el resultado de una app importada. 89 pruebas y verificación de framing/CRC/categorías nativas; compilaciones reales y publicación verificadas.
 
 713: On-Device Anisette desactivado por defecto y https://mac-ani.jkcoxson.com seleccionado/habilitado, tanto en instalación nueva como mediante migración única de instalaciones anteriores. Cambios posteriores del usuario se respetan. El preset se conserva aunque falte en una sincronización del catálogo. Se preservan credenciales/certificados/IDs. El diagnóstico schema 4 conserva la detección correcta del Watch ante errores posteriores de cuenta y distingue resolveTeam, fetchAnisette y listAppIDs con categorías fijas y código numérico. No se exportan mensajes completos ni identificadores. Las 70 pruebas cubren la regresión y la migración.
 
@@ -43,7 +45,7 @@ Las actualizaciones de la variante se buscan al abrirla desde las dos URLs permi
 
 ## Pendiente para el objetivo autónomo
 
-1. Confirmar el modo real de instalación, el ID válido y un perfil de watchOS aceptado, con las cuotas actuales.
+1. El modo directo sobre SideStore, un ID compatible existente y un perfil aceptado están confirmados para Review. Falta resolver la firma/transporte/instalación posterior y verificar el perfil del bootstrap SideStore con su propio ID.
 2. Verificar instalación y apertura del componente en el Watch físico.
 3. Si el servicio local es accesible, comprobar su protocolo y autenticación desde el reloj; conectar un puerto no demuestra acceso al instalador.
 4. Portar y compilar el login, la firma, las dependencias y el cliente de instalación en watchOS. CodeSignKit y GSACryptoKit declaran watchOS; AnisetteKit declara iOS/macOS y su integración completa no se ha verificado en Watch. La declaración de plataformas no acredita el recorrido funcional.
