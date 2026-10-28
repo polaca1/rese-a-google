@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..ab351e7
 --- /dev/null
 +++ b/Sources/DeveloperPortal/WatchBeta.swift
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,93 @@
 +import Foundation
 +
 +/// Contains only fixed categories and numeric codes, never Apple's raw response.
@@ -88,6 +88,10 @@ index 0000000..ab351e7
 +        return try await watchBetaStep(.decodeProfile) {
 +            guard let profile = try response.provisioningProfile?.toProvisioningProfile() else {
 +                throw WatchBetaProfileFailure(operation: .decodeProfile, kind: .missingProfile, code: nil)
++            }
++            // Never use a profile for a different registered application.
++            guard profile.bundleIdentifier == app.bundleIdentifier else {
++                throw WatchBetaProfileFailure(operation: .decodeProfile, kind: .invalidResponse, code: nil)
 +            }
 +            return profile
 +        }
