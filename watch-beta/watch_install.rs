@@ -320,7 +320,7 @@ async fn pair_watch_preserving_identity(
     // Build ONCE. Recreating certificates after a trust-induced disconnect loses the
     // identity the user accepted. Keep the exact request and private key across retries.
     stage.store(45, Ordering::Relaxed);
-    let (request, mut record, private_key) = client.build_pair_request(host, buid, Some(name)).await?;
+    let (request, mut record, private_key) = client.watch_beta_build_pair_request(host, buid, Some(name)).await?;
     record.insert("HostPrivateKey".into(), Value::Data(private_key));
     record.insert("UDID".into(), Value::String(expected.to_owned()));
     let mut pairing = PairingFile::from_value(&Value::Dictionary(record))?;

@@ -18,6 +18,14 @@ lib=source/'ffi/src/lib.rs'
 text=lib.read_text()
 if 'pub mod watch_install;' not in text: lib.write_text(text+'\npub mod watch_install;\n')
 
+
+# Dedicated Watch chain; do not replace the iPhone's existing certificate generator.
+shutil.copyfile(root/'watch-beta/watch_pairing.rs', source/'idevice/src/watch_pairing.rs')
+idevice_lib=source/'idevice/src/lib.rs'
+idevice_lib_text=idevice_lib.read_text()
+if 'pub(crate) mod watch_pairing;' not in idevice_lib_text:
+    idevice_lib.write_text(idevice_lib_text+'\n#[cfg(feature = "pair")]\npub(crate) mod watch_pairing;\n')
+
 # Small pinned library extension: retain one generated identity across a trust disconnect.
 # The exchange sends raw framed XML, so private pair material never reaches debug logging.
 lockdown=source/'idevice/src/services/lockdown.rs'
@@ -63,6 +71,7 @@ if needle in lockdown_text:
 
 """
     lockdown_text=lockdown_text.replace(marker,exchange+marker,1)
+    lockdown_text=lockdown_text.replace(marker,"    pub async fn watch_beta_build_pair_request(\n        &mut self,\n        host_id: &str,\n        system_buid: &str,\n        host_name: Option<&str>,\n    ) -> Result<(plist::Value, plist::Dictionary, Vec<u8>), IdeviceError> {\n        let pub_key = self.get_value(Some(\"DevicePublicKey\"), None).await?;\n        let pub_key = match pub_key.as_data().map(|x| x.to_vec()) {\n            Some(p) => p,\n            None => {\n                tracing::warn!(\"Did not get public key data response\");\n                return Err(IdeviceError::UnexpectedResponse(\n                    \"missing DevicePublicKey data in pair response\".into(),\n                ));\n            }\n        };\n\n        let wifi_mac = self.get_value(Some(\"WiFiAddress\"), None).await?;\n        let wifi_mac = match wifi_mac.as_string() {\n            Some(w) => w,\n            None => {\n                tracing::warn!(\"Did not get WiFiAddress string\");\n                return Err(IdeviceError::UnexpectedResponse(\n                    \"missing WiFiAddress string in pair response\".into(),\n                ));\n            }\n        };\n\n        let ca = crate::watch_pairing::generate(&pub_key).map_err(|_| IdeviceError::UnexpectedResponse(\"Watch certificate chain generation failed\".into()))?;\n        let pair_record = crate::plist!(dict {\n            \"DevicePublicKey\": pub_key,\n            \"DeviceCertificate\": ca.device_certificate,\n            \"HostCertificate\": ca.host_certificate.clone(),\n            \"HostID\": host_id,\n            \"RootCertificate\": ca.root_certificate,\n            \"RootPrivateKey\": ca.root_private_key.clone(),\n            \"WiFiMACAddress\": wifi_mac,\n            \"SystemBUID\": system_buid,\n        });\n\n        let req = crate::plist!({\n            \"Label\": self.idevice.label.clone(),\n            \"Request\": \"Pair\",\n            \"HostName\":? host_name,\n            \"PairRecord\": pair_record.clone(),\n            \"ProtocolVersion\": \"2\",\n            \"PairingOptions\": {\n                \"ExtendedPairingErrors\": true\n            }\n        });\n\n        Ok((req, pair_record, ca.host_private_key))\n    }\n\n"+marker,1)
     lockdown.write_text(lockdown_text)
 assert 'pub async fn watch_beta_pair_exchange(' in lockdown.read_text()
 assert 'pub async fn build_pair_request(' in lockdown.read_text()
@@ -74,6 +83,26 @@ environment['CARGO_PROFILE_RELEASE_LTO']='false'
 environment['RUSTFLAGS']='-C embed-bitcode=no'
 environment['SDKROOT']=subprocess.check_output(['xcrun','--sdk','iphoneos','--show-sdk-path'],text=True).strip()
 subprocess.run(['cargo','+1.99.1','build','--manifest-path',str(source/'ffi/Cargo.toml'),'--locked','--release','--target','aarch64-apple-ios','--features','companion_proxy,pair'],check=True,env=environment)
+
+# Independently verify the actual production chain on the host, including wrong-key
+# and tampered-certificate failures. No generated private keys are written or printed.
+import tomllib
+certificate_tests=work/'certificate-tests'
+certificate_tests.mkdir(exist_ok=True)
+shutil.copyfile(root/'watch-beta/watch_pairing.rs',certificate_tests/'watch_pairing.rs')
+shutil.copyfile(root/'watch-beta/tests/WatchPairingCertificates.rs',certificate_tests/'main.rs')
+packages=tomllib.loads((source/'Cargo.lock').read_text())['package']
+def locked_version(name):
+    versions={p['version'] for p in packages if p['name']==name and p['version'].startswith({'rsa':'0.9.','sha2':'0.10.','x509-cert':'0.2.'}[name])}
+    assert len(versions)==1, (name,versions)
+    return versions.pop()
+manifest='[package]\nname="watch-pairing-tests"\nversion="0.1.0"\nedition="2024"\n[[bin]]\nname="watch-pairing-tests"\npath="main.rs"\n[dependencies]\n'
+manifest+='rsa={version="='+locked_version('rsa')+'", features=["sha2"]}\n'
+manifest+='sha2={version="='+locked_version('sha2')+'", features=["oid"]}\n'
+manifest+='x509-cert={version="='+locked_version('x509-cert')+'", default-features=false, features=["builder","pem"]}\n'
+(certificate_tests/'Cargo.toml').write_text(manifest)
+subprocess.run(['cargo','+1.99.1','run','--offline','--quiet','--release','--manifest-path',str(certificate_tests/'Cargo.toml')],check=True)
+
 # Compile the actual framing/CRC routines into a small host test executable.
 rust=(root/'watch-beta/watch_install.rs').read_text()
 framing=rust[rust.index('fn valid_remote_host_id('):rust.index("enum PhoneTransport")] + rust[rust.index('fn watch_pair_rejection_kind('):rust.index('fn pairing_failure(')] + rust[rust.index('fn retry_pair_connection('):rust.index('async fn verify_watch_endpoint(')] + rust[rust.index('fn zip_header('):rust.index('fn insert_string(')] + rust[rust.index('fn crc32_ieee('):] + rust[rust.index('fn watch_rejection_kind('):rust.index('fn collect_files(')]

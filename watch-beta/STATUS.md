@@ -1,4 +1,4 @@
-undefined
+# Estado de la variante personal de SideStore Watch
 
 ## 716 publicada y comprobada
 
@@ -16,3 +16,10 @@ Usuario: 716, perfil/certificado válidos, pairWatch/nativeFailure/43, instalaci
 Código 47c913deb6a8ae298202bd949e14d3d8f1125591. Actions 40740575604, trabajo 123000738406: success. 98 pruebas; compilaciones iPhone y watchOS aprobadas. Publicador verificó IPA público y ambas fuentes. Tamaño 32336858; SHA256 6c41b9bcfe7097398427dc4006dbc24c8be16c988ca10b5887132057e4a86301. Descarga https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build717/SideStore-Watch-Beta-0.7.1-build717.ipa.
 
 Pendiente prueba física: actualizar sin borrar, botón Instalar SideStore en el Watch. Si falla, copiar nuevo diagnóstico. No hay instalación ni renovación ni tienda autónoma verificadas. Siguiente build 718 o posterior. El usuario pidió economizar créditos: cambios y búsquedas mínimos.
+
+
+## Trabajo 718
+
+Usuario informa 717, perfil/certificado válidos, pairWatch/código51: InvalidPairRecord. Se identifica un defecto comprobable en idevice v0.1.68-ss-3e55c84/ca.rs: genera certificados con Profile::Root para dispositivo y anfitrión; el dispositivo tiene issuer CN=Device aunque firma la clave raíz con subject vacío. Se crea generador específico Watch con raíz y dos hojas consistentes, sin tocar el generador del iPhone. Referencia de convenciones: libimobiledevice src/userpref.c y pymobiledevice3/ca.py. El defecto existe; aún no se ha demostrado que sea el único motivo del rechazo físico.
+
+Se añaden pruebas criptográficas de firmas, claves, extensiones y casos negativos usando el mismo código de producción. La compilación y publicación 718 están pendientes. Instalar solo sobre SideStore sin borrar; no hay autonomía Watch ni instalación/renovación físicas verificadas.
