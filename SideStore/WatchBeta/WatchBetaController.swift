@@ -25,11 +25,11 @@ final class WatchBetaController: ObservableObject {
     private var identifiers: [String] = []
     private var task: Task<Void, Never>?
 
-    var canPrepareProfile: Bool { !running && identifiers.indices.contains(selection) && report.status(.discovery) == .passed }
+    var canPrepareProfile: Bool { !running && identifiers.indices.contains(selection) && report.status(.discovery) == .passed && !appIDs.isEmpty }
 
     func detect() {
         guard !running else { return }
-        report = WatchBetaReport(); identifiers = []; watchCount = 0; selection = 0
+        report = WatchBetaReport(); appIDs = []; identifiers = []; watchCount = 0; selection = 0
         running = true
         task = Task {
             defer { running = false }
@@ -52,10 +52,11 @@ final class WatchBetaController: ObservableObject {
                 let embedded = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision")
                     .flatMap { try? Data(contentsOf: $0) }
                     .flatMap { try? ALTProvisioningProfile(data: $0) }
-                let preferred = embedded?.teamIdentifier == team.identifier ? embedded!.bundleIdentifier : runtimeID
-                let saved = UserDefaults.standard.string(forKey: "watchSelectedPortalID") ?? ""
-                selectedAppID = appIDs.contains(where: { $0.bundleIdentifier == saved }) ? saved :
-                    (appIDs.contains(where: { $0.bundleIdentifier == preferred }) ? preferred : "")
+                appIDs = appIDs.filter { !$0.bundleIdentifier.contains("*") && !$0.bundleIdentifier.isEmpty }
+                selectedAppID = WatchBetaValidation.preferredPortalID(available: appIDs.map(\.bundleIdentifier),
+                    saved: UserDefaults.standard.string(forKey: "watchSelectedPortalID"), runtime: runtimeID,
+                    profileBundle: embedded?.bundleIdentifier, profileTeam: embedded?.teamIdentifier,
+                    sessionTeam: team.identifier) ?? ""
             } catch is CancellationError { fail(.discovery, .cancelled) }
             catch {
                 let stage: WatchBetaStage = report.status(.connection) == .passed ? .discovery : .connection
@@ -396,6 +397,12 @@ final class WatchPackageCoordinator: ObservableObject {
             }
             guard !AppManager.shared.isActivelyManagingAnyApp else { return }
             do { try await bootstrapIfNeeded() }
+            catch let error as WatchBetaProfileFailure {
+                if let operation = WatchBetaProfileDiagnostic.Operation(rawValue: error.operation.rawValue),
+                   let kind = WatchBetaProfileDiagnostic.Kind(rawValue: error.kind.rawValue) {
+                    message = WatchBetaProfileDiagnostic(operation: operation, kind: kind, code: error.code).message
+                }
+            }
             catch { message = "SideStore Watch queda pendiente: Apple debe aceptar un perfil válido del App ID seleccionado." }
             for directory in directories() {
                 guard var job = read(directory) else { continue }
@@ -473,11 +480,12 @@ final class BetaUpdateCoordinator {
                       let current = InstalledApp.fetchAltStore(in: context),
                       let source = current.storeApp?._source?.sourceURL.absoluteString, self.sources.contains(source),
                       let latest = current.storeApp?.latestSupportedVersion,
-                      latest.downloadURL.absoluteString.hasPrefix("https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-") else {
+                      WatchBetaValidation.trustedBetaSource(source, download: latest.downloadURL.absoluteString) else {
                     self.running = false; return
                 }
                 let currentBuild = Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "") ?? 0
-                let newerBuild = latest.version == current.version && (Int(latest.buildVersion ?? "") ?? 0) > currentBuild
+                let newerBuild = WatchBetaValidation.newerBuild(currentVersion: current.version, currentBuild: String(currentBuild),
+                    version: latest.version, build: latest.buildVersion)
                 guard current.hasUpdate || newerBuild,
                       let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
                         .flatMap({ $0.windows }).first(where: { $0.isKeyWindow }),

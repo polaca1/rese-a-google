@@ -9,6 +9,24 @@ import Foundation
         check("archive symlink rejected", !WatchBetaValidation.safeArchiveEntry(name: "Payload/link", size: 1, attributes: 0o120777 << 16))
         check("archive large entry rejected", !WatchBetaValidation.safeArchiveEntry(name: "Payload/app", size: 100_000_001, attributes: 0))
         check("normal app resource accepted", WatchBetaValidation.safeArchiveEntry(name: "Payload/Watch.app/main", size: 1024, attributes: 0o100755 << 16))
+        check("portal ID follows embedded signature, not unchanged Info.plist", WatchBetaValidation.preferredPortalID(
+            available: ["signed.id"], saved: nil, runtime: "runtime.id",
+            profileBundle: "signed.id", profileTeam: "TEAM", sessionTeam: "TEAM") == "signed.id")
+        check("no random ID fallback", WatchBetaValidation.preferredPortalID(available: ["other.id"],
+            saved: nil, runtime: "runtime.id", profileBundle: nil, profileTeam: nil, sessionTeam: "TEAM") == nil)
+        check("other account profile rejected", WatchBetaValidation.preferredPortalID(available: ["signed.id"],
+            saved: nil, runtime: "runtime.id", profileBundle: "signed.id", profileTeam: "OTHER", sessionTeam: "TEAM") == nil)
+        check("explicit saved portal choice respected", WatchBetaValidation.preferredPortalID(available: ["saved.id", "signed.id"],
+            saved: "saved.id", runtime: "signed.id", profileBundle: "signed.id", profileTeam: "TEAM", sessionTeam: "TEAM") == "saved.id")
+        check("wildcard cannot become a Watch bundle ID", WatchBetaValidation.preferredPortalID(available: ["*"],
+            saved: "*", runtime: "*", profileBundle: "*", profileTeam: "TEAM", sessionTeam: "TEAM") == nil)
+        check("newer same-version build offered", WatchBetaValidation.newerBuild(currentVersion: "0.7.0", currentBuild: "708", version: "0.7.0", build: "709"))
+        check("build downgrade rejected", !WatchBetaValidation.newerBuild(currentVersion: "0.7.0", currentBuild: "709", version: "0.7.0", build: "708"))
+        check("equal build not reinstalled", !WatchBetaValidation.newerBuild(currentVersion: "0.7.0", currentBuild: "709", version: "0.7.0", build: "709"))
+        check("cross-version build comparison rejected", !WatchBetaValidation.newerBuild(currentVersion: "8.0", currentBuild: "1", version: "0.7.0", build: "900"))
+        check("untrusted release cannot self-update", !WatchBetaValidation.trustedBetaSource(
+            "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/source.json",
+            download: "https://github.com/other/repo/releases/download/sidestore-watch-beta-709/a.ipa"))
         let now = Date(timeIntervalSince1970: 1000)
         func valid(platforms: [String] = ["watchOS"], bundle: String = "test.watch", team: String = "TEAM",
                    devices: [String] = ["WATCH-ID"], expires: Date = Date(timeIntervalSince1970: 2000), certs: Int = 1) -> Bool {

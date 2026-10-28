@@ -1,9 +1,13 @@
-Build 708 — instalación experimental desde el iPhone al Watch.
+Beta personal 0.7.0 (709), independiente del proyecto oficial SideStore.
 
-Añade Elegir IPA y Firmar e instalar. Acepta un IPA con una sola app watchOS, sin extensiones, valida y acota el archivo antes de extraerlo, solicita un perfil con el App ID ya registrado de esa app y reutiliza el certificado activo. No crea App IDs ni revoca certificados. Debe haber un único Watch enlazado y un emparejamiento TCP.
+La instalación normal del IPA de iPhone detecta sus componentes Watch/, obtiene sus perfiles y los firma antes del host. Los componentes firmados se conservan en una cola para enviarlos al reloj al completar la instalación. Una autoactualización que cierre SideStore conserva la cola y la retoma al abrir la nueva versión.
 
-El envío utiliza companion_proxy → lockdown → streaming_zip_conduit. No elimina primero la instalación anterior. Solo declara la instalación completada tras DataComplete de watchOS. Esta vía sigue necesitando prueba física con la cuenta del usuario; Apple puede rechazar el perfil. La cuenta del usuario falló en el perfil con 706; 707/708 muestran paso y código para resolverlo.
+El IPA contiene también un componente nativo para watchOS 10 (arm64_32 y arm64). Al abrir SideStore se intenta preparar e instalar con un App ID ya registrado en tu cuenta. Es una prueba nativa de apertura y acceso al servicio local del reloj. TODAVÍA NO ES LA TIENDA AUTÓNOMA SOLICITADA NI FIRMA DESDE EL WATCH. La cuenta del usuario aún no ha demostrado un perfil válido o instalación física.
 
-La app sigue ejecutándose en el iPhone. No incluye tienda autónoma ni autorrenovación dentro del Watch. Tampoco instala un IPA arbitrario de iPhone como si fuera watchOS. No garantiza compatibilidad de las cuentas gratuitas.
+La prueba de perfil usa preferentemente el identificador de la firma incluida, no presupone que Info.plist tenga el mismo ID, y ofrece elegir un identificador de la lista real de Apple. No crea App IDs para Watch ni revoca certificados. Un perfil rechazado detiene la operación; no se inventan estados correctos.
 
-Actualiza sobre SideStore con la misma cuenta Apple, sin borrar la app. Variante personal independiente basada en SideStore; código completo, licencias y atribuciones en la rama beta/sidestore-watch y ZIP de fuentes de la release.
+La beta comprueba actualizaciones de su propia fuente al abrirse y puede instalarlas con el flujo original de SideStore cuando la cuenta, la red, la firma y los permisos lo permitan. No actualiza desde fuentes ajenas. Puede desactivarse en Watch beta. No se garantiza ejecución en segundo plano de iOS.
+
+Requisitos: un único Watch enlazado y desbloqueado, backend Idevice con emparejamiento TCP, certificado activo y App IDs/perfiles de watchOS válidos para cada app y extensión. Actualiza sobre SideStore sin borrar la app y con la misma cuenta Apple.
+
+Se conservan Apple ID, fuentes, instalación/refirma de iPhone, widgets, SideBackup y atajos de datos móviles originales. Licencias y atribuciones incluidas; transporte adaptado de Rzbck/isideload bajo MIT. Fuente completa en esta release y en work/watch-automatic / beta/sidestore-watch según la fase publicada.

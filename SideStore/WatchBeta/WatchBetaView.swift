@@ -16,7 +16,7 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.0 (708)")
+                Text("Beta personal · 0.7.0 (709)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)
@@ -84,6 +84,7 @@ struct WatchBetaView: View {
                 SwiftUI.Button {
                     var report = model.report
                     report.physicalInstallationVerified = automaticWatch.nativeOpened
+                    if automaticWatch.nativeOpened { report.set(.installation, .passed) }
                     UIPasteboard.general.string = report.export(); copied = true
                 } label: { Label(copied ? "Diagnóstico copiado" : "Copiar diagnóstico", systemImage: "doc.on.doc") }
                     .disabled(model.running)

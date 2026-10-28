@@ -52,6 +52,8 @@ jobs:
         with:
           path: .spm
           key: watch-beta-spm-${{ hashFiles('AltStore.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+      - name: Build native WatchOS 10 installation probe
+        run: python3 watch-beta/build-native-watch.py
       - name: Build iPhone beta
         run: |
           xcodebuild archive -project AltStore.xcodeproj -scheme 'SideStore - Release' -configuration Release -destination 'generic/platform=iOS' -archivePath build/WatchBeta -derivedDataPath build/DerivedData -clonedSourcePackagesDirPath .spm CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM=XYZ0123456 > build/watch-beta/build.log 2>&1 || { tail -n 100 build/watch-beta/build.log; exit 1; }
@@ -71,6 +73,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=sidestore-watch-beta-0.7.0-build708
+          tag=sidestore-watch-beta-0.7.0-build709
           git archive --format=zip --output=build/watch-beta/SideStore-Watch-Beta-Source.zip HEAD
-          gh release create "$tag" build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch Beta 0.7.0 (708) — detección y perfil' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"
+          gh release create "$tag" build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch Beta 0.7.0 (709) — componentes Watch automáticos' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"
+      - name: Verify public release and publish the source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 watch-beta/publish-source.py

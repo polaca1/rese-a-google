@@ -71,7 +71,7 @@ struct WatchBetaProfileDiagnostic: Codable, Equatable {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 2
-    var beta = "0.7.0-build708"
+    var beta = "0.7.0-build709"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?
@@ -92,6 +92,23 @@ struct WatchBetaReport: Codable, Equatable {
 }
 
 enum WatchBetaValidation {
+    static func preferredPortalID(available: [String], saved: String?, runtime: String,
+        profileBundle: String?, profileTeam: String?, sessionTeam: String) -> String? {
+        let allowed = Set(available.filter { !$0.isEmpty && !$0.contains("*") })
+        if let saved, allowed.contains(saved) { return saved }
+        if profileTeam == sessionTeam, let profileBundle, allowed.contains(profileBundle) { return profileBundle }
+        return allowed.contains(runtime) ? runtime : nil
+    }
+    static func newerBuild(currentVersion: String, currentBuild: String, version: String, build: String?) -> Bool {
+        guard currentVersion == version, let build, let current = Int(currentBuild), let next = Int(build) else { return false }
+        return current >= 0 && next > current
+    }
+    static func trustedBetaSource(_ source: String, download: String) -> Bool {
+        let prefix = "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/"
+        return [prefix+"source.json", prefix+"source-compatible.json"].contains(source)
+            && download.hasPrefix("https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-")
+    }
+
     static func safeArchiveEntry(name: String, size: Int64, attributes: UInt32) -> Bool {
         !name.isEmpty && !name.hasPrefix("/") && !name.contains("\\")
         && !name.split(separator: "/").contains("..") && !name.contains("\0")
