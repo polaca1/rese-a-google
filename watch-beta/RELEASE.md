@@ -1,13 +1,13 @@
-Beta personal 0.7.1 (715), independiente del proyecto oficial SideStore.
+Beta personal 0.7.1 (716), independiente del proyecto oficial SideStore.
 
-El informe real de 714 confirmó perfil y certificado correctos, pero el instalador se detenía explícitamente con unsupportedPairing al usar RPPairing. Esta versión implementa la ruta remota; no se limita a quitar ese bloqueo.
+El diagnóstico real de 715 llegó al Watch y mostró «Confiar», pero falló en Pair (código 13). No demuestra instalación ni incompatibilidad de la cuenta gratuita.
 
-Reutiliza el adaptador y la sesión RSD autenticados del iPhone para abrir companion_proxy y los puertos reenviados del Watch. El propio Watch realiza Pair/StartSession y proporciona su registro real para proteger la transferencia. El identificador persistente del host remoto se reutiliza para el emparejamiento del reloj; no se inventa un archivo TCP ni se convierten claves Ed25519 a certificados Lockdown. Los manejadores del túnel se toman prestados durante la llamada y siguen perteneciendo al gateway original.
+Nuevo botón «Instalar SideStore en el Watch»: detecta, elige únicamente un ID secundario ya existente de SideStore, prepara el perfil, firma el paquete incluido y lo envía. No hay que importar un IPA ni escribir una IP. El intento automático al abrir sigue disponible; los trabajos manuales no se solapan.
 
-Se conserva la ruta TCP, selección exacta de un único Watch, validaciones de cuenta/ID/dispositivo/certificado y confirmación DataComplete. No desinstala apps, crea App IDs ni revoca certificados. Conserva los códigos de error por paso de 714. La conexión y la aceptación del Watch por esta ruta requieren prueba física; el túnel por sí solo no demuestra instalación.
+El emparejamiento prepara una sola identidad criptográfica y la conserva al repetir el mismo intercambio tras una desconexión de transporte (máximo dos reconexiones). No reintenta una denegación de confianza ni un rechazo del protocolo. Guarda únicamente el registro aceptado del Watch, separado por reloj e identidad, en Application Support privado, con protección del dispositivo, permisos restringidos y exclusión de copias de seguridad. Reutiliza ese registro en siguientes sesiones. No desinstala apps ni crea App IDs o certificados.
 
-Mantiene el SideStore completo de iPhone, su identidad y actualizaciones, Apple ID, fuentes, SideBackup, widget, atajos de datos móviles y el preset Anisette solicitado. Conserva la coordinación de cola automática y pruebas manuales.
+El diagnóstico distingue confianza rechazada, reloj bloqueado, respuesta no admitida, desconexión y preparación del registro; nunca exporta claves, perfiles, identificadores ni respuestas completas.
 
-Actualiza sobre SideStore sin borrar la app y usando la misma cuenta. Usa el IPA Review ReuseID e ID .liveactivity existentes. Si aparece una solicitud de confianza en el Watch, atiéndela. La instalación y sincronización físicas siguen pendientes de verificar.
+Se conserva el SideStore completo de iPhone, fuente y actualización, widgets, SideBackup, anisette remoto predeterminado y atajos de datos móviles. El componente nativo de watchOS 10 incluido sigue siendo una prueba de apertura/servicio local: no es todavía una tienda autónoma ni ejecuta firma desde el reloj.
 
-El componente SideStore de watchOS 10 continúa siendo un prototipo de apertura/servicio local: NO es una tienda autónoma ni ejecuta firma desde el reloj. Licencias y código fuente completos incluidos.
+Instalación física y renovación pendientes de prueba en el reloj del usuario. No se presenta esta beta como definitiva.

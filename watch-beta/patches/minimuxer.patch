@@ -44,13 +44,22 @@ diff --git a/DeviceGateway/idevice/IdeviceGateway.swift b/DeviceGateway/idevice/
 index e9310d0..44e37cf 100644
 --- a/DeviceGateway/idevice/IdeviceGateway.swift
 +++ b/DeviceGateway/idevice/IdeviceGateway.swift
-@@ -2299,6 +2299,73 @@ extension IdeviceGateway {
+@@ -2299,6 +2299,82 @@ extension IdeviceGateway {
          }
      }
  
 +    public func installWatchBundle(at url: URL, watchIdentifier: String) async throws {
 +        try await withFFIDispatch {
 +            try self.verifyInitialized()
++            let manager = FileManager.default
++            let cache = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
++                .appendingPathComponent("WatchPairing", isDirectory: true)
++            try manager.createDirectory(at: cache, withIntermediateDirectories: true,
++                attributes: [.posixPermissions: 0o700, .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
++            var excluded = URLResourceValues()
++            excluded.isExcludedFromBackup = true
++            var protectedCache = cache
++            try protectedCache.setResourceValues(excluded)
 +            var result: Int32 = -1
 +            if self.pairingFileType == .rppairing {
 +                // Reuse the authenticated remote tunnel; do not reinterpret RP keys as a TCP record.
@@ -58,10 +67,10 @@ index e9310d0..44e37cf 100644
 +                guard let adapter = self.adapter, let handshake = self.handshake, let pairing = self.pairingFile else {
 +                    throw IdeviceGatewayError(.notInitialized)
 +                }
-+                result = sidestore_watch_install_rsd(adapter, handshake, pairing, watchIdentifier, url.path)
++                result = sidestore_watch_install_rsd(adapter, handshake, pairing, watchIdentifier, url.path, cache.path)
 +            } else {
 +                try self.performWithTcpService(connect: { provider, output in
-+                    result = sidestore_watch_install(provider, watchIdentifier, url.path)
++                    result = sidestore_watch_install(provider, watchIdentifier, url.path, cache.path)
 +                    // Borrow provider as the service token; its existing defer owns cleanup.
 +                    output?.pointee = provider
 +                    return nil

@@ -143,6 +143,14 @@ struct WatchBetaInstallationDiagnostic: Codable, Equatable {
         if let code { result += " · Código: \(code)" }
         if kind == .timeout { result += " · Tiempo de espera agotado." }
         switch code {
+        case 40: result += " · Se ha rechazado la confianza. No se volverá a solicitar automáticamente."
+        case 41: result += " · Desbloquea el reloj y vuelve a intentarlo."
+        case 42: result += " · El reloj no reconoce esta identidad."
+        case 43: result += " · El reloj ha devuelto una respuesta de emparejamiento no admitida."
+        case 44: result += " · La conexión se ha interrumpido al confirmar la confianza."
+        case 45: result += " · No se ha podido preparar el registro de confianza."
+        case 46: result += " · La confirmación de confianza sigue pendiente."
+        case 47: result += " · No se ha completado el intercambio de confianza."
         case 101: result += " · La asociación con la app del iPhone no es válida."
         case 102, 108: result += " · La firma y el identificador de la app no coinciden."
         case 103: result += " · watchOS rechazó el perfil incluido."
@@ -162,7 +170,7 @@ struct WatchBetaInstallationDiagnostic: Codable, Equatable {
         case 10: operation = .pairingFile
         case 11: operation = .forwardLockdown
         case 12: operation = .connectLockdown
-        case 13: operation = .pairWatch
+        case 13, 40...47: operation = .pairWatch
         case 14: operation = .watchSession
         case 15, 26: operation = .verifyWatch
         case 16: operation = .startInstaller
@@ -201,7 +209,7 @@ struct WatchBetaInstallFailure: Error {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 5
-    var beta = "0.7.1-build715"
+    var beta = "0.7.1-build716"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?

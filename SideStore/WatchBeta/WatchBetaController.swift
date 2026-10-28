@@ -429,8 +429,16 @@ final class WatchPackageCoordinator: ObservableObject {
         return try? JSONDecoder().decode(Job.self, from: data)
     }
 
-    func runPending() {
-        guard WatchBetaValidation.canRunAutomaticInstallation(working: working, manualUIVisible: manualUIVisible,
+    func installSideStoreWatch() {
+        guard AuthManager.shared.isAuthenticated else {
+            message = "Inicia sesión con tu cuenta Apple en SideStore para instalar la app del Watch."
+            return
+        }
+        runPending(userInitiated: true)
+    }
+
+    func runPending(userInitiated: Bool = false) {
+        guard WatchBetaValidation.canRunAutomaticInstallation(working: working, manualUIVisible: manualUIVisible && !userInitiated,
             manualOperationRunning: manualOperationRunning), AuthManager.shared.isAuthenticated, UIApplication.shared.applicationState == .active else { return }
         working = true
         Task {
@@ -440,7 +448,7 @@ final class WatchPackageCoordinator: ObservableObject {
             }
             guard !AppManager.shared.isActivelyManagingAnyApp else { return }
             profileChecks = nil; installationDiagnostic = nil
-            do { try await bootstrapIfNeeded() }
+            do { try await bootstrapIfNeeded(force: userInitiated) }
             catch let error as WatchBetaInstallFailure {
                 installationDiagnostic = error.diagnostic
                 message = error.diagnostic.message
@@ -462,6 +470,7 @@ final class WatchPackageCoordinator: ObservableObject {
             }
             for directory in directories() {
                 guard var job = read(directory) else { continue }
+                if userInitiated && job.hostBundle != Bundle.main.bundleIdentifier { continue }
                 // A SideStore self-update may have killed the old process before hostInstalled.
                 if !job.ready, job.hostBundle == Bundle.main.bundleIdentifier,
                    job.hostVersion == Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
@@ -589,16 +598,17 @@ final class BetaUpdateCoordinator {
 
 #if os(iOS)
 extension WatchPackageCoordinator {
-    private func bootstrapIfNeeded() async throws {
+    private func bootstrapIfNeeded(force: Bool = false) async throws {
         guard AuthManager.shared.isAuthenticated,
               let payload = Bundle.main.url(forResource: "WatchBootstrap", withExtension: "ipa"),
               let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String,
-              UserDefaults.standard.string(forKey: "watchBootstrapCompletedBuild") != build else { return }
+              (force || UserDefaults.standard.string(forKey: "watchBootstrapCompletedBuild") != build) else { return }
         let ownID = Bundle.main.bundleIdentifier ?? ""
         if directories().contains(where: {
             guard let job = read($0) else { return false }
             return job.hostBundle == ownID && job.hostBuild == build
         }) { return }
+        message = "Preparando SideStore para el Watch…"
         let team = try await AuthManager.shared.getAuthenticatedTeam()
         let session = try await AuthManager.shared.getAuthenticatedSession()
         let apps = try await ALTAppleAPI.shared.fetchAppIDs(for: team, session: session)

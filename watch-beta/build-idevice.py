@@ -17,6 +17,33 @@ shutil.copyfile(root/'watch-beta/watch_install.rs', source/'ffi/src/watch_instal
 lib=source/'ffi/src/lib.rs'
 text=lib.read_text()
 if 'pub mod watch_install;' not in text: lib.write_text(text+'\npub mod watch_install;\n')
+
+# Small pinned library extension: retain one generated identity across a trust disconnect.
+# The exchange sends raw framed XML, so private pair material never reaches debug logging.
+lockdown=source/'idevice/src/services/lockdown.rs'
+lockdown_text=lockdown.read_text()
+needle='    async fn build_pair_request('
+if needle in lockdown_text:
+    lockdown_text=lockdown_text.replace(needle,'    pub async fn build_pair_request(',1)
+    marker='    pub async fn build_pair_request('
+    exchange="""    /// Personal Watch bridge: exchange an already-generated identity without logging it.
+    pub async fn watch_beta_pair_exchange(
+        &mut self, request: plist::Value,
+    ) -> Result<plist::Dictionary, IdeviceError> {
+        let mut bytes = Vec::new();
+        request.to_writer_xml(&mut bytes)?;
+        let size = u32::try_from(bytes.len()).map_err(|_| IdeviceError::IntegerOverflow)?;
+        self.idevice.send_raw(&size.to_be_bytes()).await?;
+        self.idevice.send_raw(&bytes).await?;
+        self.idevice.read_plist().await
+    }
+
+"""
+    lockdown_text=lockdown_text.replace(marker,exchange+marker,1)
+    lockdown.write_text(lockdown_text)
+assert 'pub async fn watch_beta_pair_exchange(' in lockdown.read_text()
+assert 'pub async fn build_pair_request(' in lockdown.read_text()
+
 subprocess.run(['rustup','target','add','--toolchain','1.99.1','aarch64-apple-ios'],check=True)
 environment=dict(os.environ)
 environment['IPHONEOS_DEPLOYMENT_TARGET']='15.0'
@@ -26,7 +53,7 @@ environment['SDKROOT']=subprocess.check_output(['xcrun','--sdk','iphoneos','--sh
 subprocess.run(['cargo','+1.99.1','build','--manifest-path',str(source/'ffi/Cargo.toml'),'--locked','--release','--target','aarch64-apple-ios','--features','companion_proxy,pair'],check=True,env=environment)
 # Compile the actual framing/CRC routines into a small host test executable.
 rust=(root/'watch-beta/watch_install.rs').read_text()
-framing=rust[rust.index('fn valid_remote_host_id('):rust.index("enum PhoneTransport")] + rust[rust.index('fn zip_header('):rust.index('fn insert_string(')] + rust[rust.index('fn crc32_ieee('):] + rust[rust.index('fn watch_rejection_kind('):rust.index('fn collect_files(')]
+framing=rust[rust.index('fn valid_remote_host_id('):rust.index("enum PhoneTransport")] + rust[rust.index('fn retry_pair_connection('):rust.index('async fn verify_watch_endpoint(')] + rust[rust.index('fn zip_header('):rust.index('fn insert_string(')] + rust[rust.index('fn crc32_ieee('):] + rust[rust.index('fn watch_rejection_kind('):rust.index('fn collect_files(')]
 checks=work/'protocol-tests.rs'
 checks.write_text(rust[rust.index('type Report ='):rust.index('macro_rules! bail')]+framing+"""
 fn main() {
@@ -41,6 +68,12 @@ fn main() {
     assert!(!valid_remote_host_id(""));
     assert!(!valid_remote_host_id("BAD\\nPRIVATE"));
     assert!(!valid_remote_host_id(&"x".repeat(129)));
+    assert!(retry_pair_connection(44, 0));
+    assert!(retry_pair_connection(44, 1));
+    assert!(!retry_pair_connection(44, 2));
+    assert!(!retry_pair_connection(40, 0));
+    assert!(!retry_pair_connection(41, 0));
+    assert!(!retry_pair_connection(43, 0));
     assert_eq!(watch_rejection_kind("InvalidCompanionAppBundleIdentifier"), 101);
     assert_eq!(watch_rejection_kind("ApplicationVerificationFailed"), 100);
     assert_eq!(watch_rejection_kind("DeviceLocked"), 104);
@@ -74,7 +107,7 @@ shutil.copytree(work/'upstream/swift/IDevice.xcframework',target)
 shutil.copy2(binary,target/'ios-arm64/libidevice_ffi.a')
 header=target/'ios-arm64/Headers/idevice.h'
 if not header.exists(): header=next((target/'ios-arm64').rglob('*.h'))
-header.write_text(header.read_text()+'\nint32_t sidestore_watch_install(struct IdeviceProviderHandle *provider, const char *watch, const char *path);\n')
-header.write_text(header.read_text()+'\nint32_t sidestore_watch_install_rsd(struct AdapterHandle *adapter, struct RsdHandshakeHandle *handshake, const struct RpPairingFileHandle *pairing, const char *watch, const char *path);\n')
+header.write_text(header.read_text()+'\nint32_t sidestore_watch_install(struct IdeviceProviderHandle *provider, const char *watch, const char *path, const char *cache);\n')
+header.write_text(header.read_text()+'\nint32_t sidestore_watch_install_rsd(struct AdapterHandle *adapter, struct RsdHandshakeHandle *handshake, const struct RpPairingFileHandle *pairing, const char *watch, const char *path, const char *cache);\n')
 (root/'build/watch-ffi/PROVENANCE.json').write_text(__import__('json').dumps({'repository':'https://github.com/SideStore/idevice','commit':commit,'features':'upstream defaults + companion_proxy + pair','lto':False,'embedBitcode':False,'target':'aarch64-apple-ios','rustc':subprocess.check_output(['rustc','+1.99.1','--version'],text=True).strip(),'sha256':hashlib.sha256(binary.read_bytes()).hexdigest()},indent=2)+'\n')
 print('Verified iPhone Watch service exports; other upstream platform slices preserved.')

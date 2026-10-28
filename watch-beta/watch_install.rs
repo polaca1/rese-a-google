@@ -22,6 +22,8 @@ macro_rules! quiet_log { ($($arg:tt)*) => {}; }
 use crate::{provider::IdeviceProviderHandle, core_device_proxy::AdapterHandle,
     rsd::RsdHandshakeHandle, rp_pairing_file::RpPairingFileHandle, run_sync_local};
 use std::ffi::{CStr, c_char};
+use std::io::Write;
+use std::os::unix::fs::OpenOptionsExt;
 type Report = Box<dyn std::error::Error>;
 trait Context<T> { fn context(self, message: &str) -> Result<T, Report>; }
 impl<T, E: std::fmt::Debug> Context<T> for Result<T, E> {
@@ -35,14 +37,16 @@ struct Bundle { bundle_dir: PathBuf }
 /// Provider is borrowed for this synchronous call; result never includes private data.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sidestore_watch_install(provider: *mut IdeviceProviderHandle,
-    expected_watch: *const c_char, path: *const c_char) -> i32 {
-    if provider.is_null() || expected_watch.is_null() || path.is_null() { return 1; }
+    expected_watch: *const c_char, path: *const c_char, cache: *const c_char) -> i32 {
+    if provider.is_null() || expected_watch.is_null() || path.is_null() || cache.is_null() { return 1; }
     let Ok(expected) = (unsafe { CStr::from_ptr(expected_watch) }).to_str() else { return 1; };
     let Ok(path) = (unsafe { CStr::from_ptr(path) }).to_str() else { return 1; };
+    let Ok(cache) = (unsafe { CStr::from_ptr(cache) }).to_str() else { return 1; };
+    if !valid_remote_host_id(expected) { return 1; }
     let provider = unsafe { &*(*provider).0 };
     run_sync_local(async {
         let mut transport = PhoneTransport::Tcp(provider);
-        install_with_transport(&mut transport, expected, PathBuf::from(path)).await
+        install_with_transport(&mut transport, expected, PathBuf::from(path), Path::new(cache)).await
     })
 }
 
@@ -55,10 +59,13 @@ pub unsafe extern "C" fn sidestore_watch_install_rsd(
     pairing: *const RpPairingFileHandle,
     expected_watch: *const c_char,
     path: *const c_char,
+    cache: *const c_char,
 ) -> i32 {
-    if adapter.is_null() || handshake.is_null() || pairing.is_null() || expected_watch.is_null() || path.is_null() { return 1; }
+    if adapter.is_null() || handshake.is_null() || pairing.is_null() || expected_watch.is_null() || path.is_null() || cache.is_null() { return 1; }
     let Ok(expected) = (unsafe { CStr::from_ptr(expected_watch) }).to_str() else { return 1; };
     let Ok(path) = (unsafe { CStr::from_ptr(path) }).to_str() else { return 1; };
+    let Ok(cache) = (unsafe { CStr::from_ptr(cache) }).to_str() else { return 1; };
+    if !valid_remote_host_id(expected) { return 1; }
     // RP supplies a persistent host identifier, not a fabricated TCP pairing record.
     // Watch Lockdown creates its own real pair record through Pair and StartSession.
     let host_id = unsafe { &(*pairing).0.identifier };
@@ -67,7 +74,7 @@ pub unsafe extern "C" fn sidestore_watch_install_rsd(
     let handshake = unsafe { &mut (*handshake).0 };
     run_sync_local(async {
         let mut transport = PhoneTransport::Remote { adapter, handshake, host_id: host_id.clone() };
-        install_with_transport(&mut transport, expected, PathBuf::from(path)).await
+        install_with_transport(&mut transport, expected, PathBuf::from(path), Path::new(cache)).await
     })
 }
 
@@ -108,14 +115,14 @@ impl PhoneTransport<'_> {
         }
     }
 }
-async fn install_with_transport(transport: &mut PhoneTransport<'_>, expected: &str, path: PathBuf) -> i32 {
+async fn install_with_transport(transport: &mut PhoneTransport<'_>, expected: &str, path: PathBuf, cache: &Path) -> i32 {
     let Ok(mut proxy) = transport.companion().await else { return 2; };
     let Ok(watches) = proxy.get_device_registry().await else { return 2; };
     if watches.len() != 1 || watches[0] != expected { return 3; }
     drop(proxy);
     let stage = AtomicI32::new(4);
     let app = Bundle { bundle_dir: path };
-    match install_watch_apps(transport, &[app], "SideStore Watch Beta", expected, &stage, |_| {}).await {
+    match install_watch_apps(transport, &[app], "SideStore Watch Beta", expected, cache, &stage, |_| {}).await {
         Ok(()) => 0,
         Err(_) => stage.load(Ordering::Relaxed),
     }
@@ -145,6 +152,7 @@ async fn install_watch_apps(
     watch_apps: &[Bundle],
     host_name: &str,
     expected_watch: &str,
+    cache: &Path,
     stage: &AtomicI32,
     progress_callback: impl Fn(u64) + Send + Sync,
 ) -> Result<(), Report> {
@@ -183,23 +191,35 @@ async fn install_watch_apps(
         .await?;
         let mut watch_lockdown = LockdownClient::new(watch_connection);
 
-        stage.store(13, Ordering::Relaxed);
-        let watch_pairing = watch_lockdown
-            .pair(
-                host_id,
-                system_buid,
-                Some(host_name),
-            )
-            .await
-            
-            .context("Failed to pair with the Apple Watch through companion proxy")?;
-
-        stage.store(14, Ordering::Relaxed);
-        let legacy = watch_lockdown
-            .start_session(&watch_pairing)
-            .await
-            
-            .context("Failed to start Apple Watch lockdown session")?;
+        // Verify the forwarded endpoint before any trust request or cache use.
+        stage.store(15, Ordering::Relaxed);
+        verify_watch_endpoint(&mut watch_lockdown, expected_watch).await?;
+        let cache_file = cache.join(format!("{expected_watch}.plist"));
+        let cached = read_watch_pairing(&cache_file, expected_watch, &host_id);
+        let mut paired = None;
+        if let Some(record) = cached {
+            stage.store(14, Ordering::Relaxed);
+            match watch_lockdown.start_session(&record).await {
+                Ok(legacy) => paired = Some((record, legacy)),
+                Err(IdeviceError::InvalidHostID) => {
+                    // Only an explicit invalid host allows a new trust request.
+                    let _ = std::fs::remove_file(&cache_file);
+                    watch_lockdown = reconnect_watch(device_provider, forwarded_lockdown_port, expected_watch).await?;
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+        let (watch_pairing, legacy) = if let Some(pairing) = paired { pairing } else {
+            stage.store(13, Ordering::Relaxed);
+            let record = pair_watch_preserving_identity(device_provider, &mut watch_lockdown,
+                forwarded_lockdown_port, expected_watch, &host_id, &system_buid, host_name, stage).await?;
+            // Store accepted Watch credentials only in the protected app-private directory.
+            // The pairing record is never a report, log or build artifact.
+            let _ = save_watch_pairing(&cache_file, &record);
+            stage.store(14, Ordering::Relaxed);
+            let legacy = watch_lockdown.start_session(&record).await?;
+            (record, legacy)
+        };
 
         stage.store(15, Ordering::Relaxed);
         let actual = watch_lockdown.get_value(Some("UniqueDeviceID"), None).await?;
@@ -241,6 +261,91 @@ async fn install_watch_apps(
         }
     }
 
+    result
+}
+
+
+fn pairing_failure(error: &IdeviceError) -> i32 {
+    match error {
+        IdeviceError::UserDeniedPairing => 40,
+        IdeviceError::PasswordProtected | IdeviceError::DeviceLocked => 41,
+        IdeviceError::InvalidHostID => 42,
+        IdeviceError::UnexpectedResponse(_) | IdeviceError::UnknownErrorType(_) => 43,
+        IdeviceError::Socket(_) | IdeviceError::NoEstablishedConnection | IdeviceError::NotEnoughBytes(_, _) => 44,
+        IdeviceError::PairingDialogResponsePending => 46,
+        _ => 47,
+    }
+}
+fn retry_pair_connection(code: i32, retries: usize) -> bool { code == 44 && retries < 2 }
+
+async fn verify_watch_endpoint(client: &mut LockdownClient, expected: &str) -> Result<(), Report> {
+    let actual = client.get_value(Some("UniqueDeviceID"), None).await?;
+    if actual.as_string() != Some(expected) { bail!("Watch endpoint changed"); }
+    Ok(())
+}
+
+async fn reconnect_watch(transport: &mut PhoneTransport<'_>, port: u16, expected: &str) -> Result<LockdownClient, Report> {
+    let connection = connect_forwarded_watch_port(transport, port, "lockdown").await?;
+    let mut client = LockdownClient::new(connection);
+    verify_watch_endpoint(&mut client, expected).await?;
+    Ok(client)
+}
+
+async fn pair_watch_preserving_identity(
+    transport: &mut PhoneTransport<'_>, client: &mut LockdownClient, port: u16,
+    expected: &str, host: &str, buid: &str, name: &str, stage: &AtomicI32,
+) -> Result<PairingFile, Report> {
+    // Build ONCE. Recreating certificates after a trust-induced disconnect loses the
+    // identity the user accepted. Keep the exact request and private key across retries.
+    stage.store(45, Ordering::Relaxed);
+    let (request, mut record, private_key) = client.build_pair_request(host, buid, Some(name)).await?;
+    record.insert("HostPrivateKey".into(), Value::Data(private_key));
+    record.insert("UDID".into(), Value::String(expected.to_owned()));
+    let mut pairing = PairingFile::from_value(&Value::Dictionary(record))?;
+    let mut retries = 0;
+    loop {
+        stage.store(13, Ordering::Relaxed);
+        let response = client.watch_beta_pair_exchange(request.clone()).await;
+        match response {
+            Ok(response) => {
+                if let Some(bag) = response.get("EscrowBag").and_then(Value::as_data) {
+                    pairing.escrow_bag = Some(bag.to_vec());
+                }
+                return Ok(pairing);
+            }
+            Err(IdeviceError::PairingDialogResponsePending) => {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+            Err(error) => {
+                let code = pairing_failure(&error);
+                stage.store(code, Ordering::Relaxed);
+                if !retry_pair_connection(code, retries) { return Err(error.into()); }
+                retries += 1;
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                *client = reconnect_watch(transport, port, expected).await?;
+            }
+        }
+    }
+}
+
+fn read_watch_pairing(path: &Path, expected: &str, host: &str) -> Option<PairingFile> {
+    let metadata = std::fs::symlink_metadata(path).ok()?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > 1_048_576 { return None; }
+    let record = PairingFile::read_from_file(path).ok()?;
+    (record.udid.as_deref() == Some(expected) && record.host_id == host).then_some(record)
+}
+fn save_watch_pairing(path: &Path, pairing: &PairingFile) -> Result<(), Report> {
+    let bytes = pairing.clone().serialize()?;
+    let temporary = path.with_extension("new");
+    let result = (|| -> Result<(), Report> {
+        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&temporary)?;
+        file.write_all(&bytes)?;
+        file.sync_all()?;
+        std::fs::rename(&temporary, path)?;
+        Ok(())
+    })();
+    // No secrets are logged on failure; an accepted identity can still install this time.
+    if result.is_err() { let _ = std::fs::remove_file(&temporary); }
     result
 }
 

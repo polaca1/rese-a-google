@@ -16,14 +16,28 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.1 (715)")
+                Text("Beta personal · 0.7.1 (716)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)
             }
             Section {
+                SwiftUI.Button(action: automaticWatch.installSideStoreWatch) {
+                    HStack {
+                        Label("Instalar SideStore en el Watch", systemImage: "applewatch")
+                        Spacer()
+                        if automaticWatch.working { ProgressView() }
+                    }
+                }.disabled(model.running || automaticWatch.working)
+                Text("Detecta el reloj y prepara el paquete y el perfil automáticamente. Mantén el Watch desbloqueado y cerca; si aparece «Confiar», acéptalo.")
+                    .font(.footnote).foregroundColor(.secondary)
+                Text("La app del Watch incluida es todavía un componente de prueba; no firma ni instala apps por sí sola.")
+                    .font(.footnote).foregroundColor(.secondary)
                 Text(automaticWatch.message ?? "Las apps incluidas en Watch/ dentro del IPA se firmarán y enviarán al reloj automáticamente.")
                     .font(.footnote).foregroundColor(.secondary)
+                if let diagnostic = automaticWatch.installationDiagnostic {
+                    Text(diagnostic.message).font(.footnote).foregroundColor(.secondary)
+                }
             }
             Section {
                 Toggle("Actualizar esta beta automáticamente", isOn: $automaticUpdates)

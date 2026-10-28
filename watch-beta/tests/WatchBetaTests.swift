@@ -100,6 +100,11 @@ import Foundation
         check("unsupported remote pairing identified", WatchBetaInstallationDiagnostic.transportReason("Watch installer currently requires a TCP pairing file")?.kind == .unsupportedPairing)
         check("Watch rejection identifies companion mismatch", WatchBetaInstallationDiagnostic.native(101)?.message.contains("asociación") == true)
         check("native timeout identified", WatchBetaInstallationDiagnostic.native(31)?.kind == .timeout)
+        check("trust denial belongs to pairing", WatchBetaInstallationDiagnostic.native(40)?.operation == .pairWatch)
+        check("locked Watch during pairing is actionable", WatchBetaInstallationDiagnostic.native(41)?.message.contains("Desbloquea") == true)
+        check("disconnect distinguishes trust stage", WatchBetaInstallationDiagnostic.native(44)?.operation == .pairWatch)
+        check("unknown pairing response has a fixed category", WatchBetaInstallationDiagnostic.native(43)?.kind == .nativeFailure)
+        check("unallocated pairing code rejected", WatchBetaInstallationDiagnostic.native(48) == nil)
         var report = WatchBetaReport()
         report.set(.discovery, .passed); report.pairedWatchCount = 1; report.freeAccount = true
         report.issue = .profileRequestFailed; report.set(.profile, .failed)

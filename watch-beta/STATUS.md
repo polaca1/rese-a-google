@@ -59,3 +59,14 @@ Las actualizaciones de la variante se buscan al abrirla desde las dos URLs permi
 La rama de trabajo es work/watch-automatic, en el repositorio propio del usuario; no es una contribución al upstream. La rama beta/sidestore-watch conserva la etapa anterior. Se preservan las licencias originales y la licencia MIT del transporte adaptado de Rzbck/isideload, incluida dentro del IPA y del código.
 
 El entorno local falló al iniciar el 28 de octubre. Las ediciones actuales se realizaron mediante las herramientas Git de GitHub y se validaron con macOS/Xcode en Actions. El código publicado y su ZIP corresponden al SHA indicado; esta nota no cambia ese binario.
+
+
+## Trabajo 716 (pendiente de publicación y prueba física)
+
+El usuario envió 715/schema5: perfil y certificado válidos, pairWatch/nativeFailure/13, y confirmó que apareció «Confiar». Demuestra que el transporte llegó a Lockdown del Watch; no identifica el error de Pair concreto. No afirmar que la desconexión sea la causa demostrada.
+
+716 añade un botón que ejecuta la preparación y el envío del bootstrap propio sin importar IPA ni introducir IP. Prioriza solo los trabajos de este SideStore en ese intento explícito y mantiene la exclusión con las operaciones manuales. Mantiene el intento automático al abrir.
+
+El bridge genera una sola identidad por intento, la conserva en reintentos de desconexión limitados, distingue fallos de Pair con códigos allowlisted 40–47 y conserva el registro aceptado en Application Support privado, protegido y excluido de copias. Una denegación explícita no se reintenta. Las reconexiones comprueban el UDID del extremo contra el reloj elegido antes de volver a enviar el mismo intercambio. Solo InvalidHostID permite renovar la confianza cacheada.
+
+El componente del Watch sigue siendo una prueba nativa; no se presenta como tienda autónoma ni versión definitiva. Falta verificar la instalación física tras esta modificación.
