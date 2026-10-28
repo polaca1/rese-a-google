@@ -21,7 +21,7 @@ if 'pub mod watch_install;' not in text: lib.write_text(text+'\npub mod watch_in
 # Small pinned library extension: retain one generated identity across a trust disconnect.
 # The exchange sends raw framed XML, so private pair material never reaches debug logging.
 lockdown=source/'idevice/src/services/lockdown.rs'
-lockdown_text=lockdown.read_text()
+lockdown_text=subprocess.check_output(['git','show','HEAD:idevice/src/services/lockdown.rs'],cwd=source,text=True)
 needle='    async fn build_pair_request('
 if needle in lockdown_text:
     lockdown_text=lockdown_text.replace(needle,'    pub async fn build_pair_request(',1)
@@ -35,7 +35,20 @@ if needle in lockdown_text:
         let size = u32::try_from(bytes.len()).map_err(|_| IdeviceError::IntegerOverflow)?;
         self.idevice.send_raw(&size.to_be_bytes()).await?;
         self.idevice.send_raw(&bytes).await?;
-        self.idevice.read_plist().await
+        let length = self.idevice.read_raw(4).await?;
+        let length = u32::from_be_bytes(length.try_into().map_err(|_| IdeviceError::IntegerOverflow)?) as usize;
+        if length == 0 || length > 1_048_576 {
+            return Err(IdeviceError::UnexpectedResponse("invalid pair response size".into()));
+        }
+        let response: plist::Dictionary = plist::from_bytes(&self.idevice.read_raw(length).await?)?;
+        if let Some(error) = response.get("Error") {
+            let Some(error) = error.as_string() else {
+                return Err(IdeviceError::UnexpectedResponse("invalid pair error type".into()));
+            };
+            return Err(IdeviceError::from_device_error_type(error, &response)
+                .unwrap_or_else(|| IdeviceError::UnknownErrorType(String::new())));
+        }
+        Ok(response)
     }
 
 """
