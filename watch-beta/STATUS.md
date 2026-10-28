@@ -2,19 +2,21 @@
 
 ## Publicado
 
-- Variante personal: 0.7.1, build 712.
-- Código compilado: 9c69ee1540740903384ee2a8ace01706cec7365b.
-- GitHub Actions: https://github.com/polaca1/rese-a-google/actions/runs/40714338239
-- SHA-256 del IPA: fe64736c61055a447b9f5e9cb228a0b1ebc13800c87b6877161a6937c2d679e6
-- Tamaño: 32308186 bytes.
-- Descarga: https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build712/SideStore-Watch-Beta-0.7.1-build712.ipa
+- Variante personal: 0.7.1, build 713.
+- Código compilado: 94d74dbb68f16a14451460e7414300c94420076a.
+- GitHub Actions: https://github.com/polaca1/rese-a-google/actions/runs/40720462359
+- SHA-256 del IPA: d27d152785d76538f10a7e65d931fb6d8e4c9d940701adeb5e9d82f3ac2cf570
+- Tamaño: 32310300 bytes.
+- Descarga: https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build713/SideStore-Watch-Beta-0.7.1-build713.ipa
 - Fuente compatible: https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/source-compatible.json
 - Ambas fuentes y SOURCE-PROVENANCE.json se comprobaron después de publicar.
 - La publicación comprueba los bytes públicos por tamaño, SHA-256, CRC ZIP e identidad del host, y valida el payload nativo.
-- 59 comprobaciones de modelos/validación y pruebas del framing ZIP; compilaciones reales de iPhone y watchOS 10, incluida arm64_32.
+- 70 comprobaciones de modelos/validación y pruebas del framing ZIP; compilaciones reales de iPhone y watchOS 10, incluida arm64_32.
 - No hay prueba física de instalación de esta versión ni perfil de watchOS aceptado por la cuenta gratuita del usuario.
 
 ## Implementado
+
+713: On-Device Anisette desactivado por defecto y https://mac-ani.jkcoxson.com seleccionado/habilitado, tanto en instalación nueva como mediante migración única de instalaciones anteriores. Cambios posteriores del usuario se respetan. El preset se conserva aunque falte en una sincronización del catálogo. Se preservan credenciales/certificados/IDs. El diagnóstico schema 4 conserva la detección correcta del Watch ante errores posteriores de cuenta y distingue resolveTeam, fetchAnisette y listAppIDs con categorías fijas y código numérico. No se exportan mensajes completos ni identificadores. Las 70 pruebas cubren la regresión y la migración.
 
 Se conserva el SideStore completo del iPhone y su identidad original, widgets, SideBackup y atajos de datos móviles. La instalación normal prepara y firma los componentes de Watch/ y sus extensiones con IDs ya existentes, conserva una cola antes de instalar el host y envía las apps tras la instalación. Una autoactualización conserva los trabajos pendientes y comprueba la versión del host al volver a arrancar. Requiere Idevice TCP y un único Watch. No desinstala previamente las apps del reloj.
 
@@ -32,9 +34,11 @@ Las actualizaciones de la variante se buscan al abrirla desde las dos URLs permi
 - 711: usuario confirma que SideStore no aparece en el Watch; informe invalidProfile, cuenta/conexión/discovery correctas, perfil fallido, instalación y renovación pendientes. El informe no distinguía el motivo del rechazo.
 - 712 corrige la exigencia incorrecta de etiqueta literal watchOS: permite perfiles de familia iOS solo si coinciden App ID, cuenta y Watch, están vigentes y contienen certificado. Añade diagnóstico schema 3 con categorías allowlisted y booleanos, sin datos privados. Se conserva por separado el resultado de perfil del instalador automático. La cola valida la cuenta contra la sesión actual.
 - Justificación y caso instalado documentado por el autor: https://github.com/ryakel/boomerang/wiki/iOS-Native-App#the-watch-must-be-in-the-signing-profile
-- La causa concreta de invalidProfile en el perfil del usuario no se pudo conocer en 711. La comprobación corregida podía producir ese rechazo; 712 debe confirmar el resto con hardware.
+- La causa concreta de invalidProfile en el perfil del usuario no se pudo conocer en 711. La comprobación corregida podía producir ese rechazo; el siguiente intento no llegó al perfil.
+- 712: usuario devuelve pairedWatchCount=1, connection=passed, discovery=failed, account/profile/install pending y discoveryFailed. El código demuestra que la captura de errores etiquetaba como discovery también fallos posteriores en cuenta/Anisette/listAppIDs. No es prueba de que se perdiera el Watch ni permite saber el error subyacente.
+- El usuario pide desactivar ODA y elegir por defecto https://mac-ani.jkcoxson.com, URL confirmada explícitamente en chat. Implementado en 713; pendiente comprobar la sesión de su cuenta con ese servidor.
 - El usuario confirma que la beta está instalada directamente sobre SideStore; NO se ejecuta dentro de LiveContainer.
-- Siguiente prueba: actualizar sobre SideStore a 712, Watch desbloqueado/cerca, abrir Watch beta, detectar y probar perfil, copiar schema 3 y comprobar si aparece el componente.
+- Siguiente prueba: actualizar sobre SideStore a 713 sin borrar, abrir Watch beta con Watch desbloqueado/cerca, detectar; si la cuenta falla, copiar schema 4/accountDiagnostic. Si cuenta e IDs funcionan, probar perfil y copiar profileChecks; comprobar si aparece el componente del Watch.
 - No realizar llamadas: el usuario pidió resolver dudas por chat.
 
 ## Pendiente para el objetivo autónomo
