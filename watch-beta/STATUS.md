@@ -2,16 +2,16 @@
 
 ## Publicado
 
-- Variante personal: 0.7.1, build 711.
-- Código compilado: 415146c926d97b25d77eed3f22cc48cd95cd21cc.
-- GitHub Actions: https://github.com/polaca1/rese-a-google/actions/runs/40708361679
-- SHA-256 del IPA: 86b67ceeecb92219429d1a8e5aedf18bb704dc67a4731189e49191228747ddaf
-- Tamaño: 32300089 bytes.
-- Descarga: https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build711/SideStore-Watch-Beta-0.7.1-build711.ipa
+- Variante personal: 0.7.1, build 712.
+- Código compilado: 9c69ee1540740903384ee2a8ace01706cec7365b.
+- GitHub Actions: https://github.com/polaca1/rese-a-google/actions/runs/40714338239
+- SHA-256 del IPA: fe64736c61055a447b9f5e9cb228a0b1ebc13800c87b6877161a6937c2d679e6
+- Tamaño: 32308186 bytes.
+- Descarga: https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build712/SideStore-Watch-Beta-0.7.1-build712.ipa
 - Fuente compatible: https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/source-compatible.json
 - Ambas fuentes y SOURCE-PROVENANCE.json se comprobaron después de publicar.
 - La publicación comprueba los bytes públicos por tamaño, SHA-256, CRC ZIP e identidad del host, y valida el payload nativo.
-- 43 comprobaciones de modelos/validación y pruebas del framing ZIP; compilaciones reales de iPhone y watchOS 10, incluida arm64_32.
+- 59 comprobaciones de modelos/validación y pruebas del framing ZIP; compilaciones reales de iPhone y watchOS 10, incluida arm64_32.
 - No hay prueba física de instalación de esta versión ni perfil de watchOS aceptado por la cuenta gratuita del usuario.
 
 ## Implementado
@@ -29,9 +29,12 @@ Las actualizaciones de la variante se buscan al abrirla desde las dos URLs permi
 - WatchOS 10.6.2, conectado al iPhone, sin Wi-Fi propio.
 - 706: conexión, detección y cuenta correctas; un Watch; freeAccount=true; perfil fallido sin detalle.
 - 707: existingAppIDMissing en listAppIDs. No llegó a solicitar el perfil; no demuestra incompatibilidad de la cuenta gratuita.
-- 711 permite resolver el ID a partir de la firma incluida y elegir entre los IDs reales de Apple. No se ha recibido aún su resultado físico.
-- Se preguntó si actualiza SideStore directamente o ejecuta la beta dentro de LiveContainer. Pendiente: no asumir identidad y asociación del host virtual.
-- Se solicitó probar 711 y devolver el nuevo diagnóstico o el texto de Servicio local del componente del Watch.
+- 711: usuario confirma que SideStore no aparece en el Watch; informe invalidProfile, cuenta/conexión/discovery correctas, perfil fallido, instalación y renovación pendientes. El informe no distinguía el motivo del rechazo.
+- 712 corrige la exigencia incorrecta de etiqueta literal watchOS: permite perfiles de familia iOS solo si coinciden App ID, cuenta y Watch, están vigentes y contienen certificado. Añade diagnóstico schema 3 con categorías allowlisted y booleanos, sin datos privados. Se conserva por separado el resultado de perfil del instalador automático. La cola valida la cuenta contra la sesión actual.
+- Justificación y caso instalado documentado por el autor: https://github.com/ryakel/boomerang/wiki/iOS-Native-App#the-watch-must-be-in-the-signing-profile
+- La causa concreta de invalidProfile en el perfil del usuario no se pudo conocer en 711. La comprobación corregida podía producir ese rechazo; 712 debe confirmar el resto con hardware.
+- El usuario confirma que la beta está instalada directamente sobre SideStore; NO se ejecuta dentro de LiveContainer.
+- Siguiente prueba: actualizar sobre SideStore a 712, Watch desbloqueado/cerca, abrir Watch beta, detectar y probar perfil, copiar schema 3 y comprobar si aparece el componente.
 - No realizar llamadas: el usuario pidió resolver dudas por chat.
 
 ## Pendiente para el objetivo autónomo
