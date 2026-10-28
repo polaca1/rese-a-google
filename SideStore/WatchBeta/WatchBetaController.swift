@@ -4,6 +4,7 @@ import Combine
 import UIKit
 import Minimuxer
 import SideSign
+import SemanticVersion
 
 @MainActor
 final class WatchBetaController: ObservableObject {
@@ -484,9 +485,12 @@ final class BetaUpdateCoordinator {
                     self.running = false; return
                 }
                 let currentBuild = Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "") ?? 0
-                let newerBuild = WatchBetaValidation.newerBuild(currentVersion: current.version, currentBuild: String(currentBuild),
+                let actualVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+                guard let installedSemantic = SemanticVersion(actualVersion),
+                      let offeredSemantic = SemanticVersion(latest.version) else { self.running = false; return }
+                let newerBuild = WatchBetaValidation.newerBuild(currentVersion: actualVersion, currentBuild: String(currentBuild),
                     version: latest.version, build: latest.buildVersion)
-                guard current.hasUpdate || newerBuild,
+                guard offeredSemantic > installedSemantic || newerBuild,
                       let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
                         .flatMap({ $0.windows }).first(where: { $0.isKeyWindow }),
                       var controller = window.rootViewController else { self.running = false; return }
