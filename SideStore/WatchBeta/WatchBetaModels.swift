@@ -68,22 +68,52 @@ struct WatchBetaProfileDiagnostic: Codable, Equatable {
     }
 }
 
+
+/// Only allowlisted platform categories and comparison results leave the device.
+struct WatchBetaProfileChecks: Codable, Equatable {
+    enum Platform: String, Codable { case iOS, watchOS, other }
+    let platforms: [Platform]
+    let bundleMatches: Bool
+    let teamMatches: Bool
+    let containsWatch: Bool
+    let notExpired: Bool
+    let hasCertificate: Bool
+    var platformCompatible: Bool { platforms.contains(.iOS) || platforms.contains(.watchOS) }
+    var valid: Bool { platformCompatible && bundleMatches && teamMatches && containsWatch && notExpired && hasCertificate }
+    var message: String {
+        var failures: [String] = []
+        if !platformCompatible { failures.append("plataforma no compatible") }
+        if !bundleMatches { failures.append("el App ID no coincide") }
+        if !teamMatches { failures.append("la cuenta no coincide") }
+        if !containsWatch { failures.append("el perfil no incluye este Watch") }
+        if !notExpired { failures.append("perfil caducado; comprueba la fecha del iPhone") }
+        if !hasCertificate { failures.append("sin certificado válido") }
+        return failures.isEmpty ? "El perfil incluye este Watch y supera las comprobaciones previas. Falta verificar la instalación."
+            : "Perfil rechazado: " + failures.joined(separator: "; ") + "."
+    }
+}
+struct WatchBetaInvalidProfile: Error {
+    let checks: WatchBetaProfileChecks
+}
+
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
-    var schema = 2
-    var beta = "0.7.1-build711"
+    var schema = 3
+    var beta = "0.7.1-build712"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?
     var issue: WatchBetaIssue?
     var profileDiagnostic: WatchBetaProfileDiagnostic?
+    var profileChecks: WatchBetaProfileChecks?
+    var automaticProfileChecks: WatchBetaProfileChecks?
     var physicalInstallationVerified = false
     var renewalVerified = false
 
     mutating func set(_ stage: WatchBetaStage, _ status: WatchBetaStatus) { statuses[stage.rawValue] = status }
     func status(_ stage: WatchBetaStage) -> WatchBetaStatus { statuses[stage.rawValue] ?? .pending }
     mutating func invalidateProfile() {
-        set(.profile, .pending); issue = nil; profileDiagnostic = nil
+        set(.profile, .pending); issue = nil; profileDiagnostic = nil; profileChecks = nil; automaticProfileChecks = nil
     }
     func export() -> String {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -116,14 +146,30 @@ enum WatchBetaValidation {
         && (attributes >> 16) & 0o170000 != 0o120000
     }
 
+    /// watchOS companion profiles can use Apple's iOS provisioning family.
+    /// Platform alone never authorizes a Watch: exact device, team and bundle remain required.
+    static func profileChecks(platforms: [String], bundle: String, expectedBundle: String,
+                              team: String, expectedTeam: String, devices: [String], selectedWatch: String,
+                              expires: Date, certificateCount: Int, now: Date = Date()) -> WatchBetaProfileChecks {
+        let categories = platforms.map { value -> WatchBetaProfileChecks.Platform in
+            switch value.lowercased() {
+            case "ios": return .iOS
+            case "watchos": return .watchOS
+            default: return .other
+            }
+        }
+        return WatchBetaProfileChecks(platforms: categories,
+            bundleMatches: !expectedBundle.isEmpty && bundle == expectedBundle,
+            teamMatches: !expectedTeam.isEmpty && team == expectedTeam,
+            containsWatch: !selectedWatch.isEmpty && devices.contains(selectedWatch),
+            notExpired: expires > now, hasCertificate: certificateCount > 0)
+    }
     static func validProfile(platforms: [String], bundle: String, expectedBundle: String,
                              team: String, expectedTeam: String, devices: [String], selectedWatch: String,
                              expires: Date, certificateCount: Int, now: Date = Date()) -> Bool {
-        platforms.contains { $0.lowercased() == "watchos" }
-        && !expectedBundle.isEmpty && bundle == expectedBundle
-        && !expectedTeam.isEmpty && team == expectedTeam
-        && !selectedWatch.isEmpty && devices.contains(selectedWatch)
-        && expires > now && certificateCount > 0
+        profileChecks(platforms: platforms, bundle: bundle, expectedBundle: expectedBundle,
+            team: team, expectedTeam: expectedTeam, devices: devices, selectedWatch: selectedWatch,
+            expires: expires, certificateCount: certificateCount, now: now).valid
     }
     static func validRegistry(_ identifiers: [String]) -> Bool {
         identifiers.count <= 32 && Set(identifiers).count == identifiers.count

@@ -70,7 +70,7 @@ final class WatchBetaController: ObservableObject {
     func prepareProfile() {
         guard canPrepareProfile else { return }
         let selected = identifiers[selection]
-        report.issue = nil; report.profileDiagnostic = nil; report.set(.profile, .pending); report.set(.account, .running)
+        report.invalidateProfile(); report.set(.account, .running)
         running = true
         task = Task {
             defer { running = false }
@@ -94,13 +94,9 @@ final class WatchBetaController: ObservableObject {
                 let profile = try await ALTAppleAPI.shared.prepareWatchBetaProfile(
                     watchIdentifier: selected, bundleIdentifier: bundle, team: team, session: session)
                 try Task.checkCancellation()
-                guard WatchBetaValidation.validProfile(platforms: profile.watchBetaPlatforms,
-                    bundle: profile.bundleIdentifier, expectedBundle: bundle,
-                    team: profile.teamIdentifier, expectedTeam: team.identifier,
-                    devices: profile.deviceIDs, selectedWatch: selected,
-                    expires: profile.expirationDate, certificateCount: profile.certificates.count) else {
-                    fail(.profile, .invalidProfile); return
-                }
+                let checks = profile.watchBetaChecks(expectedBundle: bundle, expectedTeam: team.identifier, watch: selected)
+                report.profileChecks = checks
+                guard checks.valid else { fail(.profile, .invalidProfile); return }
                 // Profile exists only in memory. This is not a signed or installed Watch app.
                 report.set(.profile, .passed)
                 WatchPackageCoordinator.shared.runPending()
@@ -184,10 +180,9 @@ final class WatchBetaController: ObservableObject {
                 report.set(.profile, .running)
                 let profile = try await ALTAppleAPI.shared.prepareWatchBetaProfile(watchIdentifier: selected,
                     bundleIdentifier: bundle, team: team, session: session)
-                guard WatchBetaValidation.validProfile(platforms: profile.watchBetaPlatforms, bundle: profile.bundleIdentifier,
-                    expectedBundle: bundle, team: profile.teamIdentifier, expectedTeam: team.identifier,
-                    devices: profile.deviceIDs, selectedWatch: selected, expires: profile.expirationDate,
-                    certificateCount: profile.certificates.count) else { fail(.profile, .invalidProfile); return }
+                let checks = profile.watchBetaChecks(expectedBundle: bundle, expectedTeam: team.identifier, watch: selected)
+                report.profileChecks = checks
+                guard checks.valid else { fail(.profile, .invalidProfile); return }
                 report.set(.profile, .passed)
                 installMessage = "Firmando la app…"
                 try Task.checkCancellation()
@@ -284,6 +279,7 @@ final class WatchPackageCoordinator: ObservableObject {
     static let shared = WatchPackageCoordinator()
     @Published private(set) var message: String?
     @Published fileprivate(set) var nativeOpened = false
+    @Published private(set) var profileChecks: WatchBetaProfileChecks?
     private var working = false
     private var observer: NSObjectProtocol?
     private struct Job: Codable {
@@ -343,10 +339,8 @@ final class WatchPackageCoordinator: ObservableObject {
                 }
                 let profile = try await ALTAppleAPI.shared.prepareWatchBetaProfile(watchIdentifier: watch,
                     bundleIdentifier: id, team: team, session: session)
-                guard WatchBetaValidation.validProfile(platforms: profile.watchBetaPlatforms, bundle: profile.bundleIdentifier,
-                    expectedBundle: id, team: profile.teamIdentifier, expectedTeam: team.identifier,
-                    devices: profile.deviceIDs, selectedWatch: watch, expires: profile.expirationDate,
-                    certificateCount: profile.certificates.count) else { throw WatchBetaImportError.invalidArchive }
+                let checks = profile.watchBetaChecks(expectedBundle: id, expectedTeam: team.identifier, watch: watch)
+                guard checks.valid else { throw WatchBetaInvalidProfile(checks: checks) }
                 profiles.append(profile)
             }
             try await ALTSigner(team: team, certificate: certificate).signApp(at: app, provisioningProfiles: profiles)
@@ -398,7 +392,12 @@ final class WatchPackageCoordinator: ObservableObject {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
             guard !AppManager.shared.isActivelyManagingAnyApp else { return }
+            profileChecks = nil
             do { try await bootstrapIfNeeded() }
+            catch let error as WatchBetaInvalidProfile {
+                profileChecks = error.checks
+                message = error.checks.message
+            }
             catch let error as WatchBetaProfileFailure {
                 if let operation = WatchBetaProfileDiagnostic.Operation(rawValue: error.operation.rawValue),
                    let kind = WatchBetaProfileDiagnostic.Kind(rawValue: error.kind.rawValue) {
@@ -416,6 +415,7 @@ final class WatchPackageCoordinator: ObservableObject {
                 }
                 guard job.ready else { continue }
                 do {
+                    let team = try await AuthManager.shared.getAuthenticatedTeam()
                     message = "Instalando el componente de Apple Watch…"
                     try await WatchBetaLocalSession.run(
                         turnOff: { _ = await CellularRefreshManager.shared.turnOffDataIfNeeded() },
@@ -430,10 +430,8 @@ final class WatchPackageCoordinator: ObservableObject {
                                 let info = NSDictionary(contentsOf: app.appendingPathComponent("Info.plist"))
                                 guard let id = info?["CFBundleIdentifier"] as? String else { throw WatchBetaImportError.invalidArchive }
                                 let profile = try ALTProvisioningProfile(data: Data(contentsOf: app.appendingPathComponent("embedded.mobileprovision")))
-                                guard WatchBetaValidation.validProfile(platforms: profile.watchBetaPlatforms, bundle: profile.bundleIdentifier,
-                                    expectedBundle: id, team: profile.teamIdentifier, expectedTeam: profile.teamIdentifier,
-                                    devices: profile.deviceIDs, selectedWatch: watch, expires: profile.expirationDate,
-                                    certificateCount: profile.certificates.count) else { throw WatchBetaImportError.invalidArchive }
+                                let checks = profile.watchBetaChecks(expectedBundle: id, expectedTeam: team.identifier, watch: watch)
+                                guard checks.valid else { throw WatchBetaInvalidProfile(checks: checks) }
                                 try await minimuxer.core.installWatchBundle(at: app, watchIdentifier: watch)
                             }
                         })
@@ -442,6 +440,10 @@ final class WatchPackageCoordinator: ObservableObject {
                     }
                     try FileManager.default.removeItem(at: directory)
                     message = "watchOS ha confirmado la instalación."
+                } catch let error as WatchBetaInvalidProfile {
+                    profileChecks = error.checks
+                    message = error.checks.message
+                    break
                 } catch {
                     message = "La instalación del Watch queda pendiente. Comprueba el perfil, el emparejamiento TCP y que el reloj está desbloqueado y cerca."
                     // Keep the signed package for the next foreground opportunity.
@@ -603,6 +605,16 @@ extension WatchPackageCoordinator {
         nativeOpened = true
         let allowed = ["Puerto accesible", "No accesible", "Sin respuesta", "Comprobando…"]
         message = "SideStore se ha abierto en el Watch." + (allowed.contains(probe) ? " Servicio local: \(probe)." : "")
+    }
+}
+#endif
+
+#if os(iOS)
+private extension ALTProvisioningProfile {
+    func watchBetaChecks(expectedBundle: String, expectedTeam: String, watch: String) -> WatchBetaProfileChecks {
+        WatchBetaValidation.profileChecks(platforms: watchBetaPlatforms, bundle: bundleIdentifier,
+            expectedBundle: expectedBundle, team: teamIdentifier, expectedTeam: expectedTeam,
+            devices: deviceIDs, selectedWatch: watch, expires: expirationDate, certificateCount: certificates.count)
     }
 }
 #endif

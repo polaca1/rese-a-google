@@ -35,7 +35,14 @@ import Foundation
                 expires: expires, certificateCount: certs, now: now)
         }
         check("matching Watch profile", valid())
-        check("iPhone profile rejected", !valid(platforms: ["iOS"]))
+        check("iOS family profile including selected Watch accepted", valid(platforms: ["iOS"]))
+        check("modern shared iOS family accepted", valid(platforms: ["iOS", "xrOS", "visionOS"]))
+        check("iOS phone-only profile rejected", !valid(platforms: ["iOS"], devices: ["PHONE-ID"]))
+        check("iOS family does not bypass exact bundle", !valid(platforms: ["iOS"], bundle: "other.watch"))
+        check("iOS family does not bypass team", !valid(platforms: ["iOS"], team: "OTHER"))
+        check("iOS family does not bypass expiry", !valid(platforms: ["iOS"], expires: now))
+        check("iOS family does not bypass certificate", !valid(platforms: ["iOS"], certs: 0))
+        check("tvOS profile rejected", !valid(platforms: ["tvOS"]))
         check("missing platform rejected", !valid(platforms: []))
         check("wrong bundle rejected", !valid(bundle: "other.watch"))
         check("wrong team rejected", !valid(team: "OTHER"))
@@ -55,7 +62,7 @@ import Foundation
         check("profile failure never claims install", !decoded.physicalInstallationVerified && decoded.status(.installation) == .pending)
         check("no fake renewal", !decoded.renewalVerified && decoded.status(.renewal) == .pending)
         let object = try JSONSerialization.jsonObject(with: Data(report.export().utf8)) as! [String: Any]
-        check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "profileDiagnostic", "physicalInstallationVerified", "renewalVerified"]))
+        check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "profileDiagnostic", "profileChecks", "automaticProfileChecks", "physicalInstallationVerified", "renewalVerified"]))
         report.profileDiagnostic = WatchBetaProfileDiagnostic(operation: .registerDevice, kind: .appleAPI, code: 1234)
         let detailed = try JSONDecoder().decode(WatchBetaReport.self, from: Data(report.export().utf8))
         check("preserves exact operation and numeric code", detailed.profileDiagnostic == report.profileDiagnostic)
@@ -65,8 +72,26 @@ import Foundation
         check("diagnostic fields whitelisted", Set(fields.keys) == ["operation", "kind", "code"])
         check("explains missing existing ID", WatchBetaProfileDiagnostic(operation: .listAppIDs, kind: .existingAppIDMissing, code: nil).message.contains("No se ha creado otro"))
         check("numeric code visible", report.profileDiagnostic!.message.contains("1234"))
+        let rejected = WatchBetaValidation.profileChecks(platforms: ["iOS", "PRIVATE-PLATFORM"],
+            bundle: "test.watch", expectedBundle: "test.watch", team: "TEAM", expectedTeam: "TEAM",
+            devices: ["PHONE-ID"], selectedWatch: "WATCH-ID", expires: now, certificateCount: 0, now: now)
+        check("diagnostic distinguishes missing Watch", !rejected.containsWatch && rejected.bundleMatches && rejected.teamMatches)
+        check("diagnostic distinguishes expiry and missing certificate", !rejected.notExpired && !rejected.hasCertificate)
+        check("iOS family categorized without requiring watchOS label", rejected.platformCompatible)
+        check("missing Watch explained", rejected.message.contains("no incluye este Watch"))
+        report.profileChecks = rejected; report.automaticProfileChecks = rejected
+        let validationJSON = report.export()
+        check("raw platform values never exported", !validationJSON.contains("PRIVATE-PLATFORM"))
+        check("comparison input IDs never exported", !validationJSON.contains("WATCH-ID") && !validationJSON.contains("PHONE-ID")
+            && !validationJSON.contains("test.watch") && !validationJSON.contains("TEAM"))
+        let validationDecoded = try JSONDecoder().decode(WatchBetaReport.self, from: Data(validationJSON.utf8))
+        check("manual and automatic validation survive export", validationDecoded.profileChecks == rejected && validationDecoded.automaticProfileChecks == rejected)
+        let validationObject = try JSONSerialization.jsonObject(with: Data(validationJSON.utf8)) as! [String: Any]
+        let validationFields = validationObject["profileChecks"] as! [String: Any]
+        check("validation fields whitelisted", Set(validationFields.keys) == ["platforms", "bundleMatches", "teamMatches", "containsWatch", "notExpired", "hasCertificate"])
         report.set(.profile, .passed); report.invalidateProfile()
         check("changing Watch clears diagnostic", report.profileDiagnostic == nil)
+        check("changing Watch clears old validation", report.profileChecks == nil && report.automaticProfileChecks == nil)
         check("changing Watch invalidates previous profile", report.status(.profile) == .pending && report.issue == nil)
         var events: [String] = []
         let value = try await WatchBetaLocalSession.run(turnOff: { events.append("off") }, turnOn: { events.append("on") }, operation: { events.append("operation"); return 42 })

@@ -16,7 +16,7 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.1 (711)")
+                Text("Beta personal · 0.7.1 (712)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)
@@ -45,6 +45,9 @@ struct WatchBetaView: View {
                 }
                 if let diagnostic = model.report.profileDiagnostic {
                     Text(diagnostic.message).font(.footnote).foregroundColor(.secondary)
+                }
+                if let checks = model.report.profileChecks {
+                    Text(checks.message).font(.footnote).foregroundColor(.secondary)
                 }
                 if let issue = model.report.issue {
                     Text(issue.message).font(.footnote).foregroundColor(.secondary)
@@ -83,6 +86,7 @@ struct WatchBetaView: View {
             Section {
                 SwiftUI.Button {
                     var report = model.report
+                    report.automaticProfileChecks = automaticWatch.profileChecks
                     report.physicalInstallationVerified = automaticWatch.nativeOpened
                     if automaticWatch.nativeOpened { report.set(.installation, .passed) }
                     UIPasteboard.general.string = report.export(); copied = true
