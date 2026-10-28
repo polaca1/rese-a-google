@@ -82,7 +82,9 @@ struct WatchBetaView: View {
             }
             Section {
                 SwiftUI.Button {
-                    UIPasteboard.general.string = model.report.export(); copied = true
+                    var report = model.report
+                    report.physicalInstallationVerified = automaticWatch.nativeOpened
+                    UIPasteboard.general.string = report.export(); copied = true
                 } label: { Label(copied ? "Diagnóstico copiado" : "Copiar diagnóstico", systemImage: "doc.on.doc") }
                     .disabled(model.running)
             } footer: {

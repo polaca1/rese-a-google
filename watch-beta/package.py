@@ -7,6 +7,9 @@ assert info['CFBundleDisplayName'] == 'SideStore β'
 assert info['CFBundleVersion'] == '708'
 payload=output/'Payload';payload.mkdir(exist_ok=True);target=payload/app.name
 shutil.copytree(app,target,dirs_exist_ok=True)
+bootstrap = pathlib.Path(__file__).resolve().parents[1]/'build/native-watch/WatchBootstrap.ipa'
+assert bootstrap.exists(), 'Native Watch payload must be built before packaging'
+shutil.copyfile(bootstrap, target/'WatchBootstrap.ipa')
 shutil.copyfile(pathlib.Path(__file__).parent/'THIRD-PARTY-NOTICES.txt',target/'WatchInstaller-LICENSE.txt')
 # Preserve the embedded SideBackup helper's app-group entitlement, as upstream's
 # fakesign-sidebackup does. The helper is an IPA resource, not an embedded .app.
@@ -43,6 +46,6 @@ subprocess.run(['ditto','-c','-k','--sequesterRsrc','--keepParent',str(payload),
 with zipfile.ZipFile(ipa) as z: assert z.testzip() is None
 sha=hashlib.sha256(ipa.read_bytes()).hexdigest()
 (output/'SHA256SUMS').write_text(sha+'  '+ipa.name+'\n')
-(output/'BETA-MANIFEST.json').write_text(json.dumps({'version':'0.7.0','build':'708','sha256':sha,'size':ipa.stat().st_size,'sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'stage':'iphone-watch-experimental-installation','signingRequired':True,'physicalWatchDetectionVerified':False,'physicalWatchInstallationVerified':False,'renewalVerified':False,'nativeWatchStoreIncluded':False,'reusesExistingSideStoreIdentity':True,'createsNewAppIDs':False},indent=2)+'\n')
+(output/'BETA-MANIFEST.json').write_text(json.dumps({'version':'0.7.0','build':'708','sha256':sha,'size':ipa.stat().st_size,'sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'stage':'iphone-watch-experimental-installation','signingRequired':True,'physicalWatchDetectionVerified':False,'physicalWatchInstallationVerified':False,'renewalVerified':False,'nativeWatchStoreIncluded':False,'nativeWatchBootstrapIncluded':True,'watchMinimumOS':'10.0','reusesExistingSideStoreIdentity':True,'createsNewAppIDs':False},indent=2)+'\n')
 shutil.rmtree(payload);(output/'template.plist').unlink()
 print('IPA packaged:',ipa.name,sha)

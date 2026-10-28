@@ -15,7 +15,12 @@ final class WatchBetaController: ObservableObject {
     }
     @Published private(set) var appIDs: [ALTAppID] = []
     @Published var selectedAppID = "" {
-        didSet { if selectedAppID != oldValue { report.invalidateProfile() } }
+        didSet {
+            if selectedAppID != oldValue {
+                report.invalidateProfile()
+                UserDefaults.standard.set(selectedAppID, forKey: "watchSelectedPortalID")
+            }
+        }
     }
     private var identifiers: [String] = []
     private var task: Task<Void, Never>?
@@ -48,7 +53,9 @@ final class WatchBetaController: ObservableObject {
                     .flatMap { try? Data(contentsOf: $0) }
                     .flatMap { try? ALTProvisioningProfile(data: $0) }
                 let preferred = embedded?.teamIdentifier == team.identifier ? embedded!.bundleIdentifier : runtimeID
-                selectedAppID = appIDs.contains(where: { $0.bundleIdentifier == preferred }) ? preferred : ""
+                let saved = UserDefaults.standard.string(forKey: "watchSelectedPortalID") ?? ""
+                selectedAppID = appIDs.contains(where: { $0.bundleIdentifier == saved }) ? saved :
+                    (appIDs.contains(where: { $0.bundleIdentifier == preferred }) ? preferred : "")
             } catch is CancellationError { fail(.discovery, .cancelled) }
             catch {
                 let stage: WatchBetaStage = report.status(.connection) == .passed ? .discovery : .connection
@@ -93,6 +100,7 @@ final class WatchBetaController: ObservableObject {
                 }
                 // Profile exists only in memory. This is not a signed or installed Watch app.
                 report.set(.profile, .passed)
+                WatchPackageCoordinator.shared.runPending()
             } catch is CancellationError { fail(.profile, .cancelled) }
             catch let error as WatchBetaProfileFailure {
                 if let operation = WatchBetaProfileDiagnostic.Operation(rawValue: error.operation.rawValue),
@@ -272,6 +280,7 @@ enum WatchBetaImport {
 final class WatchPackageCoordinator: ObservableObject {
     static let shared = WatchPackageCoordinator()
     @Published private(set) var message: String?
+    @Published fileprivate(set) var nativeOpened = false
     private var working = false
     private var observer: NSObjectProtocol?
     private struct Job: Codable {
@@ -288,6 +297,7 @@ final class WatchPackageCoordinator: ObservableObject {
 
     func start() {
         guard observer == nil else { return }
+        WatchLaunchBridge.shared.start()
         observer = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification,
             object: nil, queue: .main) { _ in Task { @MainActor in self.runPending() } }
         runPending()
@@ -377,7 +387,7 @@ final class WatchPackageCoordinator: ObservableObject {
     }
 
     func runPending() {
-        guard !working, UIApplication.shared.applicationState == .active else { return }
+        guard !working, AuthManager.shared.isAuthenticated, UIApplication.shared.applicationState == .active else { return }
         working = true
         Task {
             defer { working = false; BetaUpdateCoordinator.shared.check() }
@@ -385,6 +395,8 @@ final class WatchPackageCoordinator: ObservableObject {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
             guard !AppManager.shared.isActivelyManagingAnyApp else { return }
+            do { try await bootstrapIfNeeded() }
+            catch { message = "SideStore Watch queda pendiente: Apple debe aceptar un perfil válido del App ID seleccionado." }
             for directory in directories() {
                 guard var job = read(directory) else { continue }
                 // A SideStore self-update may have killed the old process before hostInstalled.
@@ -416,6 +428,9 @@ final class WatchPackageCoordinator: ObservableObject {
                                 try await minimuxer.core.installWatchBundle(at: app, watchIdentifier: watch)
                             }
                         })
+                    if job.hostBundle == Bundle.main.bundleIdentifier {
+                        UserDefaults.standard.set(job.hostBuild, forKey: "watchBootstrapCompletedBuild")
+                    }
                     try FileManager.default.removeItem(at: directory)
                     message = "watchOS ha confirmado la instalación."
                 } catch {
@@ -475,6 +490,85 @@ final class BetaUpdateCoordinator {
                 }
             }
         }
+    }
+}
+#endif
+
+#if os(iOS)
+extension WatchPackageCoordinator {
+    private func bootstrapIfNeeded() async throws {
+        guard AuthManager.shared.isAuthenticated,
+              let payload = Bundle.main.url(forResource: "WatchBootstrap", withExtension: "ipa"),
+              let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String,
+              UserDefaults.standard.string(forKey: "watchBootstrapCompletedBuild") != build else { return }
+        let ownID = Bundle.main.bundleIdentifier ?? ""
+        if directories().contains(where: {
+            guard let job = read($0) else { return false }
+            return job.hostBundle == ownID && job.hostBuild == build
+        }) { return }
+        let team = try await AuthManager.shared.getAuthenticatedTeam()
+        let session = try await AuthManager.shared.getAuthenticatedSession()
+        let apps = try await ALTAppleAPI.shared.fetchAppIDs(for: team, session: session)
+        var identifier = UserDefaults.standard.string(forKey: "watchSelectedPortalID") ?? ""
+        if identifier.isEmpty, let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+           let profile = try? ALTProvisioningProfile(data: Data(contentsOf: url)),
+           profile.teamIdentifier == team.identifier { identifier = profile.bundleIdentifier }
+        guard apps.contains(where: { $0.bundleIdentifier == identifier }),
+              let certificate = CertificateManager.shared.activeCertificate else {
+            message = "Selecciona un App ID existente en Watch beta y comprueba su perfil. No se creará ninguno nuevo."
+            return
+        }
+        let fm = FileManager.default
+        let temporary = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: temporary) }
+        let extracted = try WatchBetaImport.unpack(payload, into: temporary)
+        let host = temporary.appendingPathComponent("Host.app")
+        let watch = host.appendingPathComponent("Watch/SideStoreWatch.app")
+        try fm.createDirectory(at: watch.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fm.copyItem(at: extracted, to: watch)
+        let plist = watch.appendingPathComponent("Info.plist")
+        var info = try PropertyListSerialization.propertyList(from: Data(contentsOf: plist), format: nil) as! [String: Any]
+        info["CFBundleIdentifier"] = identifier
+        info["WKCompanionAppBundleIdentifier"] = ownID
+        try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: plist)
+        let hostInfo: [String: Any] = [
+            "CFBundleIdentifier": ownID, "CFBundleVersion": build,
+            "CFBundleShortVersionString": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        ]
+        try PropertyListSerialization.data(fromPropertyList: hostInfo, format: .xml, options: 0)
+            .write(to: host.appendingPathComponent("Info.plist"))
+        try await prepare(host: host, team: team, certificate: certificate.certificate)
+    }
+}
+#endif
+
+#if os(iOS)
+@preconcurrency import WatchConnectivity
+@MainActor
+final class WatchLaunchBridge: NSObject, WCSessionDelegate {
+    static let shared = WatchLaunchBridge()
+    func start() {
+        guard WCSession.isSupported() else { return }
+        WCSession.default.delegate = self
+        WCSession.default.activate()
+    }
+    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
+    nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}
+    nonisolated func sessionDidDeactivate(_ session: WCSession) { session.activate() }
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any],
+        replyHandler: @escaping ([String: Any]) -> Void) {
+        guard message["sideStoreWatchLaunch"] as? Bool == true else { replyHandler(["accepted": false]); return }
+        let probe = message["localService"] as? String ?? ""
+        replyHandler(["accepted": true])
+        Task { @MainActor in WatchPackageCoordinator.shared.confirmLaunch(probe: probe) }
+    }
+}
+extension WatchPackageCoordinator {
+    func confirmLaunch(probe: String) {
+        nativeOpened = true
+        let allowed = ["Puerto accesible", "No accesible", "Sin respuesta", "Comprobando…"]
+        message = "SideStore se ha abierto en el Watch." + (allowed.contains(probe) ? " Servicio local: \(probe)." : "")
     }
 }
 #endif
