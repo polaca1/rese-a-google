@@ -10,7 +10,12 @@ import SemanticVersion
 @MainActor
 final class WatchBetaController: ObservableObject {
     @Published private(set) var report = WatchBetaReport()
-    @Published private(set) var running = false
+    @Published private(set) var running = false {
+        didSet {
+            WatchPackageCoordinator.shared.manualOperationRunning = running
+            if !running { WatchPackageCoordinator.shared.runPending() }
+        }
+    }
     @Published private(set) var watchCount = 0
     @Published var selection = 0 {
         didSet { if selection != oldValue { report.invalidateProfile() } }
@@ -27,10 +32,10 @@ final class WatchBetaController: ObservableObject {
     private var identifiers: [String] = []
     private var task: Task<Void, Never>?
 
-    var canPrepareProfile: Bool { !running && identifiers.indices.contains(selection) && report.status(.discovery) == .passed && !appIDs.isEmpty }
+    var canPrepareProfile: Bool { !running && !WatchPackageCoordinator.shared.working && identifiers.indices.contains(selection) && report.status(.discovery) == .passed && !appIDs.isEmpty }
 
     func detect() {
-        guard !running else { return }
+        guard !running, !WatchPackageCoordinator.shared.working else { return }
         report = WatchBetaReport(); appIDs = []; identifiers = []; watchCount = 0; selection = 0
         running = true
         task = Task {
@@ -156,7 +161,7 @@ final class WatchBetaController: ObservableObject {
     private var importedBundle: URL?
 
     func importIPA(_ url: URL) {
-        guard !running else { return }
+        guard !running, !WatchPackageCoordinator.shared.working else { return }
         running = true
         task = Task {
             defer { running = false }
@@ -184,9 +189,11 @@ final class WatchBetaController: ObservableObject {
         guard canPrepareProfile, let app = importedBundle, watchCount == 1 else { return }
         let selected = identifiers[selection]
         report.invalidateProfile(); report.set(.installation, .pending)
+        report.installationDiagnostic = nil; report.activeCertificateMatchesProfile = nil
         running = true
         task = Task {
             defer { running = false }
+            var operation: WatchBetaInstallationDiagnostic.Operation = .account
             do {
                 guard let certificate = CertificateManager.shared.activeCertificate else {
                     installMessage = "Inicia sesión y renueva SideStore primero para disponer de tu certificado de firma."; return
@@ -195,6 +202,7 @@ final class WatchBetaController: ObservableObject {
                 let session = try await AuthManager.shared.getAuthenticatedSession()
                 let info = NSDictionary(contentsOf: app.appendingPathComponent("Info.plist"))
                 guard let bundle = info?["CFBundleIdentifier"] as? String else { throw WatchBetaImportError.invalidArchive }
+                operation = .profile
                 report.set(.profile, .running)
                 let profile = try await ALTAppleAPI.shared.prepareWatchBetaProfile(watchIdentifier: selected,
                     bundleIdentifier: bundle, team: team, session: session)
@@ -202,16 +210,26 @@ final class WatchBetaController: ObservableObject {
                 report.profileChecks = checks
                 guard checks.valid else { fail(.profile, .invalidProfile); return }
                 report.set(.profile, .passed)
+                operation = .signing
+                let matches = WatchBetaValidation.matchingCertificate(active: certificate.certificate.data,
+                    allowed: profile.certificates.compactMap { $0.data })
+                report.activeCertificateMatchesProfile = matches
+                guard matches else {
+                    throw WatchBetaInstallFailure(diagnostic: .init(operation: .signing, kind: .certificateMismatch, code: nil))
+                }
+                report.set(.installation, .running)
                 installMessage = "Firmando la app…"
                 try Task.checkCancellation()
                 try await ALTSigner(team: team, certificate: certificate.certificate).signApp(at: app, provisioningProfiles: [profile])
                 try Task.checkCancellation()
                 report.set(.installation, .running); installMessage = "Enviando al Watch. Mantén el reloj desbloqueado y cerca."
+                operation = .connection
                 try await WatchBetaLocalSession.run(
                     turnOff: { _ = await CellularRefreshManager.shared.turnOffDataIfNeeded() },
                     turnOn: { _ = await CellularRefreshManager.shared.turnOnDataIfNeeded(addOnDelay: 2.0) },
                     operation: {
                         try await ensureMinimuxerReady()
+                        operation = .transport
                         try await minimuxer.core.installWatchBundle(at: app, watchIdentifier: selected)
                     })
                 report.set(.installation, .passed)
@@ -225,8 +243,11 @@ final class WatchBetaController: ObservableObject {
                 installMessage = "No se ha enviado la app: Apple no entregó el perfil. El IPA debe usar un App ID ya registrado en tu cuenta."
             } catch is CancellationError { fail(.installation, .cancelled) }
             catch {
-                fail(.installation, .installationFailed)
-                installMessage = "No se completó la firma o instalación. Esta beta requiere emparejamiento TCP, un único Watch enlazado y un perfil de watchOS válido."
+                let diagnostic = watchBetaInstallDiagnostic(error, operation: operation)
+                report.installationDiagnostic = diagnostic
+                let stage: WatchBetaStage = operation == .account ? .account : (operation == .profile ? .profile : .installation)
+                fail(stage, stage == .account ? .accountRequestFailed : (stage == .profile ? .profileRequestFailed : .installationFailed))
+                installMessage = diagnostic.message
             }
         }
     }
@@ -298,7 +319,10 @@ final class WatchPackageCoordinator: ObservableObject {
     @Published private(set) var message: String?
     @Published fileprivate(set) var nativeOpened = false
     @Published private(set) var profileChecks: WatchBetaProfileChecks?
-    private var working = false
+    @Published private(set) var working = false
+    var manualUIVisible = false
+    var manualOperationRunning = false
+    @Published private(set) var installationDiagnostic: WatchBetaInstallationDiagnostic?
     private var observer: NSObjectProtocol?
     private struct Job: Codable {
         var hostBundle: String
@@ -359,9 +383,13 @@ final class WatchPackageCoordinator: ObservableObject {
                     bundleIdentifier: id, team: team, session: session)
                 let checks = profile.watchBetaChecks(expectedBundle: id, expectedTeam: team.identifier, watch: watch)
                 guard checks.valid else { throw WatchBetaInvalidProfile(checks: checks) }
+                guard WatchBetaValidation.matchingCertificate(active: certificate.data, allowed: profile.certificates.compactMap { $0.data }) else {
+                    throw WatchBetaInstallFailure(diagnostic: .init(operation: .signing, kind: .certificateMismatch, code: nil))
+                }
                 profiles.append(profile)
             }
-            try await ALTSigner(team: team, certificate: certificate).signApp(at: app, provisioningProfiles: profiles)
+            do { try await ALTSigner(team: team, certificate: certificate).signApp(at: app, provisioningProfiles: profiles) }
+            catch { throw WatchBetaInstallFailure(diagnostic: watchBetaInstallDiagnostic(error, operation: .signing)) }
         }
         guard let info = NSDictionary(contentsOf: host.appendingPathComponent("Info.plist")),
               let id = info["CFBundleIdentifier"] as? String,
@@ -402,7 +430,8 @@ final class WatchPackageCoordinator: ObservableObject {
     }
 
     func runPending() {
-        guard !working, AuthManager.shared.isAuthenticated, UIApplication.shared.applicationState == .active else { return }
+        guard WatchBetaValidation.canRunAutomaticInstallation(working: working, manualUIVisible: manualUIVisible,
+            manualOperationRunning: manualOperationRunning), AuthManager.shared.isAuthenticated, UIApplication.shared.applicationState == .active else { return }
         working = true
         Task {
             defer { working = false; BetaUpdateCoordinator.shared.check() }
@@ -410,8 +439,12 @@ final class WatchPackageCoordinator: ObservableObject {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
             guard !AppManager.shared.isActivelyManagingAnyApp else { return }
-            profileChecks = nil
+            profileChecks = nil; installationDiagnostic = nil
             do { try await bootstrapIfNeeded() }
+            catch let error as WatchBetaInstallFailure {
+                installationDiagnostic = error.diagnostic
+                message = error.diagnostic.message
+            }
             catch let error as WatchBetaInvalidProfile {
                 profileChecks = error.checks
                 message = error.checks.message
@@ -422,7 +455,11 @@ final class WatchPackageCoordinator: ObservableObject {
                     message = WatchBetaProfileDiagnostic(operation: operation, kind: kind, code: error.code).message
                 }
             }
-            catch { message = "SideStore Watch queda pendiente: Apple debe aceptar un perfil válido del App ID seleccionado." }
+            catch {
+                let diagnostic = watchBetaInstallDiagnostic(error, operation: .profile)
+                installationDiagnostic = diagnostic
+                message = diagnostic.message
+            }
             for directory in directories() {
                 guard var job = read(directory) else { continue }
                 // A SideStore self-update may have killed the old process before hostInstalled.
@@ -463,7 +500,9 @@ final class WatchPackageCoordinator: ObservableObject {
                     message = error.checks.message
                     break
                 } catch {
-                    message = "La instalación del Watch queda pendiente. Comprueba el perfil, el emparejamiento TCP y que el reloj está desbloqueado y cerca."
+                    let diagnostic = watchBetaInstallDiagnostic(error, operation: .transport)
+                    installationDiagnostic = diagnostic
+                    message = diagnostic.message
                     // Keep the signed package for the next foreground opportunity.
                     break
                 }
@@ -563,13 +602,12 @@ extension WatchPackageCoordinator {
         let team = try await AuthManager.shared.getAuthenticatedTeam()
         let session = try await AuthManager.shared.getAuthenticatedSession()
         let apps = try await ALTAppleAPI.shared.fetchAppIDs(for: team, session: session)
-        var identifier = UserDefaults.standard.string(forKey: "watchSelectedPortalID") ?? ""
-        if identifier.isEmpty, let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
-           let profile = try? ALTProvisioningProfile(data: Data(contentsOf: url)),
-           profile.teamIdentifier == team.identifier { identifier = profile.bundleIdentifier }
-        guard !identifier.isEmpty, !identifier.contains("*"), apps.contains(where: { $0.bundleIdentifier == identifier }),
+        // The selected ID in the manual importer may belong to reviewNfcGo.
+        // SideStore's own Watch companion must use a separate existing child ID.
+        let identifier = WatchBetaValidation.bootstrapPortalID(available: apps.map(\.bundleIdentifier), phoneBundle: ownID)
+        guard let identifier,
               let certificate = CertificateManager.shared.activeCertificate else {
-            message = "Selecciona un App ID existente en Watch beta y comprueba su perfil. No se creará ninguno nuevo."
+            message = "SideStore Watch necesita un ID secundario existente de este SideStore y un certificado activo. No se creará ninguno."
             return
         }
         let fm = FileManager.default
@@ -634,5 +672,15 @@ private extension ALTProvisioningProfile {
             expectedBundle: expectedBundle, team: teamIdentifier, expectedTeam: expectedTeam,
             devices: deviceIDs, selectedWatch: watch, expires: expirationDate, certificateCount: certificates.count)
     }
+}
+#endif
+
+#if os(iOS)
+private func watchBetaInstallDiagnostic(_ error: Error,
+    operation: WatchBetaInstallationDiagnostic.Operation) -> WatchBetaInstallationDiagnostic {
+    if let failure = error as? WatchBetaInstallFailure { return failure.diagnostic }
+    if let failure = error as? MinimuxerError, case .installApp(let reason) = failure,
+       let diagnostic = WatchBetaInstallationDiagnostic.transportReason(reason) { return diagnostic }
+    return .init(operation: operation, kind: .operationFailed, code: (error as NSError).code)
 }
 #endif

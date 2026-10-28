@@ -12,6 +12,7 @@ use plist::{Dictionary, Value};
 use std::{
     path::{Path, PathBuf},
     time::Duration,
+    sync::atomic::{AtomicI32, Ordering},
 };
 macro_rules! quiet_log { ($($arg:tt)*) => {}; }
 
@@ -45,9 +46,10 @@ pub unsafe extern "C" fn sidestore_watch_install(provider: *mut IdeviceProviderH
         if watches.len() != 1 || watches[0] != expected { return 3; }
         drop(proxy);
         let app = Bundle { bundle_dir: PathBuf::from(path) };
-        match install_watch_apps(provider, &[app], "SideStore Watch Beta", expected, |_| {}).await {
+        let stage = AtomicI32::new(4);
+        match install_watch_apps(provider, &[app], "SideStore Watch Beta", expected, &stage, |_| {}).await {
             Ok(()) => 0,
-            Err(_) => 4,
+            Err(_) => stage.load(Ordering::Relaxed),
         }
     })
 }
@@ -76,17 +78,20 @@ async fn install_watch_apps(
     watch_apps: &[Bundle],
     host_name: &str,
     expected_watch: &str,
+    stage: &AtomicI32,
     progress_callback: impl Fn(u64) + Send + Sync,
 ) -> Result<(), Report> {
     if watch_apps.is_empty() {
         return Ok(());
     }
 
+    stage.store(10, Ordering::Relaxed);
     let iphone_pairing = device_provider
         .get_pairing_file()
         .await
         ?;
 
+    stage.store(11, Ordering::Relaxed);
     let forwarded_lockdown_port = {
         let mut companion_proxy = CompanionProxy::connect(device_provider)
             .await
@@ -105,6 +110,7 @@ async fn install_watch_apps(
     };
 
     let result = tokio::time::timeout(Duration::from_secs(120), async {
+        stage.store(12, Ordering::Relaxed);
         let watch_connection = connect_forwarded_watch_port(
             device_provider,
             forwarded_lockdown_port,
@@ -113,6 +119,7 @@ async fn install_watch_apps(
         .await?;
         let mut watch_lockdown = LockdownClient::new(watch_connection);
 
+        stage.store(13, Ordering::Relaxed);
         let watch_pairing = watch_lockdown
             .pair(
                 iphone_pairing.host_id.clone(),
@@ -123,17 +130,20 @@ async fn install_watch_apps(
             
             .context("Failed to pair with the Apple Watch through companion proxy")?;
 
+        stage.store(14, Ordering::Relaxed);
         let legacy = watch_lockdown
             .start_session(&watch_pairing)
             .await
             
             .context("Failed to start Apple Watch lockdown session")?;
 
+        stage.store(15, Ordering::Relaxed);
         let actual = watch_lockdown.get_value(Some("UniqueDeviceID"), None).await?;
         // The registry can change during forwarding; verify the endpoint itself.
         let mut proxy = CompanionProxy::connect(device_provider).await?;
         let current = proxy.get_device_registry().await?;
         if current.len() != 1 || current[0] != expected_watch || actual.as_string() != Some(expected_watch) {
+            stage.store(26, Ordering::Relaxed);
             bail!("Watch endpoint changed");
         }
 
@@ -144,13 +154,14 @@ async fn install_watch_apps(
                 &watch_pairing,
                 legacy,
                 watch_app,
+                stage,
                 &progress_callback,
             )
             .await?;
         }
 
         Ok(())
-    }).await.map_err(|_| Into::<Report>::into("Watch operation timed out")).and_then(|result| result);
+    }).await.map_err(|_| { stage.store(30, Ordering::Relaxed); Into::<Report>::into("Watch operation timed out") }).and_then(|result| result);
 
     match CompanionProxy::connect(device_provider).await {
         Ok(mut companion_proxy) => {
@@ -219,14 +230,17 @@ async fn install_watch_app_zip_conduit(
     watch_pairing: &PairingFile,
     legacy: bool,
     watch_app: &Bundle,
+    stage: &AtomicI32,
     progress_callback: &(impl Fn(u64) + Send + Sync),
 ) -> Result<(), Report> {
+    stage.store(16, Ordering::Relaxed);
     let (remote_port, ssl) = watch_lockdown
         .start_service(WATCH_ZIP_SERVICE)
         .await
         
         .context("Failed to start Apple Watch streaming_zip_conduit")?;
 
+    stage.store(17, Ordering::Relaxed);
     let forwarded_port = {
         let mut companion_proxy = CompanionProxy::connect(device_provider)
             .await
@@ -245,6 +259,7 @@ async fn install_watch_app_zip_conduit(
     };
 
     let result = tokio::time::timeout(Duration::from_secs(90), async {
+        stage.store(18, Ordering::Relaxed);
         let mut connection = connect_forwarded_watch_port(
             device_provider,
             forwarded_port,
@@ -253,6 +268,7 @@ async fn install_watch_app_zip_conduit(
         .await?;
 
         if ssl {
+            stage.store(19, Ordering::Relaxed);
             connection
                 .start_session(watch_pairing, legacy)
                 .await
@@ -260,8 +276,8 @@ async fn install_watch_app_zip_conduit(
                 .context("Failed to secure Apple Watch streaming_zip_conduit connection")?;
         }
 
-        stream_watch_app(&mut connection, watch_app, progress_callback).await
-    }).await.map_err(|_| Into::<Report>::into("Watch operation timed out")).and_then(|result| result);
+        stream_watch_app(&mut connection, watch_app, stage, progress_callback).await
+    }).await.map_err(|_| { stage.store(31, Ordering::Relaxed); Into::<Report>::into("Watch transfer timed out") }).and_then(|result| result);
 
     match CompanionProxy::connect(device_provider).await {
         Ok(mut companion_proxy) => {
@@ -280,8 +296,10 @@ async fn install_watch_app_zip_conduit(
 async fn stream_watch_app(
     connection: &mut Idevice,
     watch_app: &Bundle,
+    stage: &AtomicI32,
     progress_callback: &(impl Fn(u64) + Send + Sync),
 ) -> Result<(), Report> {
+    stage.store(20, Ordering::Relaxed);
     let app_name = watch_app
         .bundle_dir
         .file_name()
@@ -329,6 +347,7 @@ async fn stream_watch_app(
     insert_string(&mut init_transfer, "MediaSubdir", media_subdir);
     insert_integer(&mut init_transfer, "UserInitiatedTransfer", 0);
 
+    stage.store(21, Ordering::Relaxed);
     send_prefixed_plist(connection, init_transfer).await?;
 
     let mut metadata = Dictionary::new();
@@ -367,17 +386,22 @@ async fn stream_watch_app(
         .await
         ?;
 
-    wait_for_watch_install(connection, progress_callback).await
+    stage.store(22, Ordering::Relaxed);
+    wait_for_watch_install(connection, stage, progress_callback).await
 }
 
 async fn wait_for_watch_install(
     connection: &mut Idevice,
+    stage: &AtomicI32,
     progress_callback: &(impl Fn(u64) + Send + Sync),
 ) -> Result<(), Report> {
     loop {
         let response = read_prefixed_plist(connection).await?;
 
         if response.contains_key("Error") || response.get("InstallProgressDict").and_then(Value::as_dictionary).is_some_and(|p| p.contains_key("Error")) {
+            let error = response.get("Error").or_else(|| response.get("InstallProgressDict")
+                .and_then(Value::as_dictionary).and_then(|p| p.get("Error"))).and_then(Value::as_string).unwrap_or("");
+            stage.store(watch_rejection_kind(error), Ordering::Relaxed);
             bail!("Watch rejected installation");
         }
         if response
@@ -390,6 +414,7 @@ async fn wait_for_watch_install(
             return Ok(());
         }
 
+        stage.store(24, Ordering::Relaxed);
         let progress = response
             .get("InstallProgressDict")
             .and_then(Value::as_dictionary)
@@ -403,6 +428,7 @@ async fn wait_for_watch_install(
             bail!("Apple Watch installation failed: {error}: {description}");
         }
 
+        stage.store(22, Ordering::Relaxed);
         let percent = progress
             .get("PercentComplete")
             .and_then(Value::as_unsigned_integer)
@@ -414,6 +440,26 @@ async fn wait_for_watch_install(
 
         quiet_log!("Installing Apple Watch app: {percent}% {status}");
         progress_callback(percent);
+    }
+}
+
+// Only fixed categories leave the native bridge; never a raw Watch response.
+fn watch_rejection_kind(error: &str) -> i32 {
+    match error {
+        "ApplicationVerificationFailed" => 100,
+        "InvalidCompanionAppBundleIdentifier" => 101,
+        "MismatchedApplicationIdentifierEntitlement" => 102,
+        "InvalidProvisioningProfile" | "ProfileNotValid" => 103,
+        "DeviceLocked" => 104,
+        "UnsupportedOSVersion" | "DeviceOSVersionTooLow" => 105,
+        "MaximumAppsLimitReached" => 106,
+        "BundleVerificationFailed" => 107,
+        "MissingApplicationIdentifierEntitlement" => 108,
+        "PackageInspectionFailed" => 109,
+        "InstallProhibited" => 110,
+        "InsufficientStorage" | "DiskSpaceExceeded" => 111,
+        "ApplicationAlreadyInstalled" => 112,
+        _ => 199,
     }
 }
 

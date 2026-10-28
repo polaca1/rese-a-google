@@ -2,7 +2,7 @@
 // https://help.apple.com/xcode/#/dev745c5c974
 
 MARKETING_VERSION = 0.7.1
-CURRENT_PROJECT_VERSION = 713
+CURRENT_PROJECT_VERSION = 714
 
 // Vars to be overwritten by `CodeSigning.xcconfig` if exists
 DEVELOPMENT_TEAM = S32Z3HMYVQ

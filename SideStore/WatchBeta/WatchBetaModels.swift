@@ -101,10 +101,107 @@ struct WatchBetaInvalidProfile: Error {
     let checks: WatchBetaProfileChecks
 }
 
+
+struct WatchBetaInstallationDiagnostic: Codable, Equatable {
+    enum Operation: String, Codable {
+        case account, profile, signing, connection, registry, pairingFile, forwardLockdown, connectLockdown
+        case pairWatch, watchSession, verifyWatch, startInstaller, forwardInstaller, connectInstaller
+        case secureTransfer, prepareTransfer, sendTransfer, waitConfirmation, watchRejected, transport
+        var title: String {
+            switch self {
+            case .account: return "Obtener la cuenta Apple"
+            case .profile: return "Preparar el perfil"
+            case .signing: return "Firmar la app"
+            case .connection: return "Preparar la conexión local"
+            case .registry: return "Consultar el Watch enlazado"
+            case .pairingFile: return "Leer el emparejamiento del iPhone"
+            case .forwardLockdown: return "Abrir el enlace al Watch"
+            case .connectLockdown: return "Conectar con el servicio del Watch"
+            case .pairWatch: return "Emparejar con el Watch"
+            case .watchSession: return "Iniciar sesión en el Watch"
+            case .verifyWatch: return "Confirmar la identidad del Watch"
+            case .startInstaller: return "Abrir el instalador de watchOS"
+            case .forwardInstaller: return "Abrir el enlace al instalador"
+            case .connectInstaller: return "Conectar con el instalador"
+            case .secureTransfer: return "Proteger la conexión de envío"
+            case .prepareTransfer: return "Preparar los archivos firmados"
+            case .sendTransfer: return "Enviar la app al Watch"
+            case .waitConfirmation: return "Esperar la confirmación de watchOS"
+            case .watchRejected: return "watchOS rechazó la app"
+            case .transport: return "Instalar en el Watch"
+            }
+        }
+    }
+    enum Kind: String, Codable { case operationFailed, certificateMismatch, nativeFailure, watchRejected, timeout, unsupportedPairing }
+    let operation: Operation
+    let kind: Kind
+    let code: Int?
+    var message: String {
+        if kind == .certificateMismatch { return "El certificado activo no está incluido en el perfil. No se ha enviado la app ni modificado certificados." }
+        if kind == .unsupportedPairing { return "La instalación del Watch necesita emparejamiento TCP; el emparejamiento remoto no está implementado." }
+        var result = operation.title
+        if let code { result += " · Código: \(code)" }
+        if kind == .timeout { result += " · Tiempo de espera agotado." }
+        switch code {
+        case 101: result += " · La asociación con la app del iPhone no es válida."
+        case 102, 108: result += " · La firma y el identificador de la app no coinciden."
+        case 103: result += " · watchOS rechazó el perfil incluido."
+        case 104: result += " · El reloj está bloqueado."
+        case 105: result += " · La versión del sistema no es compatible."
+        case 106: result += " · Se ha alcanzado un límite de apps."
+        case 111: result += " · No hay espacio suficiente."
+        default: break
+        }
+        return result
+    }
+    static func native(_ code: Int) -> Self? {
+        let operation: Operation
+        switch code {
+        case 1, 4: operation = .transport
+        case 2, 3: operation = .registry
+        case 10: operation = .pairingFile
+        case 11: operation = .forwardLockdown
+        case 12: operation = .connectLockdown
+        case 13: operation = .pairWatch
+        case 14: operation = .watchSession
+        case 15, 26: operation = .verifyWatch
+        case 16: operation = .startInstaller
+        case 17: operation = .forwardInstaller
+        case 18: operation = .connectInstaller
+        case 19: operation = .secureTransfer
+        case 20: operation = .prepareTransfer
+        case 21: operation = .sendTransfer
+        case 22, 24: operation = .waitConfirmation
+        case 30: operation = .transport
+        case 31: operation = .sendTransfer
+        case 100...112, 199: operation = .watchRejected
+        default: return nil
+        }
+        let kind: Kind = (code == 30 || code == 31) ? .timeout
+            : (operation == .watchRejected ? .watchRejected : .nativeFailure)
+        return Self(operation: operation, kind: kind, code: code)
+    }
+    /// Parse only our bridge's complete fixed message. Arbitrary library messages never enter exports.
+    static func transportReason(_ reason: String) -> Self? {
+        if reason == "Watch installer currently requires a TCP pairing file" {
+            return Self(operation: .transport, kind: .unsupportedPairing, code: nil)
+        }
+        let prefix = "Watch installation failed (stage code "
+        let suffix = "); no existing app was removed"
+        guard reason.hasPrefix(prefix), reason.hasSuffix(suffix),
+              let code = Int(reason.dropFirst(prefix.count).dropLast(suffix.count)),
+              reason == prefix + String(code) + suffix else { return nil }
+        return native(code)
+    }
+}
+struct WatchBetaInstallFailure: Error {
+    let diagnostic: WatchBetaInstallationDiagnostic
+}
+
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
-    var schema = 4
-    var beta = "0.7.1-build713"
+    var schema = 5
+    var beta = "0.7.1-build714"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?
@@ -113,6 +210,9 @@ struct WatchBetaReport: Codable, Equatable {
     var accountDiagnostic: WatchBetaProfileDiagnostic?
     var profileChecks: WatchBetaProfileChecks?
     var automaticProfileChecks: WatchBetaProfileChecks?
+    var installationDiagnostic: WatchBetaInstallationDiagnostic?
+    var automaticInstallationDiagnostic: WatchBetaInstallationDiagnostic?
+    var activeCertificateMatchesProfile: Bool?
     var physicalInstallationVerified = false
     var renewalVerified = false
 
@@ -133,6 +233,22 @@ struct WatchBetaReport: Codable, Equatable {
 }
 
 enum WatchBetaValidation {
+    static func bootstrapPortalID(available: [String], phoneBundle: String) -> String? {
+        guard !phoneBundle.isEmpty else { return nil }
+        let allowed = Set(available.filter { !$0.contains("*") })
+        for suffix in [".watch", ".SideBackup", ".AltWidget"] {
+            let identifier = phoneBundle + suffix
+            if allowed.contains(identifier) { return identifier }
+        }
+        return nil
+    }
+    static func canRunAutomaticInstallation(working: Bool, manualUIVisible: Bool, manualOperationRunning: Bool) -> Bool {
+        !working && !manualUIVisible && !manualOperationRunning
+    }
+    static func matchingCertificate(active: Data?, allowed: [Data]) -> Bool {
+        guard let active, !active.isEmpty else { return false }
+        return allowed.contains(active)
+    }
     static func preferredPortalID(available: [String], saved: String?, runtime: String,
         profileBundle: String?, profileTeam: String?, sessionTeam: String) -> String? {
         let allowed = Set(available.filter { !$0.isEmpty && !$0.contains("*") })

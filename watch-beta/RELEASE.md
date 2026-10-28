@@ -1,13 +1,15 @@
-Beta personal 0.7.1 (713), independiente del proyecto oficial SideStore.
+Beta personal 0.7.1 (714), independiente del proyecto oficial SideStore.
 
-On-Device Anisette desactivado de fábrica y servidor https://mac-ani.jkcoxson.com seleccionado y habilitado. Se aplica una migración única sobre instalaciones anteriores; las preferencias que cambies después se conservan. El servidor permanece en la lista aunque no aparezca en una sincronización del catálogo comunitario. No se modifican claves, certificados, App IDs ni credenciales.
+El informe de 713 del usuario demuestra que el perfil ya incluye el Watch y coincide con cuenta y App ID, pero installationFailed mezclaba firma, conexión y transferencia. Esta versión añade diagnóstico schema 5 de cada paso, códigos nativos específicos y categorías fijas de rechazos de watchOS. No incluye respuestas completas ni identificadores privados.
 
-Corrige discoveryFailed después de haber detectado el Watch: los fallos al obtener cuenta, sesión/Anisette o App IDs se muestran en Cuenta Apple sin borrar la detección correcta. El diagnóstico schema 4 incluye paso, categoría fija y código numérico, sin datos privados ni errores completos del servidor.
+Comprueba que el certificado activo esté realmente incluido en el perfil antes de firmar; tener algún certificado en el perfil no bastaba. Un fallo conserva el detalle de firma, conexión, emparejamiento del Watch, apertura del instalador, transferencia o confirmación. No revoca ni crea certificados.
 
-Conserva las validaciones de 712: un perfil de familia iOS puede autorizar watchOS si coinciden App ID, cuenta y Watch, está vigente y tiene certificado. Un perfil que solo incluya el iPhone se rechaza.
+Evita que la cola automática comience mientras está abierta la pantalla manual o siga una operación manual/cancelada en curso. Los controles manuales esperan a una operación automática ya activa.
 
-Se conserva el SideStore completo de iPhone, identidad original, fuentes, Apple ID, instalación/renovación, widgets, SideBackup y atajos de datos móviles. Actualiza sin borrar SideStore y usando la misma cuenta.
+La selección de un ID de reviewNfcGo en la prueba manual ya no se reutiliza para SideStore Watch. El componente de SideStore busca exclusivamente un ID hijo ya existente del propio SideStore (.watch, .SideBackup o .AltWidget), mantiene su asociación con el host real y no crea ninguno.
 
-El componente de watchOS 10 incluido sigue siendo una prueba nativa de instalación, apertura y servicio local. NO es todavía una tienda autónoma ni firma desde el Watch. No hay instalación física ni renovación verificadas con la cuenta gratuita del usuario.
+Se conservan el SideStore completo de iPhone, identidad original, Apple ID, fuentes, widgets, SideBackup y atajos de datos móviles. Se mantiene On-Device Anisette desactivado de fábrica y https://mac-ani.jkcoxson.com como preset remoto, sin reimponerlo después de cambios posteriores del usuario.
 
-Código completo y licencias incluidos. Transporte adaptado de Rzbck/isideload bajo MIT.
+El componente nativo de watchOS 10 sigue siendo un prototipo de instalación, apertura y servicio local. NO es una tienda autónoma ni firma desde el Watch. El usuario ha validado un perfil con su cuenta gratuita; instalación física y renovación aún no están verificadas.
+
+Actualiza sobre SideStore sin borrar la app y usando la misma cuenta Apple. El IPA de reviewNfcGo Watch adaptado al ID .liveactivity se descarga por separado de la release reviewnfcgo-7.3.0-build39.

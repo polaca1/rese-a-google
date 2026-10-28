@@ -16,7 +16,7 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.1 (713)")
+                Text("Beta personal · 0.7.1 (714)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)
@@ -41,9 +41,12 @@ struct WatchBetaView: View {
                 if model.watchCount > 1 {
                     Picker("Reloj", selection: $model.selection) {
                         ForEach(0..<model.watchCount, id: \.self) { index in Text("Watch \(index + 1)").tag(index) }
-                    }.disabled(model.running)
+                    }.disabled(model.running || automaticWatch.working)
                 }
                 if let diagnostic = model.report.accountDiagnostic {
+                    Text(diagnostic.message).font(.footnote).foregroundColor(.secondary)
+                }
+                if let diagnostic = model.report.installationDiagnostic {
                     Text(diagnostic.message).font(.footnote).foregroundColor(.secondary)
                 }
                 if let diagnostic = model.report.profileDiagnostic {
@@ -58,14 +61,14 @@ struct WatchBetaView: View {
             }
             Section {
                 SwiftUI.Button(action: model.detect) { Label("Detectar Watch", systemImage: "antenna.radiowaves.left.and.right") }
-                    .disabled(model.running)
+                    .disabled(model.running || automaticWatch.working)
                 if !model.appIDs.isEmpty {
                     Picker("App ID existente", selection: $model.selectedAppID) {
                         Text("Seleccionar…").tag("")
                         ForEach(model.appIDs, id: \.identifier) { app in
                             Text(app.bundleIdentifier).tag(app.bundleIdentifier)
                         }
-                    }.disabled(model.running)
+                    }.disabled(model.running || automaticWatch.working)
                 }
                 SwiftUI.Button(action: model.prepareProfile) { Label("Probar perfil con el ID seleccionado", systemImage: "checkmark.shield") }
                     .disabled(!model.canPrepareProfile || model.selectedAppID.isEmpty)
@@ -74,7 +77,7 @@ struct WatchBetaView: View {
             }
             Section {
                 SwiftUI.Button { importing = true } label: { Label("Elegir IPA…", systemImage: "square.and.arrow.down") }
-                    .disabled(model.running)
+                    .disabled(model.running || automaticWatch.working)
                 if let name = model.importedName {
                     Text(name)
                     SwiftUI.Button("Firmar e instalar", action: model.installImportedApp)
@@ -90,11 +93,12 @@ struct WatchBetaView: View {
                 SwiftUI.Button {
                     var report = model.report
                     report.automaticProfileChecks = automaticWatch.profileChecks
+                    report.automaticInstallationDiagnostic = automaticWatch.installationDiagnostic
                     report.physicalInstallationVerified = automaticWatch.nativeOpened
                     if automaticWatch.nativeOpened { report.set(.installation, .passed) }
                     UIPasteboard.general.string = report.export(); copied = true
                 } label: { Label(copied ? "Diagnóstico copiado" : "Copiar diagnóstico", systemImage: "doc.on.doc") }
-                    .disabled(model.running)
+                    .disabled(model.running || automaticWatch.working)
             } footer: {
                 Text("El informe contiene los estados, el paso que falla y su código numérico. No incluye tu correo, identificadores de dispositivos, claves ni perfiles de firma.")
             }
@@ -105,7 +109,12 @@ struct WatchBetaView: View {
         .fileImporter(isPresented: $importing, allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first { model.importIPA(url) }
         }
-        .onDisappear { model.cancel() }
+        .onAppear { automaticWatch.manualUIVisible = true }
+        .onDisappear {
+            automaticWatch.manualUIVisible = false
+            model.cancel()
+            automaticWatch.runPending()
+        }
     }
 
     @ViewBuilder private func status(_ value: WatchBetaStatus) -> some View {

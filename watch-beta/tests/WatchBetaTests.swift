@@ -79,6 +79,27 @@ import Foundation
         check("subsequent user mode choice preserved", settings.bool(forKey: "useOnDeviceAnisette"))
         check("subsequent user server choice preserved", settings.string(forKey: "menuAnisetteURL") == "https://chosen.example")
         check("preset is not reapplied on every launch", !settings.bool(forKey: WatchBetaAnisettePreset.pendingKey))
+        check("certificate matching requires actual DER", !WatchBetaValidation.matchingCertificate(active: nil, allowed: [Data()]))
+        check("empty certificate is rejected", !WatchBetaValidation.matchingCertificate(active: Data(), allowed: [Data()]))
+        check("different signing certificate rejected", !WatchBetaValidation.matchingCertificate(active: Data([1]), allowed: [Data([2])]))
+        check("matching active signing certificate accepted", WatchBetaValidation.matchingCertificate(active: Data([1]), allowed: [Data([2]), Data([1])]))
+        check("SideStore bootstrap uses its own child ID", WatchBetaValidation.bootstrapPortalID(
+            available: ["review.id.liveactivity", "sidestore.id", "sidestore.id.AltWidget"], phoneBundle: "sidestore.id") == "sidestore.id.AltWidget")
+        check("manual review ID never assigned to SideStore bootstrap", WatchBetaValidation.bootstrapPortalID(
+            available: ["review.id.liveactivity", "sidestore.id"], phoneBundle: "sidestore.id") == nil)
+        check("bootstrap never invents an ID", WatchBetaValidation.bootstrapPortalID(available: [], phoneBundle: "sidestore.id") == nil)
+        check("automatic worker waits while manual UI visible", !WatchBetaValidation.canRunAutomaticInstallation(working: false, manualUIVisible: true, manualOperationRunning: false))
+        check("automatic worker waits for cancelled task completion", !WatchBetaValidation.canRunAutomaticInstallation(working: false, manualUIVisible: false, manualOperationRunning: true))
+        check("automatic worker does not overlap itself", !WatchBetaValidation.canRunAutomaticInstallation(working: true, manualUIVisible: false, manualOperationRunning: false))
+        check("automatic worker can resume afterwards", WatchBetaValidation.canRunAutomaticInstallation(working: false, manualUIVisible: false, manualOperationRunning: false))
+        let native = WatchBetaInstallationDiagnostic.transportReason("Watch installation failed (stage code 13); no existing app was removed")
+        check("exact bridge code survives wrapper", native?.operation == .pairWatch && native?.code == 13)
+        check("unknown native codes rejected", WatchBetaInstallationDiagnostic.native(987654) == nil)
+        check("untrusted error text not exported", WatchBetaInstallationDiagnostic.transportReason("PRIVATE_IDENTIFIER 13") == nil)
+        check("extra response data rejected", WatchBetaInstallationDiagnostic.transportReason("Watch installation failed (stage code 13); no existing app was removed PRIVATE_IDENTIFIER") == nil)
+        check("unsupported remote pairing identified", WatchBetaInstallationDiagnostic.transportReason("Watch installer currently requires a TCP pairing file")?.kind == .unsupportedPairing)
+        check("Watch rejection identifies companion mismatch", WatchBetaInstallationDiagnostic.native(101)?.message.contains("asociación") == true)
+        check("native timeout identified", WatchBetaInstallationDiagnostic.native(31)?.kind == .timeout)
         var report = WatchBetaReport()
         report.set(.discovery, .passed); report.pairedWatchCount = 1; report.freeAccount = true
         report.issue = .profileRequestFailed; report.set(.profile, .failed)
@@ -86,8 +107,13 @@ import Foundation
         check("report round trip", decoded == report)
         check("profile failure never claims install", !decoded.physicalInstallationVerified && decoded.status(.installation) == .pending)
         check("no fake renewal", !decoded.renewalVerified && decoded.status(.renewal) == .pending)
+        report.installationDiagnostic = native
+        report.automaticInstallationDiagnostic = WatchBetaInstallationDiagnostic.native(101)
+        report.activeCertificateMatchesProfile = true
+        let installationDecoded = try JSONDecoder().decode(WatchBetaReport.self, from: Data(report.export().utf8))
+        check("install diagnostics and certificate comparison survive export", installationDecoded == report)
         let object = try JSONSerialization.jsonObject(with: Data(report.export().utf8)) as! [String: Any]
-        check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "profileDiagnostic", "accountDiagnostic", "profileChecks", "automaticProfileChecks", "physicalInstallationVerified", "renewalVerified"]))
+        check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "profileDiagnostic", "accountDiagnostic", "profileChecks", "automaticProfileChecks", "installationDiagnostic", "automaticInstallationDiagnostic", "activeCertificateMatchesProfile", "physicalInstallationVerified", "renewalVerified"]))
         report.profileDiagnostic = WatchBetaProfileDiagnostic(operation: .registerDevice, kind: .appleAPI, code: 1234)
         let detailed = try JSONDecoder().decode(WatchBetaReport.self, from: Data(report.export().utf8))
         check("preserves exact operation and numeric code", detailed.profileDiagnostic == report.profileDiagnostic)

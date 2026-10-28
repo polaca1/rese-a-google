@@ -26,7 +26,7 @@ environment['SDKROOT']=subprocess.check_output(['xcrun','--sdk','iphoneos','--sh
 subprocess.run(['cargo','+1.99.1','build','--manifest-path',str(source/'ffi/Cargo.toml'),'--locked','--release','--target','aarch64-apple-ios','--features','companion_proxy,pair'],check=True,env=environment)
 # Compile the actual framing/CRC routines into a small host test executable.
 rust=(root/'watch-beta/watch_install.rs').read_text()
-framing=rust[rust.index('fn zip_header('):rust.index('fn insert_string(')] + rust[rust.index('fn crc32_ieee('):]
+framing=rust[rust.index('fn zip_header('):rust.index('fn insert_string(')] + rust[rust.index('fn crc32_ieee('):] + rust[rust.index('fn watch_rejection_kind('):rust.index('fn collect_files(')]
 checks=work/'protocol-tests.rs'
 checks.write_text(rust[rust.index('type Report ='):rust.index('macro_rules! bail')]+framing+"""
 fn main() {
@@ -37,7 +37,11 @@ fn main() {
     assert_eq!(u32::from_le_bytes(h[14..18].try_into().unwrap()), 0x12345678);
     assert_eq!(u32::from_le_bytes(h[18..22].try_into().unwrap()), 123);
     assert!(zip_header(&"x".repeat(65536),0,0).is_err());
-    println!("Watch wire format: CRC, header, sizes and path limit passed");
+    assert_eq!(watch_rejection_kind("InvalidCompanionAppBundleIdentifier"), 101);
+    assert_eq!(watch_rejection_kind("ApplicationVerificationFailed"), 100);
+    assert_eq!(watch_rejection_kind("DeviceLocked"), 104);
+    assert_eq!(watch_rejection_kind("PRIVATE_IDENTIFIER_AND_RESPONSE"), 199);
+    println!("Watch wire format and allowlisted rejection diagnostics passed");
 }
 """.replace('fn zip_header', 'fn zip_header'))
 # The stream's fixed extra field is included verbatim from the production source.
