@@ -71,7 +71,7 @@ struct WatchBetaProfileDiagnostic: Codable, Equatable {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 2
-    var beta = "0.7.1-build710"
+    var beta = "0.7.1-build711"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?

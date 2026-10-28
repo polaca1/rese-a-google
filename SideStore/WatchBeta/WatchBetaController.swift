@@ -1,6 +1,7 @@
 #if os(iOS)
 import Foundation
 import Combine
+import CoreData
 import UIKit
 import Minimuxer
 import SideSign
@@ -462,6 +463,16 @@ final class BetaUpdateCoordinator {
         "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/source-compatible.json",
         "https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore-watch-source/source.json"
     ]
+    private func trustedListing() -> StoreApp? {
+        let context = DatabaseManager.shared.viewContext
+        for address in sources.sorted() {
+            guard let url = URL(string: address), let id = try? Source.sourceID(from: url),
+                  let source = Source.first(satisfying: NSPredicate(format: "%K == %@", #keyPath(Source.identifier), id), in: context) else { continue }
+            if let app = source.apps.first(where: { $0.bundleIdentifier == StoreApp.altstoreAppID }) { return app }
+        }
+        return nil
+    }
+
     func check() {
         guard !running, UIApplication.shared.applicationState == .active,
               !AppManager.shared.isActivelyManagingAnyApp,
@@ -469,18 +480,18 @@ final class BetaUpdateCoordinator {
               Date().timeIntervalSince(lastCheck) > 300,
               UserDefaults.standard.object(forKey: "watchBetaAutomaticUpdates") as? Bool != false else { return }
         let context = DatabaseManager.shared.viewContext
-        guard let app = InstalledApp.fetchAltStore(in: context),
-              let source = app.storeApp?._source?.sourceURL.absoluteString,
-              sources.contains(source) else { return }
+        guard InstalledApp.fetchAltStore(in: context) != nil, trustedListing() != nil else { return }
         running = true; lastCheck = Date()
         AppManager.shared.updateAllSources { result in
             Task { @MainActor in
                 guard case .success = result,
                       UIApplication.shared.applicationState == .active,
                       !AppManager.shared.isActivelyManagingAnyApp,
+                      AuthManager.shared.isAuthenticated,
                       let current = InstalledApp.fetchAltStore(in: context),
-                      let source = current.storeApp?._source?.sourceURL.absoluteString, self.sources.contains(source),
-                      let latest = current.storeApp?.latestSupportedVersion,
+                      let listing = self.trustedListing(),
+                      let source = listing._source?.sourceURL.absoluteString, self.sources.contains(source),
+                      let latest = listing.latestSupportedVersion,
                       WatchBetaValidation.trustedBetaSource(source, download: latest.downloadURL.absoluteString) else {
                     self.running = false; return
                 }
@@ -494,9 +505,20 @@ final class BetaUpdateCoordinator {
                       let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
                         .flatMap({ $0.windows }).first(where: { $0.isKeyWindow }),
                       var controller = window.rootViewController else { self.running = false; return }
-                while let presented = controller.presentedViewController { controller = presented }
+                while true {
+                    if let presented = controller.presentedViewController { controller = presented; continue }
+                    if let navigation = controller as? UINavigationController, let top = navigation.topViewController { controller = top; continue }
+                    if let tab = controller as? UITabBarController, let selected = tab.selectedViewController { controller = selected; continue }
+                    break
+                }
                 guard !(controller is UIAlertController),
                       !String(describing: type(of: controller)).contains("WatchBeta") else { self.running = false; return }
+                // Updating an existing installation may retain the official-source relationship.
+                // This binary belongs to this variant and the user explicitly added this trusted feed.
+                let previous = current.storeApp
+                current.storeApp = listing
+                do { try context.save() }
+                catch { current.storeApp = previous; self.running = false; return }
                 AppManager.shared.update(current, to: latest, presentingViewController: controller) { _ in
                     Task { @MainActor in self.running = false }
                 }
