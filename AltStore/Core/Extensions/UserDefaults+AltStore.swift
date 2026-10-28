@@ -552,7 +552,7 @@ public extension UserDefaults
             #keyPath(UserDefaults.menuAnisetteURL): AppConstants.Anisette.Servers.defaultServerURL,
             #keyPath(UserDefaults.isAnisetteOfflineMode): false,
             #keyPath(UserDefaults.disableAnisetteRotation): false,
-            #keyPath(UserDefaults.useOnDeviceAnisette): true,
+            #keyPath(UserDefaults.useOnDeviceAnisette): false,
             #keyPath(UserDefaults.useLocalVPN): true,
             #keyPath(UserDefaults.acceptIPv6ConnectionConfig): false,
             #keyPath(UserDefaults.isAutoRetryRemotePairingPortEnabled): true,
@@ -595,6 +595,7 @@ public extension UserDefaults
         UserDefaults.standard.isDebugModeEnabled = true
         
         UserDefaults.standard.register(defaults: defaults)
+        WatchBetaAnisettePreset.apply(to: UserDefaults.standard)
         
         // MDC is unsupported and spareRestore is patched
         if !isMacDirtyCowSupported && ProcessInfo().sparseRestorePatched

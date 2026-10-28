@@ -1,18 +1,13 @@
-Beta personal 0.7.1 (712), independiente del proyecto oficial SideStore.
+Beta personal 0.7.1 (713), independiente del proyecto oficial SideStore.
 
-Corrige una comprobación excesiva de la build 711: un perfil de la familia iOS puede autorizar una app del Watch. Ya no se exige la etiqueta literal watchOS. Se siguen exigiendo el App ID y la cuenta exactos, el identificador del Watch en ProvisionedDevices, un perfil no caducado y certificado válido. Un perfil que solo incluya el iPhone sigue rechazándose.
+On-Device Anisette desactivado de fábrica y servidor https://mac-ani.jkcoxson.com seleccionado y habilitado. Se aplica una migración única sobre instalaciones anteriores; las preferencias que cambies después se conservan. El servidor permanece en la lista aunque no aparezca en una sincronización del catálogo comunitario. No se modifican claves, certificados, App IDs ni credenciales.
 
-El diagnóstico schema 3 distingue plataforma, coincidencia de App ID y cuenta, presencia del Watch, caducidad y certificado. Exporta solo categorías fijas y resultados booleanos, sin identificadores ni perfiles. Incluye por separado el rechazo del instalador automático. Al recuperar una instalación pendiente, valida su cuenta contra la sesión actual.
+Corrige discoveryFailed después de haber detectado el Watch: los fallos al obtener cuenta, sesión/Anisette o App IDs se muestran en Cuenta Apple sin borrar la detección correcta. El diagnóstico schema 4 incluye paso, categoría fija y código numérico, sin datos privados ni errores completos del servidor.
 
-Se conserva el SideStore completo de iPhone, su identidad, Apple ID, fuentes, instalación y renovación, SideBackup, widgets y atajos de datos móviles. No crea App IDs ni revoca certificados. Actualiza sin borrar la app y usando la misma cuenta.
+Conserva las validaciones de 712: un perfil de familia iOS puede autorizar watchOS si coinciden App ID, cuenta y Watch, está vigente y tiene certificado. Un perfil que solo incluya el iPhone se rechaza.
 
-El componente incluido de watchOS 10 es todavía un prototipo para comprobar instalación, apertura y servicio local. NO es una tienda autónoma ni firma desde el Watch. El usuario confirmó invalidProfile en 711; no se ha verificado una instalación física ni renovación con su cuenta gratuita.
+Se conserva el SideStore completo de iPhone, identidad original, fuentes, Apple ID, instalación/renovación, widgets, SideBackup y atajos de datos móviles. Actualiza sin borrar SideStore y usando la misma cuenta.
 
-Requiere un único Watch cercano y desbloqueado, emparejamiento Idevice TCP y perfiles válidos para cada app y extensión. Las actualizaciones de esta beta se comprueban al abrir SideStore desde su propia fuente; iOS no garantiza ejecución en segundo plano.
-
-Justificación técnica del cambio de familia de perfil y registro de un caso instalado:
-https://github.com/ryakel/boomerang/wiki/iOS-Native-App#the-watch-must-be-in-the-signing-profile
-Referencia Apple sobre perfiles y autorización por dispositivo:
-https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles
+El componente de watchOS 10 incluido sigue siendo una prueba nativa de instalación, apertura y servicio local. NO es todavía una tienda autónoma ni firma desde el Watch. No hay instalación física ni renovación verificadas con la cuenta gratuita del usuario.
 
 Código completo y licencias incluidos. Transporte adaptado de Rzbck/isideload bajo MIT.

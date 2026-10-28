@@ -72,7 +72,9 @@ public actor AnisetteServersManager {
 
         guard fileManager.fileExists(atPath: targetURL.path),
               let data = try? Data(contentsOf: targetURL) else {
-            return []
+            let initial = [AnisetteServerItem(name: "Mac Anisette", address: AppConstants.Anisette.Servers.defaultServerURL)]
+            saveLocalServers(initial)
+            return initial
         }
 
         let decoder = Foundation.JSONDecoder()
@@ -113,7 +115,14 @@ public actor AnisetteServersManager {
     }
 
     public func getActiveServerURLs() -> [String] {
-        let servers = loadLocalServers()
+        var servers = loadLocalServers()
+        if UserDefaults.standard.bool(forKey: WatchBetaAnisettePreset.pendingKey) {
+            let address = WatchBetaAnisettePreset.serverURL
+            servers.removeAll { $0.address == address }
+            servers.insert(AnisetteServerItem(name: "Mac Anisette", address: address), at: 0)
+            saveLocalServers(servers)
+            UserDefaults.standard.set(false, forKey: WatchBetaAnisettePreset.pendingKey)
+        }
         return servers.filter { !$0.isHidden }.map(\.address)
     }
 
@@ -360,6 +369,9 @@ public actor AnisetteServersManager {
                 var updated = local
                 updated.name = remote.name
                 mergedItems.append(updated)
+            } else if local.address == AppConstants.Anisette.Servers.defaultServerURL {
+                // Keep this variant's selected preset when absent from the community list.
+                mergedItems.append(local)
             }
         }
 

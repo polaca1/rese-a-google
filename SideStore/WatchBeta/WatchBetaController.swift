@@ -35,6 +35,7 @@ final class WatchBetaController: ObservableObject {
         running = true
         task = Task {
             defer { running = false }
+            var accountOperation: WatchBetaProfileDiagnostic.Operation?
             report.set(.connection, .running)
             guard minimuxer.core.isPairingFileLoaded else {
                 fail(.connection, .connectionUnavailable); return
@@ -46,10 +47,18 @@ final class WatchBetaController: ObservableObject {
                 guard !found.isEmpty else { report.pairedWatchCount = 0; fail(.discovery, .noWatch); return }
                 identifiers = found; watchCount = found.count; report.pairedWatchCount = found.count
                 report.set(.discovery, .passed)
+                report.set(.account, .running)
+                guard AuthManager.shared.isAuthenticated else {
+                    fail(.account, .accountUnavailable); return
+                }
+                accountOperation = .resolveTeam
                 let team = try await AuthManager.shared.getAuthenticatedTeam()
-                let session = try await AuthManager.shared.getAuthenticatedSession()
-                appIDs = try await ALTAppleAPI.shared.fetchAppIDs(for: team, session: session)
                 report.freeAccount = team.type == .free
+                accountOperation = .fetchAnisette
+                let session = try await AuthManager.shared.getAuthenticatedSession()
+                accountOperation = .listAppIDs
+                appIDs = try await ALTAppleAPI.shared.fetchAppIDs(for: team, session: session)
+                report.set(.account, .passed)
                 let runtimeID = Bundle.main.bundleIdentifier ?? ""
                 let embedded = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision")
                     .flatMap { try? Data(contentsOf: $0) }
@@ -59,10 +68,19 @@ final class WatchBetaController: ObservableObject {
                     saved: UserDefaults.standard.string(forKey: "watchSelectedPortalID"), runtime: runtimeID,
                     profileBundle: embedded?.bundleIdentifier, profileTeam: embedded?.teamIdentifier,
                     sessionTeam: team.identifier) ?? ""
-            } catch is CancellationError { fail(.discovery, .cancelled) }
+            } catch is CancellationError { fail(report.detectionFailureStage, .cancelled) }
             catch {
-                let stage: WatchBetaStage = report.status(.connection) == .passed ? .discovery : .connection
-                fail(stage, stage == .connection ? .connectionUnavailable : .discoveryFailed)
+                let stage = report.detectionFailureStage
+                if let operation = accountOperation {
+                    var kind: WatchBetaProfileDiagnostic.Kind = .unknown
+                    if error is URLError { kind = .network }
+                    else if error is AnisetteError || error is SideSign.AnisetteError { kind = .anisette }
+                    else if let failure = error as? OperationError, case .notAuthenticated = failure { kind = .notAuthenticated }
+                    report.accountDiagnostic = WatchBetaProfileDiagnostic(operation: operation, kind: kind, code: (error as NSError).code)
+                }
+                let issue: WatchBetaIssue = stage == .account ? .accountRequestFailed
+                    : (stage == .connection ? .connectionUnavailable : .discoveryFailed)
+                fail(stage, issue)
             }
         }
     }

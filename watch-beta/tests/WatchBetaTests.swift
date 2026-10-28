@@ -54,6 +54,31 @@ import Foundation
         check("invalid identifier rejected", !WatchBetaValidation.validRegistry(["A\nSECRET"]))
         check("oversized registry rejected", !WatchBetaValidation.validRegistry((0...32).map(String.init)))
         check("oversized identifier rejected", !WatchBetaValidation.validRegistry([String(repeating: "A", count: 129)]))
+        var regression = WatchBetaReport()
+        check("before registry failure belongs to connection", regression.detectionFailureStage == .connection)
+        regression.set(.connection, .passed)
+        check("registry failure belongs to discovery", regression.detectionFailureStage == .discovery)
+        regression.set(.discovery, .passed); regression.pairedWatchCount = 1
+        regression.set(.account, .running)
+        check("account failure after Watch discovery not mislabeled", regression.detectionFailureStage == .account)
+        regression.set(regression.detectionFailureStage, .failed)
+        check("detected Watch preserved after account failure", regression.status(.discovery) == .passed && regression.pairedWatchCount == 1)
+        let suite = "WatchBetaTests." + UUID().uuidString
+        let settings = UserDefaults(suiteName: suite)!
+        defer { settings.removePersistentDomain(forName: suite) }
+        settings.set(true, forKey: "useOnDeviceAnisette")
+        settings.set("https://previous.example", forKey: "menuAnisetteURL")
+        WatchBetaAnisettePreset.apply(to: settings)
+        check("update migrates previous on-device mode", !settings.bool(forKey: "useOnDeviceAnisette"))
+        check("update selects requested server", settings.string(forKey: "menuAnisetteURL") == "https://mac-ani.jkcoxson.com")
+        check("server activation scheduled once", settings.bool(forKey: WatchBetaAnisettePreset.pendingKey))
+        settings.set(true, forKey: "useOnDeviceAnisette")
+        settings.set("https://chosen.example", forKey: "menuAnisetteURL")
+        settings.set(false, forKey: WatchBetaAnisettePreset.pendingKey)
+        WatchBetaAnisettePreset.apply(to: settings)
+        check("subsequent user mode choice preserved", settings.bool(forKey: "useOnDeviceAnisette"))
+        check("subsequent user server choice preserved", settings.string(forKey: "menuAnisetteURL") == "https://chosen.example")
+        check("preset is not reapplied on every launch", !settings.bool(forKey: WatchBetaAnisettePreset.pendingKey))
         var report = WatchBetaReport()
         report.set(.discovery, .passed); report.pairedWatchCount = 1; report.freeAccount = true
         report.issue = .profileRequestFailed; report.set(.profile, .failed)
@@ -62,7 +87,7 @@ import Foundation
         check("profile failure never claims install", !decoded.physicalInstallationVerified && decoded.status(.installation) == .pending)
         check("no fake renewal", !decoded.renewalVerified && decoded.status(.renewal) == .pending)
         let object = try JSONSerialization.jsonObject(with: Data(report.export().utf8)) as! [String: Any]
-        check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "profileDiagnostic", "profileChecks", "automaticProfileChecks", "physicalInstallationVerified", "renewalVerified"]))
+        check("report fields whitelisted", Set(object.keys).isSubset(of: ["schema", "beta", "statuses", "pairedWatchCount", "freeAccount", "issue", "profileDiagnostic", "accountDiagnostic", "profileChecks", "automaticProfileChecks", "physicalInstallationVerified", "renewalVerified"]))
         report.profileDiagnostic = WatchBetaProfileDiagnostic(operation: .registerDevice, kind: .appleAPI, code: 1234)
         let detailed = try JSONDecoder().decode(WatchBetaReport.self, from: Data(report.export().utf8))
         check("preserves exact operation and numeric code", detailed.profileDiagnostic == report.profileDiagnostic)
@@ -89,6 +114,9 @@ import Foundation
         let validationObject = try JSONSerialization.jsonObject(with: Data(validationJSON.utf8)) as! [String: Any]
         let validationFields = validationObject["profileChecks"] as! [String: Any]
         check("validation fields whitelisted", Set(validationFields.keys) == ["platforms", "bundleMatches", "teamMatches", "containsWatch", "notExpired", "hasCertificate"])
+        report.accountDiagnostic = WatchBetaProfileDiagnostic(operation: .fetchAnisette, kind: .anisette, code: -80046)
+        let accountDecoded = try JSONDecoder().decode(WatchBetaReport.self, from: Data(report.export().utf8))
+        check("account diagnostic identifies Anisette instead of Watch discovery", accountDecoded.accountDiagnostic == report.accountDiagnostic)
         report.set(.profile, .passed); report.invalidateProfile()
         check("changing Watch clears diagnostic", report.profileDiagnostic == nil)
         check("changing Watch clears old validation", report.profileChecks == nil && report.automaticProfileChecks == nil)

@@ -16,7 +16,7 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.1 (712)")
+                Text("Beta personal · 0.7.1 (713)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)
@@ -42,6 +42,9 @@ struct WatchBetaView: View {
                     Picker("Reloj", selection: $model.selection) {
                         ForEach(0..<model.watchCount, id: \.self) { index in Text("Watch \(index + 1)").tag(index) }
                     }.disabled(model.running)
+                }
+                if let diagnostic = model.report.accountDiagnostic {
+                    Text(diagnostic.message).font(.footnote).foregroundColor(.secondary)
                 }
                 if let diagnostic = model.report.profileDiagnostic {
                     Text(diagnostic.message).font(.footnote).foregroundColor(.secondary)

@@ -18,13 +18,14 @@ enum WatchBetaStage: String, Codable, CaseIterable, Identifiable {
 enum WatchBetaStatus: String, Codable { case pending, running, passed, failed }
 enum WatchBetaIssue: String, Codable {
     case connectionUnavailable, discoveryFailed, noWatch, watchChanged, accountUnavailable
-    case profileRequestFailed, invalidProfile, cancelled, installationFailed
+    case profileRequestFailed, invalidProfile, cancelled, installationFailed, accountRequestFailed
     var message: String {
         switch self {
         case .connectionUnavailable: return "Activa la VPN local y configura el archivo de emparejamiento en esta beta."
         case .discoveryFailed: return "No se ha podido consultar el reloj. Comprueba que está desbloqueado y enlazado al iPhone. Esta función necesita el motor Idevice."
         case .noWatch: return "El iPhone no ha devuelto ningún Watch enlazado."
         case .watchChanged: return "Ha cambiado el reloj enlazado. Vuelve a detectarlo antes de probar el perfil."
+        case .accountRequestFailed: return "No se completó la comprobación de la cuenta Apple. Consulta el paso y el código del diagnóstico."
         case .accountUnavailable: return "Inicia sesión con tu cuenta Apple en los ajustes de esta beta."
         case .profileRequestFailed: return "Apple no ha entregado el perfil. Puede deberse a la cuota, la sesión o al soporte de esta cuenta. No demuestra que la cuenta gratuita sea incompatible."
         case .invalidProfile: return "El perfil recibido no cumple los requisitos de este Watch. No se ha instalado nada."
@@ -37,9 +38,11 @@ enum WatchBetaIssue: String, Codable {
 /// Fixed values only; raw server messages and identifiers cannot enter this report.
 struct WatchBetaProfileDiagnostic: Codable, Equatable {
     enum Operation: String, Codable {
-        case listAppIDs, listDevices, registerDevice, downloadProfile, decodeProfile
+        case resolveTeam, fetchAnisette, listAppIDs, listDevices, registerDevice, downloadProfile, decodeProfile
         var title: String {
             switch self {
+            case .resolveTeam: return "Consultar la cuenta Apple"
+            case .fetchAnisette: return "Obtener sesión y datos Anisette"
             case .listAppIDs: return "Buscar el App ID existente"
             case .listDevices: return "Consultar dispositivos de watchOS"
             case .registerDevice: return "Registrar el Watch"
@@ -49,7 +52,7 @@ struct WatchBetaProfileDiagnostic: Codable, Equatable {
         }
     }
     enum Kind: String, Codable {
-        case appleAPI, network, invalidResponse, existingAppIDMissing, missingProfile, unknown
+        case appleAPI, network, invalidResponse, existingAppIDMissing, missingProfile, unknown, notAuthenticated, anisette
     }
     let operation: Operation
     let kind: Kind
@@ -59,6 +62,8 @@ struct WatchBetaProfileDiagnostic: Codable, Equatable {
         if let code { detail += " · Código: \(code)" }
         switch kind {
         case .existingAppIDMissing: detail += " · No se encontró el identificador de esta instalación. No se ha creado otro."
+        case .notAuthenticated: detail += " · La sesión Apple no está disponible. Inicia sesión de nuevo."
+        case .anisette: detail += " · No se pudieron obtener los datos Anisette."
         case .network: detail += " · Fallo de red al contactar con Apple."
         case .invalidResponse, .missingProfile: detail += " · Apple no devolvió una respuesta de perfil válida."
         case .appleAPI: detail += " · Apple rechazó la solicitud."
@@ -98,13 +103,14 @@ struct WatchBetaInvalidProfile: Error {
 
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
-    var schema = 3
-    var beta = "0.7.1-build712"
+    var schema = 4
+    var beta = "0.7.1-build713"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?
     var issue: WatchBetaIssue?
     var profileDiagnostic: WatchBetaProfileDiagnostic?
+    var accountDiagnostic: WatchBetaProfileDiagnostic?
     var profileChecks: WatchBetaProfileChecks?
     var automaticProfileChecks: WatchBetaProfileChecks?
     var physicalInstallationVerified = false
@@ -112,6 +118,11 @@ struct WatchBetaReport: Codable, Equatable {
 
     mutating func set(_ stage: WatchBetaStage, _ status: WatchBetaStatus) { statuses[stage.rawValue] = status }
     func status(_ stage: WatchBetaStage) -> WatchBetaStatus { statuses[stage.rawValue] ?? .pending }
+    /// Once the registry succeeded, subsequent failures belong to the account step.
+    var detectionFailureStage: WatchBetaStage {
+        if status(.discovery) == .passed { return .account }
+        return status(.connection) == .passed ? .discovery : .connection
+    }
     mutating func invalidateProfile() {
         set(.profile, .pending); issue = nil; profileDiagnostic = nil; profileChecks = nil; automaticProfileChecks = nil
     }
@@ -189,5 +200,20 @@ enum WatchBetaLocalSession {
         catch { result = .failure(error) }
         await turnOn()
         return try result.get()
+    }
+}
+
+
+/// One-time preset requested for this personal variant; later user changes are preserved.
+enum WatchBetaAnisettePreset {
+    static let serverURL = "https://mac-ani.jkcoxson.com"
+    static let pendingKey = "watchBetaAnisettePresetPending"
+    private static let appliedKey = "watchBetaRemoteAnisettePresetV1"
+    static func apply(to defaults: UserDefaults) {
+        guard !defaults.bool(forKey: appliedKey) else { return }
+        defaults.set(false, forKey: "useOnDeviceAnisette")
+        defaults.set(serverURL, forKey: "menuAnisetteURL")
+        defaults.set(true, forKey: pendingKey)
+        defaults.set(true, forKey: appliedKey)
     }
 }
