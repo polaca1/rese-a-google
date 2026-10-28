@@ -14,6 +14,7 @@ commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,text=True).
 assert commit.startswith('3e55c84')
 # Add the tracked installation bridge to the exact pinned FFI source.
 shutil.copyfile(root/'watch-beta/watch_install.rs', source/'ffi/src/watch_install.rs')
+shutil.copyfile(root/'watch-beta/watch_pair_wire.rs', source/'ffi/src/watch_pair_wire.rs')
 lib=source/'ffi/src/lib.rs'
 text=lib.read_text()
 if 'pub mod watch_install;' not in text: lib.write_text(text+'\npub mod watch_install;\n')
@@ -34,7 +35,12 @@ needle='    async fn build_pair_request('
 if needle in lockdown_text:
     lockdown_text=lockdown_text.replace(needle,'    pub async fn build_pair_request(',1)
     marker='    pub async fn build_pair_request('
-    exchange="""    /// Personal Watch bridge: exchange an already-generated identity without logging it.
+    exchange="""    /// Independent persistent Watch host identity; never a fabricated iPhone pair file.
+    pub fn watch_beta_new_host_identity() -> (String,String) {
+        crate::watch_pairing::new_host_identity()
+    }
+
+    /// Personal Watch bridge: exchange an already-generated identity without logging it.
     pub async fn watch_beta_pair_exchange(
         &mut self, mut request: plist::Value,
     ) -> Result<plist::Dictionary, IdeviceError> {
@@ -90,16 +96,18 @@ import tomllib
 certificate_tests=work/'certificate-tests'
 certificate_tests.mkdir(exist_ok=True)
 shutil.copyfile(root/'watch-beta/watch_pairing.rs',certificate_tests/'watch_pairing.rs')
+shutil.copyfile(root/'watch-beta/watch_pair_wire.rs',certificate_tests/'watch_pair_wire.rs')
 shutil.copyfile(root/'watch-beta/tests/WatchPairingCertificates.rs',certificate_tests/'main.rs')
 packages=tomllib.loads((source/'Cargo.lock').read_text())['package']
 def locked_version(name):
-    versions={p['version'] for p in packages if p['name']==name and p['version'].startswith({'rsa':'0.9.','sha2':'0.10.','x509-cert':'0.2.'}[name])}
+    versions={p['version'] for p in packages if p['name']==name and p['version'].startswith({'rsa':'0.9.','sha2':'0.10.','x509-cert':'0.2.','plist':'1.'}[name])}
     assert len(versions)==1, (name,versions)
     return versions.pop()
 manifest='[package]\nname="watch-pairing-tests"\nversion="0.1.0"\nedition="2024"\n[[bin]]\nname="watch-pairing-tests"\npath="main.rs"\n[dependencies]\n'
 manifest+='rsa={version="='+locked_version('rsa')+'", features=["sha2"]}\n'
 manifest+='sha2={version="='+locked_version('sha2')+'", features=["oid"]}\n'
 manifest+='x509-cert={version="='+locked_version('x509-cert')+'", default-features=false, features=["builder","pem"]}\n'
+manifest+='plist={version="='+locked_version('plist')+'"}\n'
 (certificate_tests/'Cargo.toml').write_text(manifest)
 shutil.copyfile(source/'Cargo.lock', certificate_tests/'Cargo.lock')
 subprocess.run(['cargo','+1.99.1','run','--offline','--quiet','--release','--manifest-path',str(certificate_tests/'Cargo.toml')],check=True)

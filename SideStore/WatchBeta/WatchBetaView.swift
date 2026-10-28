@@ -1,9 +1,52 @@
 #if os(iOS)
 import SwiftUI
 import UIKit
-import UniformTypeIdentifiers
 
 struct WatchBetaView: View {
+    @ObservedObject private var installer = WatchPackageCoordinator.shared
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        List {
+            Section {
+                Label("SideStore en tu Watch", systemImage: "applewatch")
+                    .font(.title2.weight(.semibold)).padding(.vertical,8)
+                Text("Mantén el reloj cerca y desbloqueado. SideStore prepara automáticamente la conexión, el identificador existente, el perfil y la app.")
+                    .font(.subheadline).foregroundColor(.secondary)
+                SwiftUI.Button(action: installer.installSideStoreWatch) {
+                    HStack {
+                        Text(installer.working ? "Instalando…" : "Instalar SideStore en el Watch")
+                        Spacer()
+                        if installer.working { ProgressView() }
+                    }
+                }.disabled(installer.working)
+                if let message = installer.message { Text(message).font(.footnote).foregroundColor(.secondary) }
+                if let checks = installer.profileChecks { Text(checks.message).font(.footnote).foregroundColor(.secondary) }
+                if let diagnostic = installer.installationDiagnostic {
+                    Text(diagnostic.message).font(.footnote).foregroundColor(.secondary)
+                }
+            } footer: {
+                Text("Si watchOS solicita confiar, debes confirmarlo en el reloj. El componente del Watch sigue en pruebas; la firma autónoma no está implementada.")
+            }
+            Section {
+                NavigationLink("Herramientas avanzadas") { WatchBetaAdvancedView() }
+                    .disabled(installer.working)
+            }
+        }
+        .navigationTitle("Apple Watch")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { SwiftUI.Button("Cerrar") { dismiss() } }
+        }
+    }
+}
+#endif
+
+#if os(iOS)
+import SwiftUI
+import UIKit
+import UniformTypeIdentifiers
+
+struct WatchBetaAdvancedView: View {
     @StateObject private var model = WatchBetaController()
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
@@ -16,7 +59,7 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.1 (718)")
+                Text("Beta personal · 0.7.1 (719)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)

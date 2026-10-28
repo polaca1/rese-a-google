@@ -114,7 +114,7 @@ struct WatchBetaInstallationDiagnostic: Codable, Equatable {
             case .signing: return "Firmar la app"
             case .connection: return "Preparar la conexión local"
             case .registry: return "Consultar el Watch enlazado"
-            case .pairingFile: return "Leer el emparejamiento del iPhone"
+            case .pairingFile: return "Preparar la identidad del Watch"
             case .forwardLockdown: return "Abrir el enlace al Watch"
             case .connectLockdown: return "Conectar con el servicio del Watch"
             case .pairWatch: return "Emparejar con el Watch"
@@ -222,7 +222,7 @@ struct WatchBetaInstallFailure: Error {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 5
-    var beta = "0.7.1-build718"
+    var beta = "0.7.1-build719"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?

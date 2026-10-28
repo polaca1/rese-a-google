@@ -470,7 +470,8 @@ final class WatchPackageCoordinator: ObservableObject {
             }
             for directory in directories() {
                 guard var job = read(directory) else { continue }
-                if userInitiated && job.hostBundle != Bundle.main.bundleIdentifier { continue }
+                if userInitiated && (job.hostBundle != Bundle.main.bundleIdentifier
+                    || job.hostBuild != Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) { continue }
                 // A SideStore self-update may have killed the old process before hostInstalled.
                 if !job.ready, job.hostBundle == Bundle.main.bundleIdentifier,
                    job.hostVersion == Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,

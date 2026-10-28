@@ -86,3 +86,16 @@ pub(crate) fn generate(device_public_key: &[u8]) -> Result<WatchPairingCertifica
         host_private_key: host.to_pkcs8_pem(LineEnding::LF)?.as_bytes().to_vec(),
     })
 }
+
+pub(crate) fn new_host_identity() -> (String, String) {
+    use rsa::rand_core::RngCore;
+    fn uuid() -> String {
+        let mut bytes = [0u8;16];
+        rsa::rand_core::OsRng.fill_bytes(&mut bytes);
+        bytes[6]=(bytes[6]&0x0F)|0x40;
+        bytes[8]=(bytes[8]&0x3F)|0x80;
+        let value: String = bytes.iter().map(|b| format!("{b:02X}")).collect();
+        format!("{}-{}-{}-{}-{}", &value[..8], &value[8..12], &value[12..16], &value[16..20], &value[20..])
+    }
+    (uuid(), uuid())
+}

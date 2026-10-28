@@ -1,3 +1,4 @@
+mod wire { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/watch_pair_wire.rs")); }
 mod production { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/watch_pairing.rs")); }
 use rsa::{
     RsaPrivateKey, RsaPublicKey, pkcs1::EncodeRsaPublicKey,
@@ -7,10 +8,42 @@ use rsa::{
 use sha2::Sha256;
 use x509_cert::{Certificate, der::{Decode, DecodePem, Encode}, ext::pkix::{BasicConstraints, KeyUsage, KeyUsages}};
 fn main() {
+    let (host, buid) = production::new_host_identity();
+    assert!(wire::valid_identity(&host) && wire::valid_identity(&buid));
+    assert_ne!(host, buid);
+    assert_eq!(host.as_bytes()[14], b'4');
+    assert!([b'8',b'9',b'A',b'B'].contains(&host.as_bytes()[19]));
+    assert_eq!(wire::decode_identity(&format!("{host}\n{buid}\n")), Some((host.clone(),buid.clone())));
+    assert!(wire::decode_identity(&format!("{host}\n{host}\n")).is_none());
+    assert!(wire::decode_identity("PRIVATE\nDATA").is_none());
     let device = RsaPrivateKey::new(&mut rsa::rand_core::OsRng, 2048).unwrap();
     let device_public = RsaPublicKey::from(&device);
     let pem = device_public.to_pkcs1_pem(LineEnding::LF).unwrap();
     let chain = production::generate(pem.as_bytes()).unwrap();
+    let mut record = plist::Dictionary::new();
+    record.insert("HostID".into(), plist::Value::String(host));
+    record.insert("SystemBUID".into(), plist::Value::String(buid));
+    record.insert("RootCertificate".into(), plist::Value::Data(chain.root_certificate.clone()));
+    record.insert("HostCertificate".into(), plist::Value::Data(chain.host_certificate.clone()));
+    record.insert("DeviceCertificate".into(), plist::Value::Data(chain.device_certificate.clone()));
+    record.insert("RootPrivateKey".into(), plist::Value::Data(chain.root_private_key.clone()));
+    record.insert("HostPrivateKey".into(), plist::Value::Data(chain.host_private_key.clone()));
+    record.insert("UDID".into(), plist::Value::String("PRIVATE-TEST-DEVICE".into()));
+    let request = wire::request(&record, "SideStore Watch").unwrap();
+    let mut xml = Vec::new(); request.to_writer_xml(&mut xml).unwrap();
+    let decoded: plist::Value = plist::from_bytes(&xml).unwrap();
+    let public = decoded.as_dictionary().unwrap()["PairRecord"].as_dictionary().unwrap();
+    assert_eq!(public.len(),5);
+    for key in ["RootCertificate","HostCertificate","DeviceCertificate"] { assert_eq!(public[key].as_data(),record[key].as_data()); }
+    assert!(!public.contains_key("RootPrivateKey") && !public.contains_key("HostPrivateKey") && !public.contains_key("UDID"));
+    assert!(!String::from_utf8(xml).unwrap().contains("PRIVATE-TEST-DEVICE"));
+    // Replaying a persisted candidate preserves the exact trusted certificate bytes.
+    let mut saved = Vec::new(); plist::Value::Dictionary(record.clone()).to_writer_xml(&mut saved).unwrap();
+    let restored: plist::Dictionary = plist::from_bytes(&saved).unwrap();
+    assert_eq!(wire::request(&restored,"SideStore Watch").unwrap(),request);
+    let mut malformed = record.clone();
+    malformed.insert("DeviceCertificate".into(),plist::Value::Array(vec![]));
+    assert!(wire::request(&malformed,"SideStore Watch").is_err());
     let root = Certificate::from_pem(&chain.root_certificate).unwrap();
     let host = Certificate::from_pem(&chain.host_certificate).unwrap();
     let watch = Certificate::from_pem(&chain.device_certificate).unwrap();

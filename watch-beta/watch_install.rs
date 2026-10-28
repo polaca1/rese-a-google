@@ -1,3 +1,5 @@
+#[path = "watch_pair_wire.rs"]
+mod watch_pair_wire;
 use idevice::{
     Idevice, IdeviceService, IdeviceError, RsdService,
     pairing_file::PairingFile,
@@ -161,7 +163,10 @@ async fn install_watch_apps(
     }
 
     stage.store(10, Ordering::Relaxed);
-    let (host_id, system_buid) = device_provider.pairing_identity().await?;
+    let (host_id, system_buid) = match device_provider {
+        PhoneTransport::Remote { .. } => watch_host_identity(cache, expected_watch)?,
+        _ => device_provider.pairing_identity().await?,
+    };
 
     stage.store(11, Ordering::Relaxed);
     let forwarded_lockdown_port = {
@@ -212,7 +217,7 @@ async fn install_watch_apps(
         let (watch_pairing, legacy) = if let Some(pairing) = paired { pairing } else {
             stage.store(13, Ordering::Relaxed);
             let record = pair_watch_preserving_identity(device_provider, &mut watch_lockdown,
-                forwarded_lockdown_port, expected_watch, &host_id, &system_buid, host_name, stage).await?;
+                forwarded_lockdown_port, expected_watch, &host_id, &system_buid, host_name, cache, stage).await?;
             // Store accepted Watch credentials only in the protected app-private directory.
             // The pairing record is never a report, log or build artifact.
             let _ = save_watch_pairing(&cache_file, &record);
@@ -315,15 +320,24 @@ async fn reconnect_watch(transport: &mut PhoneTransport<'_>, port: u16, expected
 
 async fn pair_watch_preserving_identity(
     transport: &mut PhoneTransport<'_>, client: &mut LockdownClient, port: u16,
-    expected: &str, host: &str, buid: &str, name: &str, stage: &AtomicI32,
+    expected: &str, host: &str, buid: &str, name: &str, cache: &Path, stage: &AtomicI32,
 ) -> Result<PairingFile, Report> {
     // Build ONCE. Recreating certificates after a trust-induced disconnect loses the
     // identity the user accepted. Keep the exact request and private key across retries.
     stage.store(45, Ordering::Relaxed);
-    let (request, mut record, private_key) = client.watch_beta_build_pair_request(host, buid, Some(name)).await?;
-    record.insert("HostPrivateKey".into(), Value::Data(private_key));
-    record.insert("UDID".into(), Value::String(expected.to_owned()));
-    let mut pairing = PairingFile::from_value(&Value::Dictionary(record))?;
+    let pending = cache.join(format!("{expected}.pending.plist"));
+    let mut pairing = if let Some(record) = read_watch_pairing(&pending, expected, host) { record } else {
+        let (_, mut record, private_key) = client.watch_beta_build_pair_request(host, buid, Some(name)).await?;
+        record.insert("HostPrivateKey".into(), Value::Data(private_key));
+        record.insert("UDID".into(), Value::String(expected.to_owned()));
+        let pairing = PairingFile::from_value(&Value::Dictionary(record))?;
+        // Persist BEFORE the trust request, not only after success. A relaunch must
+        // present the same certificates and identity that the user already accepted.
+        save_watch_pairing(&pending, &pairing)?;
+        pairing
+    };
+    let record: Dictionary = plist::from_bytes(&pairing.clone().serialize()?)?;
+    let request = watch_pair_wire::request(&record, name)?;
     let mut retries = 0;
     loop {
         stage.store(13, Ordering::Relaxed);
@@ -348,6 +362,28 @@ async fn pair_watch_preserving_identity(
             }
         }
     }
+}
+
+fn watch_host_identity(cache: &Path, expected: &str) -> Result<(String,String), Report> {
+    let path = cache.join(format!("{expected}.identity"));
+    if let Ok(metadata) = std::fs::symlink_metadata(&path) {
+        if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len()>128 {
+            bail!("Invalid Watch identity cache");
+        }
+        let text = std::fs::read_to_string(&path)?;
+        return watch_pair_wire::decode_identity(&text).ok_or_else(|| "Invalid Watch identity cache".into());
+    }
+    // A Watch Lockdown host identity is independent of the iPhone's RP identity.
+    let identity = LockdownClient::watch_beta_new_host_identity();
+    if !watch_pair_wire::valid_identity(&identity.0) || !watch_pair_wire::valid_identity(&identity.1) || identity.0==identity.1 {
+        bail!("Invalid generated Watch identity");
+    }
+    let temporary = path.with_extension("identity-new");
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&temporary)?;
+    file.write_all(format!("{}\n{}\n", identity.0, identity.1).as_bytes())?;
+    file.sync_all()?;
+    std::fs::rename(&temporary, &path)?;
+    Ok(identity)
 }
 
 fn read_watch_pairing(path: &Path, expected: &str, host: &str) -> Option<PairingFile> {
