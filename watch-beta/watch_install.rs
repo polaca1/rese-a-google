@@ -1,5 +1,5 @@
 use idevice::{
-    Idevice, IdeviceService,
+    Idevice, IdeviceService, IdeviceError, RsdService,
     pairing_file::PairingFile,
     provider::IdeviceProvider,
     services::{
@@ -19,7 +19,8 @@ macro_rules! quiet_log { ($($arg:tt)*) => {}; }
 // Adapted from Rzbck/isideload (f7b9f3d), MIT; see THIRD-PARTY-NOTICES.txt.
 // This personal variant is distributed under the SideStore AGPL-3.0 terms.
 // SideStore personal beta: no deletion of existing apps, exact single-Watch selection.
-use crate::{provider::IdeviceProviderHandle, run_sync_local};
+use crate::{provider::IdeviceProviderHandle, core_device_proxy::AdapterHandle,
+    rsd::RsdHandshakeHandle, rp_pairing_file::RpPairingFileHandle, run_sync_local};
 use std::ffi::{CStr, c_char};
 type Report = Box<dyn std::error::Error>;
 trait Context<T> { fn context(self, message: &str) -> Result<T, Report>; }
@@ -40,18 +41,84 @@ pub unsafe extern "C" fn sidestore_watch_install(provider: *mut IdeviceProviderH
     let Ok(path) = (unsafe { CStr::from_ptr(path) }).to_str() else { return 1; };
     let provider = unsafe { &*(*provider).0 };
     run_sync_local(async {
-        let Ok(mut proxy) = CompanionProxy::connect(provider).await else { return 2; };
-        let Ok(watches) = proxy.get_device_registry().await else { return 2; };
-        // Forwarding has no target UDID parameter: never guess which of multiple watches.
-        if watches.len() != 1 || watches[0] != expected { return 3; }
-        drop(proxy);
-        let app = Bundle { bundle_dir: PathBuf::from(path) };
-        let stage = AtomicI32::new(4);
-        match install_watch_apps(provider, &[app], "SideStore Watch Beta", expected, &stage, |_| {}).await {
-            Ok(()) => 0,
-            Err(_) => stage.load(Ordering::Relaxed),
-        }
+        let mut transport = PhoneTransport::Tcp(provider);
+        install_with_transport(&mut transport, expected, PathBuf::from(path)).await
     })
+}
+
+/// Borrow the already-authenticated RP tunnel for this synchronous call only.
+/// No handles are consumed, retained or freed; IdeviceGateway remains their owner.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sidestore_watch_install_rsd(
+    adapter: *mut AdapterHandle,
+    handshake: *mut RsdHandshakeHandle,
+    pairing: *const RpPairingFileHandle,
+    expected_watch: *const c_char,
+    path: *const c_char,
+) -> i32 {
+    if adapter.is_null() || handshake.is_null() || pairing.is_null() || expected_watch.is_null() || path.is_null() { return 1; }
+    let Ok(expected) = (unsafe { CStr::from_ptr(expected_watch) }).to_str() else { return 1; };
+    let Ok(path) = (unsafe { CStr::from_ptr(path) }).to_str() else { return 1; };
+    // RP supplies a persistent host identifier, not a fabricated TCP pairing record.
+    // Watch Lockdown creates its own real pair record through Pair and StartSession.
+    let host_id = unsafe { &(*pairing).0.identifier };
+    if !valid_remote_host_id(host_id) { return 10; }
+    let adapter = unsafe { &mut (*adapter).0 };
+    let handshake = unsafe { &mut (*handshake).0 };
+    run_sync_local(async {
+        let mut transport = PhoneTransport::Remote { adapter, handshake, host_id: host_id.clone() };
+        install_with_transport(&mut transport, expected, PathBuf::from(path)).await
+    })
+}
+
+fn valid_remote_host_id(value: &str) -> bool {
+    !value.is_empty() && value.len() <= 128 && value.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+}
+
+enum PhoneTransport<'a> {
+    Tcp(&'a dyn IdeviceProvider),
+    Remote {
+        adapter: &'a mut idevice::tcp::handle::AdapterHandle,
+        handshake: &'a mut idevice::rsd::RsdHandshake,
+        host_id: String,
+    },
+}
+impl PhoneTransport<'_> {
+    async fn companion(&mut self) -> Result<CompanionProxy, IdeviceError> {
+        match self {
+            Self::Tcp(provider) => CompanionProxy::connect(*provider).await,
+            Self::Remote { adapter, handshake, .. } =>
+                CompanionProxy::connect_rsd(&mut **adapter, &mut **handshake).await,
+        }
+    }
+    async fn connect(&mut self, port: u16) -> Result<Idevice, IdeviceError> {
+        match self {
+            Self::Tcp(provider) => provider.connect(port).await,
+            // Forwarded Watch ports carry the raw Watch protocol, not an RSD shim.
+            Self::Remote { adapter, .. } => Ok(Idevice::new(Box::new(adapter.connect(port).await?), "SideStore Watch Beta")),
+        }
+    }
+    async fn pairing_identity(&self) -> Result<(String, String), IdeviceError> {
+        match self {
+            Self::Tcp(provider) => {
+                let pairing = provider.get_pairing_file().await?;
+                Ok((pairing.host_id, pairing.system_buid))
+            }
+            Self::Remote { host_id, .. } => Ok((host_id.clone(), host_id.clone())),
+        }
+    }
+}
+async fn install_with_transport(transport: &mut PhoneTransport<'_>, expected: &str, path: PathBuf) -> i32 {
+    let Ok(mut proxy) = transport.companion().await else { return 2; };
+    let Ok(watches) = proxy.get_device_registry().await else { return 2; };
+    if watches.len() != 1 || watches[0] != expected { return 3; }
+    drop(proxy);
+    let stage = AtomicI32::new(4);
+    let app = Bundle { bundle_dir: path };
+    match install_watch_apps(transport, &[app], "SideStore Watch Beta", expected, &stage, |_| {}).await {
+        Ok(()) => 0,
+        Err(_) => stage.load(Ordering::Relaxed),
+    }
 }
 
 
@@ -74,7 +141,7 @@ const ZIP_EXTRA: &[u8] = &[
 /// watchOS exposes `streaming_zip_conduit`, which accepts the signed Watch `.app` directly
 /// and finalizes it as an installed application. Existing applications are never removed first.
 async fn install_watch_apps(
-    device_provider: &dyn IdeviceProvider,
+    device_provider: &mut PhoneTransport<'_>,
     watch_apps: &[Bundle],
     host_name: &str,
     expected_watch: &str,
@@ -86,14 +153,11 @@ async fn install_watch_apps(
     }
 
     stage.store(10, Ordering::Relaxed);
-    let iphone_pairing = device_provider
-        .get_pairing_file()
-        .await
-        ?;
+    let (host_id, system_buid) = device_provider.pairing_identity().await?;
 
     stage.store(11, Ordering::Relaxed);
     let forwarded_lockdown_port = {
-        let mut companion_proxy = CompanionProxy::connect(device_provider)
+        let mut companion_proxy = device_provider.companion()
             .await
             
             .context("Failed to connect to fresh Apple Watch companion proxy for lockdown forwarding")?;
@@ -122,8 +186,8 @@ async fn install_watch_apps(
         stage.store(13, Ordering::Relaxed);
         let watch_pairing = watch_lockdown
             .pair(
-                iphone_pairing.host_id.clone(),
-                iphone_pairing.system_buid.clone(),
+                host_id,
+                system_buid,
                 Some(host_name),
             )
             .await
@@ -140,7 +204,7 @@ async fn install_watch_apps(
         stage.store(15, Ordering::Relaxed);
         let actual = watch_lockdown.get_value(Some("UniqueDeviceID"), None).await?;
         // The registry can change during forwarding; verify the endpoint itself.
-        let mut proxy = CompanionProxy::connect(device_provider).await?;
+        let mut proxy = device_provider.companion().await?;
         let current = proxy.get_device_registry().await?;
         if current.len() != 1 || current[0] != expected_watch || actual.as_string() != Some(expected_watch) {
             stage.store(26, Ordering::Relaxed);
@@ -163,7 +227,7 @@ async fn install_watch_apps(
         Ok(())
     }).await.map_err(|_| { stage.store(30, Ordering::Relaxed); Into::<Report>::into("Watch operation timed out") }).and_then(|result| result);
 
-    match CompanionProxy::connect(device_provider).await {
+    match device_provider.companion().await {
         Ok(mut companion_proxy) => {
             if let Err(e) = companion_proxy
                 .stop_forwarding_service_port(WATCH_LOCKDOWN_PORT)
@@ -181,7 +245,7 @@ async fn install_watch_apps(
 }
 
 async fn connect_forwarded_watch_port(
-    device_provider: &dyn IdeviceProvider,
+    device_provider: &mut PhoneTransport<'_>,
     forwarded_port: u16,
     service: &str,
 ) -> Result<Idevice, Report> {
@@ -225,7 +289,7 @@ async fn connect_forwarded_watch_port(
     unreachable!("bounded forwarded-port retry loop must return")
 }
 async fn install_watch_app_zip_conduit(
-    device_provider: &dyn IdeviceProvider,
+    device_provider: &mut PhoneTransport<'_>,
     watch_lockdown: &mut LockdownClient,
     watch_pairing: &PairingFile,
     legacy: bool,
@@ -242,7 +306,7 @@ async fn install_watch_app_zip_conduit(
 
     stage.store(17, Ordering::Relaxed);
     let forwarded_port = {
-        let mut companion_proxy = CompanionProxy::connect(device_provider)
+        let mut companion_proxy = device_provider.companion()
             .await
             
             .context("Failed to connect to fresh Apple Watch companion proxy for streaming_zip_conduit forwarding")?;
@@ -279,7 +343,7 @@ async fn install_watch_app_zip_conduit(
         stream_watch_app(&mut connection, watch_app, stage, progress_callback).await
     }).await.map_err(|_| { stage.store(31, Ordering::Relaxed); Into::<Report>::into("Watch transfer timed out") }).and_then(|result| result);
 
-    match CompanionProxy::connect(device_provider).await {
+    match device_provider.companion().await {
         Ok(mut companion_proxy) => {
             if let Err(e) = companion_proxy.stop_forwarding_service_port(remote_port).await {
                 quiet_log!("Failed to stop Apple Watch streaming_zip_conduit forwarding: {e}");

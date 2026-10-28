@@ -16,7 +16,7 @@ struct WatchBetaView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.1 (714)")
+                Text("Beta personal · 0.7.1 (715)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)
@@ -87,7 +87,7 @@ struct WatchBetaView: View {
             } header: {
                 Text("Instalar en el Watch")
             } footer: {
-                Text("Un único Watch enlazado, desbloqueado y cerca. Requiere emparejamiento TCP. El IPA debe contener una sola app watchOS sin extensiones y usar un App ID ya registrado en tu cuenta. No crea IDs ni elimina apps antes de actualizar.")
+                Text("Un único Watch enlazado, desbloqueado y cerca. Admite emparejamiento TCP y remoto. El IPA debe contener una sola app watchOS sin extensiones y usar un App ID ya registrado en tu cuenta. No crea IDs ni elimina apps antes de actualizar.")
             }
             Section {
                 SwiftUI.Button {

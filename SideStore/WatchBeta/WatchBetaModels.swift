@@ -138,7 +138,7 @@ struct WatchBetaInstallationDiagnostic: Codable, Equatable {
     let code: Int?
     var message: String {
         if kind == .certificateMismatch { return "El certificado activo no está incluido en el perfil. No se ha enviado la app ni modificado certificados." }
-        if kind == .unsupportedPairing { return "La instalación del Watch necesita emparejamiento TCP; el emparejamiento remoto no está implementado." }
+        if kind == .unsupportedPairing { return "El emparejamiento seleccionado no está disponible en este transporte." }
         var result = operation.title
         if let code { result += " · Código: \(code)" }
         if kind == .timeout { result += " · Tiempo de espera agotado." }
@@ -201,7 +201,7 @@ struct WatchBetaInstallFailure: Error {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 5
-    var beta = "0.7.1-build714"
+    var beta = "0.7.1-build715"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?

@@ -25,7 +25,7 @@ date=datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','
 description=("Beta experimental: detecta las apps de Watch/ incluidas en un IPA de iPhone, solicita sus perfiles existentes y conserva una cola de instalación. "
 "Contiene un componente nativo para watchOS 10 que se intenta instalar al abrir SideStore. "
 "Ese componente verifica apertura y acceso local: todavía NO es una tienda autónoma ni ejecuta la firma dentro del Watch. "
-"Requiere cuenta Apple, certificado activo, App IDs ya registrados, perfiles válidos, un único Watch y emparejamiento TCP. No crea App IDs de Watch. "
+"Requiere cuenta Apple, certificado activo, App IDs ya registrados, perfiles válidos, un único Watch y emparejamiento TCP o remoto. No crea App IDs de Watch. "
 "Actualizaciones de esta beta desde la fuente al abrir la app cuando la conexión y la firma lo permitan. iOS no garantiza ejecución en segundo plano. "
 "Actualiza sin borrar SideStore y con la misma cuenta Apple. La instalación física con cuenta gratuita sigue pendiente de prueba.")
 release={'version':version,'buildVersion':build,'date':date,'localizedDescription':description,'downloadURL':url,'size':len(data),'sha256':manifest['sha256'],'minOSVersion':info['MinimumOSVersion']}

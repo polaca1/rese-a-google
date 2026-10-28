@@ -44,26 +44,31 @@ diff --git a/DeviceGateway/idevice/IdeviceGateway.swift b/DeviceGateway/idevice/
 index e9310d0..44e37cf 100644
 --- a/DeviceGateway/idevice/IdeviceGateway.swift
 +++ b/DeviceGateway/idevice/IdeviceGateway.swift
-@@ -2299,6 +2299,68 @@ extension IdeviceGateway {
+@@ -2299,6 +2299,73 @@ extension IdeviceGateway {
          }
      }
  
 +    public func installWatchBundle(at url: URL, watchIdentifier: String) async throws {
 +        try await withFFIDispatch {
 +            try self.verifyInitialized()
-+            guard self.pairingFileType != .rppairing else {
-+                throw IdeviceGatewayError(.unsupportedOperation, reason: "Watch installer currently requires a TCP pairing file")
-+            }
 +            var result: Int32 = -1
-+            try self.performWithTcpService(connect: { provider, output in
-+                result = sidestore_watch_install(provider, watchIdentifier, url.path)
-+                // Borrow provider as the service token; its existing defer owns cleanup.
-+                output?.pointee = provider
-+                return nil
-+            }, cleanup: { _ in }, serviceName: "Watch installation") { _ in
-+                guard result == 0 else {
-+                    throw IdeviceGatewayError(.serviceError, reason: "Watch installation failed (stage code \(result)); no existing app was removed")
++            if self.pairingFileType == .rppairing {
++                // Reuse the authenticated remote tunnel; do not reinterpret RP keys as a TCP record.
++                try self.ensureRPConnection()
++                guard let adapter = self.adapter, let handshake = self.handshake, let pairing = self.pairingFile else {
++                    throw IdeviceGatewayError(.notInitialized)
 +                }
++                result = sidestore_watch_install_rsd(adapter, handshake, pairing, watchIdentifier, url.path)
++            } else {
++                try self.performWithTcpService(connect: { provider, output in
++                    result = sidestore_watch_install(provider, watchIdentifier, url.path)
++                    // Borrow provider as the service token; its existing defer owns cleanup.
++                    output?.pointee = provider
++                    return nil
++                }, cleanup: { _ in }, serviceName: "Watch installation") { _ in }
++            }
++            guard result == 0 else {
++                throw IdeviceGatewayError(.serviceError, reason: "Watch installation failed (stage code \(result)); no existing app was removed")
 +            }
 +        }
 +    }
