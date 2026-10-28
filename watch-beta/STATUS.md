@@ -23,3 +23,12 @@ Pendiente prueba física: actualizar sin borrar, botón Instalar SideStore en el
 Usuario informa 717, perfil/certificado válidos, pairWatch/código51: InvalidPairRecord. Se identifica un defecto comprobable en idevice v0.1.68-ss-3e55c84/ca.rs: genera certificados con Profile::Root para dispositivo y anfitrión; el dispositivo tiene issuer CN=Device aunque firma la clave raíz con subject vacío. Se crea generador específico Watch con raíz y dos hojas consistentes, sin tocar el generador del iPhone. Referencia de convenciones: libimobiledevice src/userpref.c y pymobiledevice3/ca.py. El defecto existe; aún no se ha demostrado que sea el único motivo del rechazo físico.
 
 Se añaden pruebas criptográficas de firmas, claves, extensiones y casos negativos usando el mismo código de producción. La compilación y publicación 718 están pendientes. Instalar solo sobre SideStore sin borrar; no hay autonomía Watch ni instalación/renovación físicas verificadas.
+
+
+## 718 publicada y verificada
+
+Código compilado: fdaa53a6bb9509e5311b21ea787890305b63b2f6. Actions 40747321118, trabajo 123024448312: success. Pruebas criptográficas del generador real (firmas, claves, restricciones de CA y hojas, claves inválidas y firma alterada/incorrecta), 98 pruebas Swift y compilaciones reales iPhone/watchOS aprobadas. Las pruebas usan el Cargo.lock de producción; la primera ejecución falló únicamente al resolver una dependencia y se corrigió compartiendo ese lock.
+
+IPA: https://github.com/polaca1/rese-a-google/releases/download/sidestore-watch-beta-0.7.1-build718/SideStore-Watch-Beta-0.7.1-build718.ipa. Tamaño: 32340995; SHA256: 98056a0e33c20387d7dd53c77148e0b589b673294d8703dbfb611fabbf30f8d4. Publicador verificó descarga pública y ambas fuentes. Próxima build 719 o posterior.
+
+Pendiente: actualizar sin borrar, pulsar Instalar SideStore en el Watch con el reloj desbloqueado/cerca, aceptar Confiar si aparece. Se ha corregido un defecto real de la cadena; solo el nuevo intento físico dirá si resuelve InvalidPairRecord. Instalar, abrir y renovar en el Watch no están verificados; tampoco hay tienda autónoma. Respetar petición de economizar créditos y mantener cambios acotados.
