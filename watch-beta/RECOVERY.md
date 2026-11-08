@@ -16,3 +16,8 @@ This branch runs native protocol/crypto tests and iPhone/watchOS compilation onl
 Code: 84a38534ff8bf875062d4f4583a4853a9b9fe7e3. Actions https://github.com/polaca1/rese-a-google/actions/runs/40752322947, job 123042008013: success. Actual native iPhone FFI built and linked; actual Watch certificate generator, UUID identities, explicit request field types, secret exclusion and persisted request replay tested; 98 Swift model checks; watchOS 10 arm64_32 and full iPhone archive compiled successfully. There is no packaged/distributed iPhone IPA from this workflow. Neither feed is changed. These checks do not prove physical Watch pairing, app installation, opening or renewal. The current actual user report remains build718/InvalidPairRecord51. No access to the user's physical Watch exists from this session.
 
 Pending optional user clarification: with 718 does the Watch display Trust again or fail before displaying it? User has not answered. A Watch restart was suggested based on the documented desktop case; no physical result has been reported. Do not turn this suggestion into a confirmed fix.
+
+
+## Packaging requested, 2026-11-08
+
+The user renewed the request for a direct IPA of the correction. Package existing candidate build719 as a personal prerelease, with explicit unverified physical installation/renewal and no autonomous Watch engine claims. Preserve the 718 automatic feeds until a physical result exists. No additional protocol hypothesis is introduced by this packaging change.

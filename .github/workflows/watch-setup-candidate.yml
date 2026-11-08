@@ -1,10 +1,10 @@
-name: Watch setup candidate - checks only
+name: Watch recovery 719 - build and package
 on:
   push:
     branches: [work/watch-pairing-recovery]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: watch-pairing-recovery
   cancel-in-progress: true
@@ -57,13 +57,27 @@ jobs:
       - name: Build iPhone beta
         run: |
           xcodebuild archive -project AltStore.xcodeproj -scheme 'SideStore - Release' -configuration Release -destination 'generic/platform=iOS' -archivePath build/WatchBeta -derivedDataPath build/DerivedData -clonedSourcePackagesDirPath .spm CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM=XYZ0123456 > build/watch-beta/build.log 2>&1 || { tail -n 100 build/watch-beta/build.log; exit 1; }
+          python3 watch-beta/package.py build/WatchBeta.xcarchive/Products/Applications/SideStore.app build/watch-beta
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Watch-Setup-Check-Logs
+          name: SideStore-Watch-Recovery-719
           path: |
+            build/watch-beta/*.ipa
             build/watch-beta/*.json
             build/watch-beta/SHA256SUMS
             build/watch-beta/*.log
             build-ffi.log
             build/watch-ffi/PROVENANCE.json
+      - name: Publish recovery candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git archive --format=zip --output=build/watch-beta/SideStore-Watch-Beta-Source.zip HEAD
+          gh release create sidestore-watch-beta-0.7.1-build719 build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch 0.7.1 (719) — recuperación del emparejamiento' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"
+      - name: Verify the public IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 watch-beta/verify-recovery-release.py
+          gh release upload sidestore-watch-beta-0.7.1-build719 build/watch-beta/PUBLIC-RECOVERY-VERIFICATION.json

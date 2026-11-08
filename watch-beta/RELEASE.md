@@ -1,11 +1,11 @@
-Beta personal 0.7.1 (718).
+Versión personal de recuperación 0.7.1 (719).
 
-El Watch del usuario rechazó el registro Lockdown de 717 con InvalidPairRecord (código 51); el perfil de firma y el certificado activo son válidos.
+Incluye la corrección preparada tras el rechazo InvalidPairRecord de 718. Usa identidades HostID y SystemBUID propias y persistentes para el Watch, conserva las claves antes de solicitar confianza y reutiliza exactamente el registro tras una interrupción o un nuevo intento. No cambia el emparejamiento del iPhone ni crea App IDs.
 
-Se añade una cadena de certificados dedicada al Watch: raíz autofirmada y certificados de anfitrión y dispositivo firmados por esa raíz; las hojas no son CA. Claves de raíz y anfitrión separadas, nombres vacíos coherentes, extensiones BasicConstraints/KeyUsage/SKI y vigencia según las convenciones de libimobiledevice/pymobiledevice3. El generador anterior usaba Profile::Root para todas las piezas e identificaba el emisor del dispositivo de forma incoherente. Se elimina ese defecto para los nuevos intentos del Watch; no se cambia el emparejamiento del iPhone ni los certificados de firma de apps.
+La pantalla principal tiene un solo botón: Instalar SideStore en el Watch. Resuelve el reloj, el ID secundario existente de SideStore, el perfil y el paquete incluido sin introducir IP, escoger App ID ni importar un IPA. La confirmación Confiar de watchOS, si aparece, requiere al usuario.
 
-Las pruebas verifican las firmas X.509 reales, la vinculación con las claves, las restricciones CA/hojas y los rechazos de certificados modificados, firmante incorrecto y claves inválidas. Se ejecuta el generador real de producción.
+El código había pasado 98 pruebas, comprobaciones criptográficas y de intercambio y compilación real de iPhone y watchOS 10. Esta publicación empaqueta esa corrección, que no estaba en el IPA 718. La compilación no demuestra instalación física en el reloj del usuario; sigue pendiente verificar que resuelve su rechazo. No se presenta como versión definitiva ni como instalación físicamente verificada.
 
-Se conservan la protección local de claves, reintentos limitados, diagnóstico, botón sin IP/IPA y App IDs existentes. No se revocan certificados ni se crean IDs.
+Se conserva el SideStore completo de iPhone. El componente del Watch incluido sigue siendo una prueba nativa de apertura y servicio local, no una tienda autónoma ni un motor de firma en watchOS. La renovación física tampoco está verificada.
 
-Pendiente la instalación física y renovación en el reloj del usuario. El componente nativo del Watch sigue siendo una prueba, no una tienda autónoma.
+Actualizar sobre SideStore sin borrar y con la misma cuenta Apple. Mantener el Watch desbloqueado y cerca; abrir Apple Watch y pulsar Instalar SideStore en el Watch. Las fuentes automáticas no se actualizan con este candidato antes de validar el resultado físico.
