@@ -1,3 +1,7 @@
+# Current branch: own-identity variant 720
+
+See [OWN-IDENTITY.md](OWN-IDENTITY.md) for the current separately installed app, its dedicated automatic Watch ID and verified public package. The following records the older legacy-identity build719.
+
 # Watch recovery — build 719 delivered
 
 Personal prerelease: https://github.com/polaca1/rese-a-google/releases/tag/sidestore-watch-beta-0.7.1-build719
