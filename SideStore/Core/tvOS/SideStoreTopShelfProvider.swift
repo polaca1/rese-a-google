@@ -34,7 +34,7 @@ public final class SideStoreTopShelfProvider: TVTopShelfContentProvider {
                 }
             }
 
-            if let openURL = URL(string: "sidestore://apps/\(app.bundleIdentifier)") {
+            if let openURL = URL(string: "sidestorewatch://apps/\(app.bundleIdentifier)") {
                 item.displayAction = TVTopShelfAction(url: openURL)
             }
 

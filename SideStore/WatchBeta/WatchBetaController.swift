@@ -7,6 +7,21 @@ import Minimuxer
 import SideSign
 import SemanticVersion
 
+private enum WatchOwnIdentityFailure: LocalizedError {
+    case invalidParent, noCertificate, quota, registration, mismatchedAccount, connectionSetup, noWatch
+    var errorDescription: String? {
+        switch self {
+        case .connectionSetup: return "Completa una vez el emparejamiento del iPhone en los ajustes de esta nueva app. Después el reloj se prepara con este botón."
+        case .noWatch: return "Mantén un único Watch enlazado, desbloqueado y cerca del iPhone."
+        case .invalidParent: return "Esta instalación no tiene la identidad propia de SideStore Watch."
+        case .noCertificate: return "No hay una clave de firma disponible. Inicia sesión y refresca esta variante con tu cuenta Apple."
+        case .quota: return "Apple ha alcanzado el límite de App IDs de esta cuenta. Debe caducar uno para poder preparar el reloj."
+        case .registration: return "Apple no ha permitido preparar el identificador del Watch. Vuelve a intentarlo con conexión a internet."
+        case .mismatchedAccount: return "Inicia sesión con la misma cuenta Apple que firmó esta app."
+        }
+    }
+}
+
 @MainActor
 final class WatchBetaController: ObservableObject {
     @Published private(set) var report = WatchBetaReport()
@@ -463,6 +478,10 @@ final class WatchPackageCoordinator: ObservableObject {
                     message = WatchBetaProfileDiagnostic(operation: operation, kind: kind, code: error.code).message
                 }
             }
+            catch let error as WatchOwnIdentityFailure {
+                message = error.localizedDescription
+                return
+            }
             catch {
                 let diagnostic = watchBetaInstallDiagnostic(error, operation: .profile)
                 installationDiagnostic = diagnostic
@@ -612,14 +631,49 @@ extension WatchPackageCoordinator {
         message = "Preparando SideStore para el Watch…"
         let team = try await AuthManager.shared.getAuthenticatedTeam()
         let session = try await AuthManager.shared.getAuthenticatedSession()
+        guard let identifier = WatchBetaValidation.ownWatchBundle(phoneBundle: ownID) else {
+            throw WatchOwnIdentityFailure.invalidParent
+        }
+        // Recover only our own installer-embedded signing key; never revoke another certificate.
+        let manager = CertificateManager.shared
+        if manager.activeCertificate == nil { _ = try? manager.loadActiveCertificate() }
+        if manager.activeCertificate == nil,
+           let serial = Bundle.main.object(forInfoDictionaryKey: Bundle.Info.certificateID) as? String,
+           !serial.isEmpty,
+           let embedded = manager.getSignableCertificate(for: serial),
+           embedded.serialNumber.lowercased() == serial.lowercased() {
+            try manager.setActiveCertificate(embedded)
+        }
+        guard let certificate = manager.activeCertificate else { throw WatchOwnIdentityFailure.noCertificate }
+        if let hostProfile = try? ALTProvisioningProfile(data: Data(contentsOf: Bundle.main.provisioningProfileURL)),
+           hostProfile.teamIdentifier != team.identifier { throw WatchOwnIdentityFailure.mismatchedAccount }
         let apps = try await ALTAppleAPI.shared.fetchAppIDs(for: team, session: session)
-        // The selected ID in the manual importer may belong to reviewNfcGo.
-        // SideStore's own Watch companion must use a separate existing child ID.
-        let identifier = WatchBetaValidation.bootstrapPortalID(available: apps.map(\.bundleIdentifier), phoneBundle: ownID)
-        guard let identifier,
-              let certificate = CertificateManager.shared.activeCertificate else {
-            message = "SideStore Watch necesita un ID secundario existente de este SideStore y un certificado activo. No se creará ninguno."
-            return
+        if !apps.contains(where: { $0.bundleIdentifier == identifier }) {
+            // Avoid consuming the dedicated ID before this new app can reach its Watch.
+            guard PairingFileManager.shared.hasPairingFile() else { throw WatchOwnIdentityFailure.connectionSetup }
+            message = "Buscando el Watch enlazado…"
+            let watches = try await WatchBetaLocalSession.run(
+                turnOff: { _ = await CellularRefreshManager.shared.turnOffDataIfNeeded() },
+                turnOn: { _ = await CellularRefreshManager.shared.turnOnDataIfNeeded(addOnDelay: 2) },
+                operation: {
+                    try await ensureMinimuxerReady()
+                    return try await minimuxer.core.fetchPairedWatchIdentifiers()
+                })
+            guard watches.count == 1 else { throw WatchOwnIdentityFailure.noWatch }
+            message = "Preparando el permiso de instalación del Watch…"
+            do {
+                let created = try await ALTAppleAPI.shared.addAppID(withName: "SideStore Watch", bundleIdentifier: identifier, team: team, session: session)
+                guard created.bundleIdentifier == identifier, !created.identifier.isEmpty else { throw WatchOwnIdentityFailure.registration }
+            } catch {
+                // A timeout can hide an accepted registration: READ once, never issue another POST.
+                let confirmed = try? await ALTAppleAPI.shared.fetchAppIDs(for: team, session: session)
+                if confirmed?.contains(where: { $0.bundleIdentifier == identifier }) != true {
+                    if let portal = error as? DeveloperPortalError, case .maximumAppIDLimitReached = portal {
+                        throw WatchOwnIdentityFailure.quota
+                    }
+                    throw WatchOwnIdentityFailure.registration
+                }
+            }
         }
         let fm = FileManager.default
         let temporary = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -10,7 +10,7 @@ struct WatchBetaView: View {
             Section {
                 Label("SideStore en tu Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical,8)
-                Text("Mantén el reloj cerca y desbloqueado. SideStore prepara automáticamente la conexión, el identificador existente, el perfil y la app.")
+                Text("Inicia sesión y completa una vez el emparejamiento del iPhone en esta nueva app. Después prepara el identificador del reloj, su perfil y la app con este botón.")
                     .font(.subheadline).foregroundColor(.secondary)
                 SwiftUI.Button(action: installer.installSideStoreWatch) {
                     HStack {
@@ -59,7 +59,7 @@ struct WatchBetaAdvancedView: View {
             Section {
                 Label("Apple Watch", systemImage: "applewatch")
                     .font(.title2.weight(.semibold)).padding(.vertical, 8)
-                Text("Beta personal · 0.7.1 (719)")
+                Text("Beta personal · 0.7.1 (720)")
                     .font(.subheadline).foregroundColor(.secondary)
                 Text("Comprueba la conexión real y solicita un perfil para el reloj. Permite importar, firmar e instalar una app de watchOS con un App ID existente. La renovación autónoma sigue pendiente.")
                     .font(.subheadline)

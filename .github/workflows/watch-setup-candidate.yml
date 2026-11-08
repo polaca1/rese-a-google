@@ -1,12 +1,12 @@
-name: Watch recovery 719 - build and package
+name: SideStore Watch own identity 720 - build and package
 on:
   push:
-    branches: [work/watch-pairing-recovery]
+    branches: [work/watch-own-identity]
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
-  group: watch-pairing-recovery
+  group: watch-own-identity
   cancel-in-progress: true
 jobs:
   build:
@@ -21,6 +21,8 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
       - name: Apply pinned dependency patches
         run: python3 watch-beta/bootstrap.py
+      - name: Verify own app identity configuration
+        run: python3 watch-beta/tests/OwnIdentityConfiguration.py
       - name: Install Rust compiler
         run: |
           rustup toolchain install 1.99.1 --profile minimal
@@ -61,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: SideStore-Watch-Recovery-719
+          name: SideStore-Watch-Recovery-720
           path: |
             build/watch-beta/*.ipa
             build/watch-beta/*.json
@@ -74,10 +76,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           git archive --format=zip --output=build/watch-beta/SideStore-Watch-Beta-Source.zip HEAD
-          gh release create sidestore-watch-beta-0.7.1-build719 build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch 0.7.1 (719) — recuperación del emparejamiento' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"
+          gh release create sidestore-watch-beta-0.7.1-build720 build/watch-beta/*.ipa build/watch-beta/*.json build/watch-beta/SHA256SUMS build/watch-beta/SideStore-Watch-Beta-Source.zip --prerelease --title 'SideStore Watch 0.7.1 (720) — identidad propia y Watch automático' --notes-file watch-beta/RELEASE.md --target "$GITHUB_SHA"
       - name: Verify the public IPA
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 watch-beta/verify-recovery-release.py
-          gh release upload sidestore-watch-beta-0.7.1-build719 build/watch-beta/PUBLIC-RECOVERY-VERIFICATION.json
+          gh release upload sidestore-watch-beta-0.7.1-build720 build/watch-beta/PUBLIC-RECOVERY-VERIFICATION.json

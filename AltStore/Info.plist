@@ -41,7 +41,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>SideStore β</string>
+	<string>SideStore Watch</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -57,7 +57,7 @@
 			<string>SideStore General</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>sidestore</string>
+				<string>sidestorewatch</string>
 			</array>
 		</dict>
 		<dict>
@@ -80,8 +80,8 @@
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
-		<string>sidestore-com.SideStore.SideStore</string>
-		<string>sidestore-com.SideStore.SideStore.Beta</string>
+		<string>sidestore-com.SideStore.SideStore.PabloWatch</string>
+		<string>sidestore-com.SideStore.SideStore.PabloWatch.Beta</string>
 		<string>localdevvpn</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
@@ -174,7 +174,7 @@
 	</array>
 	<key>OSLogPreferences</key>
 	<dict>
-		<key>com.SideStore.SideStore</key>
+		<key>com.SideStore.SideStore.PabloWatch</key>
 		<dict>
 			<key>AltJIT</key>
 			<dict>

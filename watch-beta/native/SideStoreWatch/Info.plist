@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>es</string>
 	<key>CFBundleDisplayName</key>
-	<string>SideStore</string>
+	<string>SideStore Watch</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -23,7 +23,7 @@
 	<key>WKApplication</key>
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
-	<string>com.SideStore.SideStore</string>
+	<string>com.SideStore.SideStore.PabloWatch</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<false/>
 <key>NSLocalNetworkUsageDescription</key><string>Comprueba el acceso local necesario para investigar la instalación desde el propio reloj.</string></dict>

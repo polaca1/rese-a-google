@@ -14,7 +14,8 @@ if result.returncode:
 app=output/'DerivedData/Build/Products/Release-watchos/SideStoreWatch.app'
 info=plistlib.loads((app/'Info.plist').read_bytes())
 assert info['WKApplication']
-assert info['WKCompanionAppBundleIdentifier']=='com.SideStore.SideStore'
+assert info['WKCompanionAppBundleIdentifier']=='com.SideStore.SideStore.PabloWatch'
+assert info['CFBundleIdentifier']=='com.SideStore.SideStore.PabloWatch.watch'
 assert tuple(map(int,info['MinimumOSVersion'].split('.'))) <= (10,6,2)
 archs=subprocess.check_output(['xcrun','lipo','-archs',str(app/info['CFBundleExecutable'])],text=True)
 assert 'arm64_32' in archs,archs

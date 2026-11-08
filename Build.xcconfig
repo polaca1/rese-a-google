@@ -2,7 +2,7 @@
 // https://help.apple.com/xcode/#/dev745c5c974
 
 MARKETING_VERSION = 0.7.1
-CURRENT_PROJECT_VERSION = 719
+CURRENT_PROJECT_VERSION = 720
 
 // Vars to be overwritten by `CodeSigning.xcconfig` if exists
 DEVELOPMENT_TEAM = S32Z3HMYVQ
@@ -16,7 +16,7 @@ CODE_SIGN_ENTITLEMENTS = ./AltStore/AltStoreFree.entitlements
 
 PRODUCT_NAME = SideStore
 
-BASE_BUNDLE_ID                                  = $(ORG_IDENTIFIER).SideStore
+BASE_BUNDLE_ID                                  = com.SideStore.SideStore.PabloWatch
 MAIN_BUNDLE_IDENTIFIER[config=Debug]            = $(BASE_BUNDLE_ID).$(DEVELOPMENT_TEAM)
 MAIN_BUNDLE_IDENTIFIER[config=Release]          = $(BASE_BUNDLE_ID)
 APP_GROUP_IDENTIFIER                            = $(MAIN_BUNDLE_IDENTIFIER)

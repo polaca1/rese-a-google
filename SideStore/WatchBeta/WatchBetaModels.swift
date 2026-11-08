@@ -222,7 +222,7 @@ struct WatchBetaInstallFailure: Error {
 /// Whitelisted report: never includes device IDs, account names, secrets or raw server errors.
 struct WatchBetaReport: Codable, Equatable {
     var schema = 5
-    var beta = "0.7.1-build719"
+    var beta = "0.7.1-build720"
     var statuses: [String: WatchBetaStatus] = Dictionary(uniqueKeysWithValues: WatchBetaStage.allCases.map { ($0.rawValue, .pending) })
     var pairedWatchCount: Int?
     var freeAccount: Bool?
@@ -254,6 +254,20 @@ struct WatchBetaReport: Codable, Equatable {
 }
 
 enum WatchBetaValidation {
+    static let ownPhoneBundle = "com.SideStore.SideStore.PabloWatch"
+    /// Use the actual signed parent, including its team suffix; never borrow a widget ID.
+    static func ownWatchBundle(phoneBundle: String) -> String? {
+        let parts = phoneBundle.split(separator: ".", omittingEmptySubsequences: false)
+        let baseCount = ownPhoneBundle.split(separator: ".").count
+        let validParent = phoneBundle == ownPhoneBundle || (phoneBundle.hasPrefix(ownPhoneBundle + ".") && parts.count == baseCount + 1 && !["watch", "AltWidget", "SideBackup"].contains(String(parts.last ?? "")))
+        guard validParent, parts.allSatisfy({ part in
+            !part.isEmpty && part.utf8.allSatisfy { byte in
+                byte == 45 || (48...57).contains(byte) || (65...90).contains(byte) || (97...122).contains(byte)
+            }
+        }) else { return nil }
+        return phoneBundle + ".watch"
+    }
+
     static func bootstrapPortalID(available: [String], phoneBundle: String) -> String? {
         guard !phoneBundle.isEmpty else { return nil }
         let allowed = Set(available.filter { !$0.contains("*") })
