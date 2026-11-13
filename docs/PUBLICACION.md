@@ -17,7 +17,7 @@ Estos identificadores son configuración de código. No significan que Apple, Gi
 2. Consultar a App Fair si acepta esta adaptación Day con interfaz SwiftUI alojada y web de presentación, y el flujo externo de escritura con Simply NFC. No se ha obtenido aceptación.
 3. Revisar el acceso con Google frente a la regla 4.8 de Apple y, si corresponde, incorporar Sign in with Apple con su configuración de servidor.
 4. Implementar y probar la eliminación de cuenta y sus datos en el servidor, completar el contacto privado del responsable y concretar retención de datos. La privacidad actual lo identifica como pendiente; no inventa plazos.
-5. Auditar las licencias de las dependencias exactas del lock y la titularidad del material gráfico. No hay SDK de anuncios o telemetría añadido por esta adaptación.
+5. Revisar el informe de las 295 dependencias del lock en `provenance/dependency-licenses.json` y la titularidad del material gráfico. No hay dependencias sin licencia declarada; los avisos se incluyen como recurso del paquete. La selección de permisos y bibliotecas de cada paquete final también debe revisarse. No hay SDK de anuncios o telemetría añadido por esta adaptación.
 6. Crear la organización y el repositorio públicos con el mismo token, instalar App Fair Publisher con acceso al repositorio y habilitar Pages. La instalación de una GitHub App concede permisos y debe revisarla el propietario.
 7. Abrir primero una discusión de presentación; completar las verificaciones, generar un prerelanzamiento reproducible y después presentar el PR de catálogo que enlace la discusión. App Fair y las tiendas deciden la aceptación.
 

@@ -1,7 +1,6 @@
 # Working on this Day app
 
-This app uses native widgets through Day. Its starter has one main window, Welcome and Items
-sections, and Settings in the desktop app menu or mobile navigation.
+This adaptation hosts the existing iPhone SwiftUI app through day-piece-swiftui. Preserve its UI. The web target is a presentation of the iPhone app, not an Android or browser port. Publication is still pending.
 
 ## Day documentation
 
@@ -22,8 +21,9 @@ Use examples with the API supported by this project's Day dependency version. Ch
 
 - `src/lib.rs`: the window, typed routes, navigation, menus, and Settings and About through
   `day-piece-settings`.
-- `src/model.rs`: the item model, the shared `Scene` state, its persistence, and unit tests.
-- `src/pages.rs`: the Welcome page, the item list, and the item editor.
+- `src/native.rs`: validated delivery of cold/warm URLs to SwiftUI.
+- `swiftui/`: preserved screens, services and lifecycle/resource adapters.
+- `scripts/check-ui-parity.py`: migration guard against unintended changes.
 - `resource/locales/<locale>/app.ftl`: app-owned UI strings.
 - `resource/`: bundled vectors, images, fonts, and data assets.
 - `dayscript/demo.yaml`: the portable walkthrough and its screenshots.
