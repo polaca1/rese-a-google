@@ -1,0 +1,3 @@
+# Final address after the required matching GitHub organization/repository exists.
+host = "https://ReviewNfcGo.github.io/ReviewNfcGo"
+locales = ["es", "en"]

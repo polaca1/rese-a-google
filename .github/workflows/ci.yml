@@ -1,0 +1,54 @@
+name: ReviewNfcGo App Fair
+on:
+  push:
+    branches: ["appfair/reviewnfcgo", "main"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  pull_request:
+  release:
+    types: [released]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  app:
+    if: github.repository == 'ReviewNfcGo/ReviewNfcGo'
+    uses: daybrite/actions/.github/workflows/dayapp.yml@v1
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    with:
+      targets: all
+      day-deps: locked
+      day-version: v0.7.4
+      flavors: appfair
+      release-flavor: appfair
+      scripts: auto
+      locales: all
+      themes: light dark
+      release-assets: true
+      release-mode: pre-release
+      # Enable after moving this branch to the matching organization/repository.
+      deploy-web: false
+      preflight-checks: fmt test clippy
+  swift:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify original screens are preserved
+        run: python3 scripts/check-ui-parity.py
+      - name: Verify sales, inventory, location and persistence models
+        run: swiftui/Tests/run.sh
+      - name: Compile preserved SwiftUI screens for iPhone Simulator
+        run: >-
+          xcodebuild -scheme ReviewNfcGoViews -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath /tmp/reviewnfcgo-derived CODE_SIGNING_ALLOWED=NO build
+        working-directory: swiftui
+  appfair-lint:
+    if: github.repository == 'ReviewNfcGo/ReviewNfcGo'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: appfair/appfair-apps/.github/actions/appfair-lint@main

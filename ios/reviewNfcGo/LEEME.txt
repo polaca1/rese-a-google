@@ -1,5 +1,0 @@
-reviewNfcGo 5.1
-
-Instala el IPA mediante la fuente compatible de SideStore.
-App nativa para macOS 14 y guia del servidor de cuentas disponibles en la misma descarga de GitHub.
-Consulta README.md para requisitos y uso.

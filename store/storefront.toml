@@ -1,0 +1,30 @@
+# Publication metadata; reviewer contact and review account must be supplied privately.
+[storefront.submission-info]
+review-notes = "Spanish iPhone app. Email/Google authentication uses Supabase. NFC writing currently opens Simply NFC; no third-party writer is bundled. Physical NFC and cloud restoration need device verification before submission."
+
+[storefront.metadata]
+name = "reviewNfcGo"
+subtitle = "Businesses, NFC and sales"
+short = "Manage places, review links, visits and sales on your iPhone."
+description = """
+Keep business records and sales in a native iPhone interface. Find nearby venues, prepare Google review links for writing with Simply NFC, manage products and inventory, and organize visits and reminders.
+The current iPhone interface is in Spanish. Sign in with email or Google to recover your saved account data. No advertising, in-app purchases or tracking SDKs.
+"""
+keywords = ["business", "NFC", "reviews", "sales", "customers", "inventory", "visits"]
+release-notes = "App Fair adaptation preserving the existing iPhone interface."
+privacy-url = "https://ReviewNfcGo.github.io/ReviewNfcGo/privacy/"
+
+[storefront.metadata.es]
+name = "reviewNfcGo"
+subtitle = "Negocios, NFC y ventas"
+short = "Gestiona negocios, enlaces de reseñas, visitas y ventas desde tu iPhone."
+description = """
+Organiza tus negocios y ventas desde una interfaz nativa de iPhone.
+Encuentra locales cercanos, conserva sus enlaces de reseñas de Google y prepara la escritura de tarjetas con Simply NFC. Registra ventas y productos, controla existencias, ingresos y gastos y organiza tus visitas y recordatorios.
+Accede con tu cuenta de correo o Google para recuperar los datos guardados de tu cuenta.
+La ubicación se utiliza para buscar negocios cercanos. No incluye anuncios, compras integradas ni SDK de seguimiento.
+"""
+keywords = ["negocios", "NFC", "reseñas", "ventas", "clientes", "inventario", "visitas"]
+release-notes = "Adaptación para distribución con App Fair conservando la interfaz de iPhone."
+privacy-url = "https://ReviewNfcGo.github.io/ReviewNfcGo/privacy/"
+

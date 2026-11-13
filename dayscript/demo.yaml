@@ -1,0 +1,4 @@
+# Shared smoke test: the website and the native SwiftUI host use distinct IDs.
+flow:
+  - wait: 1500
+  - screenshot: launch

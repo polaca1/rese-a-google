@@ -1,27 +1,49 @@
-# reviewNfcGo
+# reviewNfcGo · adaptación App Fair
 
-App para organizar negocios, tarjetas NFC, visitas, clientes, presupuestos, inventario e ingresos y gastos.
+Adaptación de la versión 7.3.0 (39), conservando las pantallas SwiftUI, navegación, modelos y servicio de cuentas existentes. **No es todavía una entrega aprobada para App Store.**
 
-- **iPhone 6.0.5:** Inicio con mapa y búsqueda, escritura NFC mediante Simply NFC, widgets y recordatorios. Distribución mediante SideStore.
-- **Mac 2.0.4:** app nativa para macOS 14 o posterior, Intel y Apple Silicon, con tablas, gráficos, informes PDF y exportación CSV.
-- **Cuentas:** acceso con correo/contraseña o Google mediante Supabase. Los datos de cada cuenta se guardan automáticamente y se recuperan al volver a entrar. La interfaz no requiere configurar servidores, sincronizar manualmente ni gestionar copias.
+La aplicación original continúa en `features/reviewnfcgo-6.0`; su fuente de SideStore no se modifica.
 
-[Fuente de SideStore](https://raw.githubusercontent.com/polaca1/rese-a-google/refs/heads/sidestore/source-compatible.json) · [Descargas](https://github.com/polaca1/rese-a-google/releases)
+## Qué incluye
 
-## Organización y mantenimiento
+- Proyecto Day 0.7.4 con destino iPhone/iPad y web de presentación.
+- Paquete `swiftui/` con las pantallas actuales: Sitios, Dinero, Avisos, Inicio y Perfil; Inicio sigue siendo la selección inicial.
+- Puente de enlaces de Day al router original y adaptación del ciclo de vida para sincronización, recordatorios y pregunta de venta tras NFC.
+- Recursos gráficos originales desde el paquete, widgets y Live Activities con un grupo compartido propio.
+- Misma autenticación de correo/Google y mismo servidor de sincronización. No se cambia el formato de datos, el propietario ni se consultan datos privados.
+- Metadatos, borrador de privacidad, configuración de App Fair y CI de compilación y capturas.
 
-[Arquitectura](docs/ARCHITECTURE.md) · [Revisión de producción](docs/PRODUCTION.md) · [Instalación en Mac](macos/LEEME.txt)
+La web presenta la app de iPhone; no es un port de sus herramientas NFC ni una aplicación de Android. NFC conserva el flujo actual hacia Simply NFC. La app no incorpora esa aplicación ni afirma verificar una escritura física al volver de ella.
 
-SwiftUI gestiona las pantallas y la navegación; los almacenes realizan las operaciones de negocio; los servicios gestionan autenticación, sincronización y proveedores externos. Los modelos compartidos conservan el formato existente de datos entre iPhone y Mac. Las rutas de simulación e importación manual de mantenimiento se compilan solo en DEBUG.
+## Comprobar
 
-## Compilar y comprobar
+Instala Rust y Day 0.7.4. Desde la raíz:
 
-La distribución automatizada utiliza Xcode 26.2. El destino mínimo de Mac sigue siendo macOS 14. Compila con los esquemas `reviewNfcGo` y `reviewNfcGoMac` en sus proyectos respectivos.
+```sh
+python3 scripts/check-ui-parity.py
+cargo fmt --all -- --check
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
+day lint --strict
+day lint --strict --flavor appfair
+day build -t web-dom
+```
 
-Los scripts `ios/reviewNfcGo/Scripts/build-ipa.sh` y `macos/Scripts/build-mac.sh` generan paquetes Release, ejecutan pruebas y verifican metadatos, privacidad y ausencia de rutas de prueba antes del empaquetado. El flujo de GitHub Actions publica únicamente tras superar las comprobaciones de ambos productos.
+En un Mac con Xcode:
 
-Google Places utiliza la clave de compilación `GOOGLE_PLACES_API_KEY` y una alternativa opcional `GOOGLE_PLACES_FALLBACK_API_KEY`, inyectadas y ocultadas en los registros. La configuración heredada se mantiene como transición. Los secretos OAuth y credenciales administrativas permanecen en el proveedor, nunca en el paquete de la app.
+```sh
+swiftui/Tests/run.sh
+cd swiftui
+xcodebuild -scheme ReviewNfcGoViews -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+cd ..
+day build -t ios-uikit --flavor appfair
+day launch -t ios-uikit --flavor appfair --script dayscript/demo.yaml
+```
 
-## Servicio de cuentas
+Day requiere Xcode 27 para su host actual. Compilar únicamente el paquete SwiftUI no comprueba su integración completa con Day. Las pruebas de NFC, ubicación real, restauración de cuentas, notificaciones y widgets requieren un dispositivo o una sesión de pruebas apropiada. Los tests no usan cuentas privadas.
 
-La configuración oficial se obtiene de `accounts-server.json` en la rama `sidestore`. Supabase Auth y las tablas privadas con RLS administran las cuentas y los datos. [Configuración del servicio](server/cloud/GUIA-SUPABASE.md). Los archivos del antiguo servidor autohospedado se conservan para mantenimiento; no forman parte de la configuración requerida al usuario.
+## Publicación pendiente
+
+Consulta [ADAPTACION.md](ADAPTACION.md) y [docs/PUBLICACION.md](docs/PUBLICACION.md). La rama se prepara primero en el repositorio del propietario; la organización/repositorio homónimos y App Fair Publisher siguen siendo pasos externos pendientes.
+
+No se promociona una versión, se publica en una tienda ni se reemplaza un IPA estable por generar este proyecto.
