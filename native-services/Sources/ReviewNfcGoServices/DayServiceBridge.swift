@@ -19,6 +19,8 @@ import PhotosUI
     var routeDay = Date()
     var routeUseLocation = false
     var routeWalking = true
+    var lastSaleCents: Int64 = 0
+    var productImport: [String: Any] = [:]
     var busy = false
     var error: String?
     var completed = ""
@@ -53,7 +55,7 @@ import PhotosUI
 
     func configureAccount() {
         cloud.connect(owner: nil, transport: auth.accountService, read: { try self.store.backup(photo: self.photos.backupData) }, apply: { _ in })
-        workspaceDay = Date(); routeDay = Date(); routeUseLocation = false; routeWalking = true
+        workspaceDay = Date(); routeDay = Date(); routeUseLocation = false; routeWalking = true; productImport = [:]; lastSaleCents = 0
         store.switchUser(auth.currentUser?.email)
         photos.switchUser(auth.currentUser?.email)
         store.restorePhoto = { [weak self] data in try? self?.photos.restoreBackupData(data) }
@@ -114,6 +116,7 @@ import PhotosUI
             ["id": $0.id.uuidString, "place": encoded($0.place), "notes": $0.notes,
              "status": $0.status.rawValue, "stage": $0.trackingStage.rawValue,
              "earnings": $0.earnings, "cardsSold": $0.cardsSold,
+             "unitEarningsText": SaleAmountFormatting.text(for: $0.earningsPerCard), "hasQuickSales": $0.hasQuickSales == true, "inventoryProductID": $0.inventoryProductID?.uuidString ?? "",
              "incomeCents": store.money.businessIncome($0.id), "soldCards": store.money.businessCards($0.id),
              "profitCents": store.money.businessProfit($0.id).map { $0 as Any } ?? NSNull(),
              "followUp": encoded(($0.followUp ?? []).sorted { $0.date > $1.date }),
@@ -134,7 +137,8 @@ import PhotosUI
             "completed": completed, "succeeded": succeeded, "completedAction": completedAction,
             "preparedRecord": preparedRecord?.uuidString ?? "",
             "records": records, "products": products,
-            "transactions": ready ? encoded(store.money.transactions) : [],
+            "transactions": ready ? transactionSnapshot() : [],
+            "nowLocal": localDate(Date()), "lastSaleCents": ready ? lastSaleCents : 0, "productImport": ready ? productImport : [:],
             "balanceCents": ready ? store.money.balanceCents : 0,
             "incomeCents": ready ? store.money.incomeCents : 0,
             "expenseCents": ready ? store.money.expenseCents : 0,
@@ -227,7 +231,16 @@ import PhotosUI
                     case "prepareReminder": preparedRecord = try selectedRecord().id
                     case "editRecord":
                         var r = try record(); r.notes = value("notes"); r.contactName = value("contactName"); r.contactEmail = value("contactEmail"); r.contactPhone = value("contactPhone")
-                        if let s = VisitStatus(rawValue: value("status")) { r.status = s }
+                        if let status = VisitStatus(rawValue: value("status")) { r.status = status }
+                        if values["cards"] != nil {
+                            guard let count = Int(value("cards")), (0...100_000).contains(count), let unit = SaleAmountFormatting.parse(value("unitEarnings")), unit <= VisitRecord.maximumEarningsPerCard else { throw MoneyError.invalidAmount }
+                            if count != r.cardsSold || value("unitEarnings") != SaleAmountFormatting.text(for: r.earningsPerCard) {
+                                r.cardsSold = count; r.unitEarnings = unit; r.earnings = VisitRecord.totalEarnings(perCard: unit, count: count)
+                            }
+                            r.inventoryProductID = UUID(uuidString: value("product"))
+                            guard r.status != .completed || r.hasQuickSales == true || count >= 1 else { throw MoneyError.invalidAmount }
+                            if r.status == .completed { r.reminderDate = nil; r.notificationDate = nil }
+                        }
                         guard store.update(r) else { throw BackupError.invalid }
                     case "deleteRecord": let r = try record(); if let i = store.records.firstIndex(where: { $0.id == r.id }) { store.delete(at: IndexSet(integer: i)) }
                     case "sale":
@@ -238,13 +251,13 @@ import PhotosUI
                         }
                         let items = try EasySaleLine.inputs(draft, money: store.money)
                         guard items.reduce(Int64(0), { $0 + (MoneyLedger.cents($1.unitPrice) ?? 0) * Int64($1.quantity) }) > 0 else { throw EasySaleError.zeroTotal }
-                        try store.registerQuickSale(recordID: r.id, items: items, payment: value("payment")); salePrompt = nil; handoff = nil; persistHandoff()
-                    case "expense", "product":
-                        let quantity = Int(value("quantity")) ?? 0
-                        var productID = UUID(uuidString: value("product"))
-                        var product: InventoryProduct?
-                        if action == "product" { product = InventoryProduct(name: value("name"), kind: ProductKind(rawValue: value("kind")) ?? .nfcCard); productID = product?.id }
-                        try store.addExpense(title: value("name"), amount: try amount("amount"), quantity: quantity, productID: productID, newProduct: product, date: Date(), merchant: value("merchant"), method: value("payment"), url: value("url"), notes: value("notes"))
+                        try store.registerQuickSale(recordID: r.id, items: items, payment: value("payment")); lastSaleCents = items.reduce(Int64(0)) { $0 + (MoneyLedger.cents($1.unitPrice) ?? 0) * Int64($1.quantity) }; salePrompt = nil; handoff = nil; persistHandoff()
+                    case "expense", "product": try saveEntry(action, values: values)
+                    case "importProduct":
+                        guard let url = ProductMetadataService.purchaseURL(value("url")) else { throw MoneyError.invalidProduct }
+                        let result = try await ProductMetadataService.fetch(url)
+                        guard store.loadedUserEmail == owner, auth.currentUser?.email == owner else { throw BackupError.wrongAccount }
+                        productImport = ["token": request, "url": value("url"), "name": result.name, "imageURL": result.imageURL, "price": result.euroPrice.map { $0 as Any } ?? NSNull(), "currency": result.currency, "merchant": url.host ?? ""]
                     case "stock":
                         let id = try uuid("product")
                         guard let target = Int(value("quantity")), (0...100_000).contains(target), !value("notes").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw MoneyError.invalidAmount }

@@ -35,7 +35,11 @@
       "profitCents": 4000,
       "followUp": [],
       "visitLocal": "2026-11-15 10:00",
-      "noticeLocal": "2026-11-15 09:00"
+      "noticeLocal": "2026-11-15 09:00",
+      "unitEarningsText": "0",
+      "hasQuickSales": true,
+      "inventoryProductID": "",
+      "cardsSold": 0
     }
   ],
   "products": [
@@ -149,5 +153,6 @@
     "routeLegs": [],
     "quotes": [],
     "sales": []
-  }
+  },
+  "nowLocal": "2026-11-14 19:00"
 }

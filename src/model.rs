@@ -188,9 +188,11 @@ impl Session {
         }
         if should_close {
             let was_sale = self.page.peek() == "sale";
-            self.back();
             if was_sale {
                 self.clear_cart();
+                self.page.set("sale-saved".to_owned());
+            } else {
+                self.back();
             }
         }
         if success && !prepared.is_empty() {

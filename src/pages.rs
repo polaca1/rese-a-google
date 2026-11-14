@@ -80,7 +80,8 @@ fn content(s: Session, tab: Section) -> impl Piece {
             "record" => record(s).any(),
             "edit" => edit_record(s).any(),
             "sale" => sale(s).any(),
-            "expense" => expense(s, false).any(),
+            "sale-saved" => sale_saved(s).any(),
+            "expense" | "expense-correction" => expense(s, false).any(),
             "product" => expense(s, true).any(),
             "inventory" => inventory(s).any(),
             "product-detail" => product_detail(s).any(),
@@ -342,7 +343,6 @@ fn wallet(s: Session) -> impl Piece {
                     .icon(Symbol::Add)
                     .action(move || s.open("expense")),
                 button(res::str::profits()).action(move || s.open("profits")),
-                button(res::str::inventory()).action(move || s.open("inventory")),
                 when(
                     move || !s.text("undoTitle").is_empty(),
                     move || {
@@ -351,6 +351,7 @@ fn wallet(s: Session) -> impl Piece {
                             .action(move || s.command("undo"))
                     },
                 ),
+                button(res::str::inventory()).action(move || s.open("inventory")),
             )),
             label(res::str::history()).font(Font::Headline),
             each(
@@ -635,10 +636,74 @@ fn edit_record(s: Session) -> impl Piece {
     let name = Signal::new(text(&r, "contactName"));
     let email = Signal::new(text(&r, "contactEmail"));
     let phone = Signal::new(text(&r, "contactPhone"));
-    scroll(column((back(s,res::str::edit()),form((section((labeled(res::str::contact_name(),text_field(name)),labeled(res::str::email(),text_field(email)),labeled(res::str::phone(),text_field(phone)),labeled(res::str::notes(),text_area(notes)))),)),
-        button(res::str::save()).prominent().enabled(move||!s.busy()).action(move||s.send("editRecord",json!({"record":s.selected.peek(),"notes":notes.peek(),"contactName":name.peek(),"contactEmail":email.peek(),"contactPhone":phone.peek()}),json!([]),true)),error(s),
-    )).spacing(Space::L).padding(Space::L))
+    let status = Signal::new(text(&r, "status"));
+    let cards = Signal::new(r["cardsSold"].as_f64().unwrap_or(0.0));
+    let unit = Signal::new(text(&r, "unitEarningsText"));
+    let product = Signal::new(text(&r, "inventoryProductID"));
+    day_reactive::watch(
+        move || status.get(),
+        move |status, _| {
+            if status == "Completado"
+                && s.record()["hasQuickSales"].as_bool() != Some(true)
+                && cards.peek() < 1.0
+            {
+                cards.set(1.0);
+            }
+        },
+    );
+    let fields = form((
+        section((
+            labeled(
+                res::str::status(),
+                picker(
+                    status,
+                    vec![
+                        ("Contactado".to_owned(), "Contactado".to_owned()),
+                        ("Volver otro día".to_owned(), "Volver".to_owned()),
+                        ("Completado".to_owned(), "Vendido".to_owned()),
+                    ],
+                ),
+            ),
+            labeled(res::str::notes(), text_area(notes)),
+        ))
+        .title(res::str::tracking()),
+        section((
+            labeled(
+                res::str::sold_cards(),
+                stepper(cards).range(0.0..=100_000.0),
+            ),
+            labeled(
+                res::str::card_inventory(),
+                picker(product, move || {
+                    std::iter::once((String::new(), res::str::no_inventory().format()))
+                        .chain(
+                            s.rows("products")
+                                .iter()
+                                .filter(|p| text(p, "kind") == "nfcCard")
+                                .map(|p| (text(p, "id"), text(p, "name"))),
+                        )
+                        .collect::<Vec<_>>()
+                }),
+            ),
+            labeled(
+                res::str::earnings_per_card(),
+                text_field(unit).input_purpose(day_spec::InputPurpose::Decimal),
+            ),
+        ))
+        .title(res::str::previous_card_sales())
+        .footer(res::str::legacy_sales_hint()),
+        section((
+            labeled(res::str::contact_name(), text_field(name)),
+            labeled(res::str::email(), text_field(email)),
+            labeled(res::str::phone(), text_field(phone)),
+        ))
+        .title(res::str::contact()),
+    ));
+    column((back(s,res::str::edit()),scroll(column((fields,button(res::str::reminder()).action(move||s.open("reminder")),error(s)))).grow(Dimension::Both),
+        button(res::str::save()).prominent().enabled(move||!s.busy()&&crate::model::parse_price(&unit.get()).is_some_and(|v|v<=5000)).action(move||s.send("editRecord",json!({"record":s.selected.peek(),"notes":notes.peek(),"contactName":name.peek(),"contactEmail":email.peek(),"contactPhone":phone.peek(),"status":status.peek(),"cards":format!("{:.0}",cards.peek()),"unitEarnings":unit.peek(),"product":product.peek()}),json!([]),true)).padding(Space::M),
+    )).grow(Dimension::Both)
 }
+
 fn sale(s: Session) -> impl Piece {
     s.prepare_cart();
     let business = Signal::new(s.selected.peek());
@@ -776,64 +841,240 @@ fn sale(s: Session) -> impl Piece {
     .grow(Dimension::Both)
 }
 fn expense(s: Session, new_product: bool) -> impl Piece {
-    let name = Signal::new(String::new());
-    let amount = Signal::new(String::new());
-    let quantity = Signal::new("1".to_owned());
-    let product = Signal::new(
-        if s.history.peek().last().map(String::as_str) == Some("product-detail") {
-            s.selected_product.peek()
+    let correcting = s.page.peek() == "expense-correction";
+    let original = if correcting {
+        transaction_value(s)
+    } else {
+        Value::Null
+    };
+    let initial_product = if correcting {
+        text(&original, "productID")
+    } else if s.history.peek().last().map(String::as_str) == Some("product-detail") {
+        s.selected_product.peek()
+    } else {
+        String::new()
+    };
+    let p = s
+        .rows("products")
+        .into_iter()
+        .find(|p| text(p, "id") == initial_product)
+        .unwrap_or(Value::Null);
+    let initial_kind = if !p.is_null() {
+        text(&p, "kind")
+    } else if new_product {
+        "nfcCard".to_owned()
+    } else {
+        "expense".to_owned()
+    };
+    let category = Signal::new(initial_kind);
+    let product = Signal::new(initial_product);
+    let name = Signal::new(text(&original, "title"));
+    let color = Signal::new(String::new());
+    let amount = Signal::new(if correcting {
+        format!("{:.2}", -original["cents"].as_f64().unwrap_or(0.0) / 100.0)
+    } else {
+        String::new()
+    });
+    let quantity = Signal::new(original["quantity"].as_f64().unwrap_or(1.0).max(1.0));
+    let snapshot = s.data.peek();
+    let date = Signal::new(
+        DayDate::parse_iso(if correcting {
+            original["dateLocal"].as_str().unwrap_or("")
         } else {
-            String::new()
+            snapshot["nowLocal"]
+                .as_str()
+                .unwrap_or("")
+                .split(' ')
+                .next()
+                .unwrap_or("")
+        })
+        .unwrap_or_else(DayDate::today),
+    );
+    let merchant = Signal::new(text(&original, "merchant"));
+    let payment = Signal::new(text(&original, "paymentMethod"));
+    let url = Signal::new(if correcting {
+        text(&original, "purchaseURL")
+    } else {
+        text(&p, "purchaseURL")
+    });
+    let image = Signal::new(text(&p, "imageURL"));
+    let notes = Signal::new(text(&original, "notes"));
+    let origin = Signal::new("purchase".to_owned());
+    let import_message = Signal::new(String::new());
+    let import_seen = Signal::new(String::new());
+    day_reactive::watch(
+        move || category.get(),
+        move |_, _| {
+            product.set(String::new());
         },
     );
-    let kind = Signal::new("nfcCard".to_owned());
-    let notes = Signal::new(String::new());
-    let fields = section((
-        labeled(res::str::name(), text_field(name)),
-        labeled(res::str::amount(), text_field(amount)),
-        labeled(res::str::quantity(), text_field(quantity)),
-        when(
-            move || !new_product,
-            move || {
-                labeled(
-                    res::str::product(),
-                    picker(product, move || {
-                        s.rows("products")
-                            .iter()
-                            .map(|p| (text(p, "id"), text(p, "name")))
-                            .collect::<Vec<_>>()
-                    }),
-                )
-            },
+    day_reactive::watch(
+        move || product.get(),
+        move |id, _| {
+            if let Some(p) = s.rows("products").iter().find(|p| text(p, "id") == *id) {
+                url.set(text(p, "purchaseURL"));
+                image.set(text(p, "imageURL"));
+            }
+        },
+    );
+    day_reactive::watch(
+        move || s.data.get()["productImport"].clone(),
+        move |value, _| {
+            let token = text(value, "token");
+            if token.is_empty() || import_seen.peek() == token {
+                return;
+            }
+            import_seen.set(token);
+            if text(value, "url") != url.peek() {
+                return;
+            }
+            if name.peek().is_empty() {
+                name.set(text(value, "name"));
+            }
+            if image.peek().is_empty() {
+                image.set(text(value, "imageURL"));
+            }
+            if amount.peek().is_empty()
+                && let Some(price) = value["price"].as_f64()
+            {
+                amount.set(format!("{:.2}", price * quantity.peek()));
+            }
+            if merchant.peek().is_empty() {
+                merchant.set(text(value, "merchant"));
+            }
+            import_message.set(
+                if text(value, "currency").is_empty()
+                    || text(value, "currency").to_uppercase() == "EUR"
+                {
+                    res::str::import_review().format()
+                } else {
+                    res::str::import_currency().format()
+                },
+            );
+        },
+    );
+    let without_cost =
+        move || category.get() != "expense" && origin.get() != "purchase" && !correcting;
+    let entry = section((
+        labeled(
+            res::str::category(),
+            picker(
+                category,
+                vec![
+                    ("expense".to_owned(), res::str::business_expense()),
+                    ("nfcCard".to_owned(), res::str::nfc_card()),
+                    ("stand".to_owned(), res::str::stand()),
+                    ("accessory".to_owned(), res::str::accessory()),
+                    ("custom".to_owned(), res::str::custom_product()),
+                ],
+            ),
         ),
         when(
-            move || new_product,
+            move || category.get() != "expense",
             move || {
-                labeled(
-                    res::str::kind(),
-                    picker(
-                        kind,
-                        vec![
-                            ("nfcCard".to_owned(), res::str::nfc_card()),
-                            ("stand".to_owned(), res::str::stand()),
-                            ("accessory".to_owned(), res::str::accessory()),
-                            ("custom".to_owned(), res::str::custom_product()),
-                        ],
+                column((
+                    when(
+                        move || !correcting,
+                        move || {
+                            labeled(
+                                res::str::origin(),
+                                picker(
+                                    origin,
+                                    vec![
+                                        ("purchase".to_owned(), res::str::purchase()),
+                                        ("manufactured".to_owned(), res::str::manufactured()),
+                                        ("free".to_owned(), res::str::without_cost()),
+                                    ],
+                                ),
+                            )
+                        },
                     ),
+                    labeled(
+                        res::str::product(),
+                        picker(product, move || {
+                            std::iter::once((String::new(), res::str::create_product().format()))
+                                .chain(
+                                    s.rows("products")
+                                        .iter()
+                                        .filter(|p| text(p, "kind") == category.get())
+                                        .map(|p| (text(p, "id"), text(p, "name"))),
+                                )
+                                .collect::<Vec<_>>()
+                        }),
+                    ),
+                ))
+            },
+        ),
+        when(
+            move || product.get().is_empty(),
+            move || {
+                column((
+                    labeled(res::str::name(), text_field(name)),
+                    when(
+                        move || category.get() == "nfcCard",
+                        move || labeled(res::str::card_color(), text_field(color)),
+                    ),
+                ))
+            },
+        ),
+        when(
+            move || category.get() != "expense",
+            move || {
+                labeled(
+                    res::str::quantity(),
+                    stepper(quantity).range(1.0..=100_000.0),
                 )
             },
         ),
+        when(
+            move || !without_cost(),
+            move || {
+                labeled(
+                    res::str::amount(),
+                    text_field(amount).input_purpose(day_spec::InputPurpose::Decimal),
+                )
+            },
+        ),
+        labeled(res::str::expense_date(), date_picker(date)),
+    ))
+    .title(res::str::purchase_expense());
+    let metadata = section((
+        labeled(res::str::purchase_link(), text_field(url)),
+        button(res::str::import_product())
+            .enabled(move || !s.busy() && !url.get().is_empty())
+            .action(move || s.send("importProduct", json!({"url":url.peek()}), json!([]), false)),
+        label(move || import_message.get()).secondary(),
+    ))
+    .title(res::str::buy_again())
+    .footer(res::str::import_hint());
+    let details = section((
+        labeled(res::str::merchant(), text_field(merchant)),
+        labeled(res::str::how_paid(), text_field(payment)),
         labeled(res::str::notes(), text_area(notes)),
-    ));
-    scroll(column((
-        back(s,if new_product{res::str::new_product()}else{res::str::register_expense()}),
-        form((fields,)),
-        button(res::str::save()).prominent().enabled(move||!s.busy()).action(move||s.send(
-            if new_product{"product"}else{"expense"},
-            json!({"name":name.peek(),"amount":amount.peek(),"quantity":quantity.peek(),"product":product.peek(),"kind":kind.peek(),"notes":notes.peek()}),json!([]),true)),
-        error(s),
-    )).spacing(Space::L).padding(Space::L))
+    ))
+    .title(res::str::details());
+    let fields = scroll(
+        column((
+            form((entry, metadata, details)),
+            label(move || {
+                if without_cost() {
+                    res::str::free_stock_hint()
+                } else {
+                    res::str::expense_hint()
+                }
+            })
+            .secondary(),
+            error(s),
+        ))
+        .spacing(Space::L)
+        .padding(Space::L),
+    )
+    .grow(Dimension::Both);
+    column((back(s,if correcting{res::str::correct_expense()}else{res::str::register_entry()}),fields,
+        button(res::str::save()).prominent().grow(Dimension::Width).enabled(move||!s.busy()&&(without_cost()||crate::model::parse_price(&amount.get()).is_some_and(|v|v>0))&&(!product.get().is_empty()||!name.get().trim().is_empty())&&(category.get()!="nfcCard"||!product.get().is_empty()||!color.get().trim().is_empty())).action(move||{let d=date.peek();s.send(if new_product{"product"}else{"expense"},json!({"name":name.peek(),"kind":category.peek(),"product":product.peek(),"color":color.peek(),"quantity":format!("{:.0}",quantity.peek()),"amount":amount.peek(),"date":format!("{:04}-{:02}-{:02}",d.year,d.month,d.day),"origin":origin.peek(),"merchant":merchant.peek(),"payment":payment.peek(),"url":url.peek(),"imageURL":image.peek(),"notes":notes.peek(),"replacing":if correcting{s.selected_transaction.peek()}else{String::new()}}),json!([]),true);}).padding(Space::M),
+    )).grow(Dimension::Both)
 }
+
 fn inventory(s: Session) -> impl Piece {
     scroll(
         column((
@@ -1091,7 +1332,11 @@ fn transaction(s: Session) -> impl Piece {
                 },
             ),
             when(
-                move || text(&transaction_value(s), "kind") == "expense",
+                move || {
+                    transaction_value(s)["canReverse"]
+                        .as_bool()
+                        .unwrap_or(false)
+                },
                 move || {
                     button(res::str::reverse_expense())
                         .enabled(move || !s.busy())
@@ -1114,6 +1359,16 @@ fn transaction(s: Session) -> impl Piece {
                                 }
                             });
                         })
+                },
+            ),
+            when(
+                move || {
+                    transaction_value(s)["canReverse"]
+                        .as_bool()
+                        .unwrap_or(false)
+                },
+                move || {
+                    button(res::str::correct_expense()).action(move || s.open("expense-correction"))
                 },
             ),
             error(s),
@@ -1181,4 +1436,21 @@ pub(crate) fn profits(s: Session) -> impl Piece {
         .spacing(Space::L)
         .padding(Space::L),
     )
+}
+
+fn sale_saved(s: Session) -> impl Piece {
+    column((
+        spacer(),
+        label(res::str::sale_saved()).font(Font::Title2),
+        label(move || money(s.data.get()["lastSaleCents"].as_i64().unwrap_or(0)))
+            .font(Font::LargeTitle),
+        label(res::str::sale_updated()).secondary(),
+        button(res::str::ready())
+            .prominent()
+            .action(move || s.back()),
+        spacer(),
+    ))
+    .spacing(Space::L)
+    .padding(Space::XL)
+    .grow(Dimension::Both)
 }

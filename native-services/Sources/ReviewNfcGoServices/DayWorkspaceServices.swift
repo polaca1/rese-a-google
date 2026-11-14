@@ -94,3 +94,41 @@ import CoreLocation
         return true
     }
 }
+
+@MainActor extension DayServices {
+    func saveEntry(_ action: String, values: [String: String]) throws {
+        func value(_ key: String) -> String { values[key] ?? "" }
+        let kind = ProductKind(rawValue: value("kind"))
+        let selectedID = UUID(uuidString: value("product"))
+        let selected = selectedID.flatMap { id in store.money.products.first { $0.id == id } }
+        guard selectedID == nil || (selected != nil && selected?.kind == kind) else { throw MoneyError.invalidProduct }
+        let title = selected?.displayName ?? value("name").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, value("url").isEmpty || ProductMetadataService.purchaseURL(value("url")) != nil else { throw MoneyError.invalidProduct }
+        let quantity = Int(value("quantity")) ?? 0
+        if kind != nil { guard (1...100_000).contains(quantity) else { throw MoneyError.invalidAmount } }
+        let origin = InventoryAcquisition(rawValue: value("origin")) ?? .purchase
+        let replacing = UUID(uuidString: value("replacing"))
+        guard value("replacing").isEmpty || replacing != nil else { throw MoneyError.invalidProduct }
+        let withoutCost = kind != nil && origin != .purchase && replacing == nil
+        guard selected != nil || kind != .nfcCard || !value("color").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw MoneyError.invalidProduct }
+        let product = selected == nil ? kind.map { InventoryProduct(name: title, kind: $0, color: $0 == .nfcCard ? value("color") : "", purchaseURL: value("url"), imageURL: value("imageURL")) } : nil
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = .current; formatter.dateFormat = "yyyy-MM-dd"; formatter.isLenient = false
+        guard let date = formatter.date(from: value("date")), date <= Date() else { throw MoneyError.invalidAmount }
+        if withoutCost, let id = selectedID ?? product?.id {
+            try store.receiveStock(title: product?.displayName ?? title, quantity: quantity, productID: id, newProduct: product, origin: origin, date: date, notes: value("notes"))
+        } else {
+            guard let amount = SaleAmountFormatting.parse(value("amount")) else { throw MoneyError.invalidAmount }
+            try store.addExpense(title: product?.displayName ?? title, amount: amount, quantity: quantity, productID: selectedID ?? product?.id, newProduct: product, date: date, merchant: value("merchant"), method: value("payment"), url: value("url"), notes: value("notes"), replacing: replacing)
+        }
+    }
+    func transactionSnapshot() -> [[String: Any]] {
+        store.money.history.map { item in
+            var object = encoded(item) as? [String: Any] ?? [:]
+            object["dateLabel"] = item.date.formatted(date: .abbreviated, time: .shortened)
+            object["dateLocal"] = String(localDate(item.date).prefix(10))
+            object["typeTitle"] = item.typeTitle
+            object["canReverse"] = item.kind == .expense && !store.money.isReversed(item.id)
+            return object
+        }
+    }
+}
