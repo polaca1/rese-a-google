@@ -1,0 +1,66 @@
+name: IPA de prueba
+on:
+  push:
+    branches: [appfair/reviewnfcgo]
+    paths: ['preview/**', '.github/workflows/ipa-preview.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  ipa:
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check preserved sources
+        run: python3 scripts/check-ui-parity.py
+      - name: Prepare native preview project
+        run: |
+          set -euo pipefail
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          sips -z 1024 1024 resource/icons/icon.png --out preview/Assets.xcassets/AppIcon.appiconset/AppIcon.png >/dev/null
+          cd preview
+          xcodegen generate
+      - name: Build device archive
+        run: |
+          set -euo pipefail
+          xcodebuild -project preview/ReviewNfcGoPreview.xcodeproj -scheme reviewNfcGo \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/reviewNfcGo.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO archive \
+            > "$RUNNER_TEMP/ipa-build.log" 2>&1 || { tail -150 "$RUNNER_TEMP/ipa-build.log"; exit 1; }
+      - name: Package and verify IPA
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ipa/Payload" dist
+          cp -R "$RUNNER_TEMP/reviewNfcGo.xcarchive/Products/Applications/reviewNfcGo.app" "$RUNNER_TEMP/ipa/Payload/"
+          /usr/bin/python3 preview/verify-ipa.py "$RUNNER_TEMP/ipa/Payload/reviewNfcGo.app"
+          cd "$RUNNER_TEMP/ipa"
+          ditto -c -k --sequesterRsrc --keepParent Payload "$GITHUB_WORKSPACE/dist/reviewNfcGo-7.3.1-build41-native-preview.ipa"
+          cd "$GITHUB_WORKSPACE/dist"
+          unzip -t reviewNfcGo-7.3.1-build41-native-preview.ipa
+          shasum -a 256 *.ipa > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reviewNfcGo-7.3.1-build41-native-preview
+          path: dist/*
+          retention-days: 14
+      - name: Publish downloadable preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=reviewnfcgo-native-preview-7.3.1-build41
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title 'reviewNfcGo 7.3.1 (41) · Native preview' \
+              --notes 'IPA sin firmar para probar el paquete SwiftUI adaptado. Incluye widgets. No incorpora el contenedor Day, no es la versión final de App Fair y no se ha verificado en un teléfono físico. Firma con SideStore o Sideloadly. No cambia la fuente estable.'
+          fi
+          gh release upload "$tag" dist/* --clobber
+      - name: Save build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-preview-build-log
+          path: ${{ runner.temp }}/ipa-build.log
