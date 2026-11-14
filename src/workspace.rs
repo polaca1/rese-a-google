@@ -204,7 +204,7 @@ fn view_date(s: Session) -> impl Piece {
     date_picker(date)
 }
 fn chart(s: Session, monthly: bool) -> impl Piece {
-    use day_piece_charts::{LegendPosition, bar, chart, value};
+    use day_piece_charts::{LegendPosition, Stacking, bar, chart, value};
     chart(move || {
         let input = if monthly {
             rows(s, "monthly")
@@ -245,12 +245,22 @@ fn chart(s: Session, monthly: bool) -> impl Piece {
                         value("day", x.clone()),
                         value("amount", d[key].as_f64().unwrap_or(0.0) / 100.0),
                     )
+                    .stacking(Stacking::Unstacked)
                     .by_series(value("series", name.clone()))
                     .by_position(value("series", name))
                     .foreground(color)
                 })
             })
             .collect()
+    })
+    .series_colors(move |index, _| {
+        if index == 0 {
+            Color::hex(0x0A84FF)
+        } else if monthly {
+            Color::hex(0xFF9F0A)
+        } else {
+            Color::hex(0x30D158)
+        }
     })
     .legend(LegendPosition::Bottom)
     .height(220.0)

@@ -296,7 +296,7 @@ import UserNotifications
                         let r = action == "writeSelectedNFC" ? try selectedRecord() : try record(); handoff = NFCSaleHandoff(owner: owner, recordID: r.id); salePrompt = nil
                         ExternalNFCWriter.write(reviewURL: r.place.reviewURL) { [weak self] launched in self?.handoff?.launched = launched; self?.persistHandoff(); self?.revision &+= 1 }
                     case "finishNFC": handoff = nil; salePrompt = nil; persistHandoff()
-                    case "notificationSettings": if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    case "notificationSettings": if let url = URL(string: UIApplication.openSettingsURLString) { _ = await UIApplication.shared.open(url) }
                     case "notifications":
                         _ = await NotificationManager.authorizationAllowed()
                         let settings = await UNUserNotificationCenter.current().notificationSettings()
