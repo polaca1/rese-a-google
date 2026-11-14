@@ -21,8 +21,15 @@ La carpeta `swiftui/` permanece como referencia de diseño y de pruebas del comp
 
 ## Comprobación y trabajo pendiente
 
-Se están portando y comprobando los flujos principales. Todavía faltan superficies auxiliares de actividad, presupuestos, rutas, objetivos y edición avanzada de inventario, además de las pruebas completas del contenedor iOS. No se declara paridad funcional del 100 % mientras estos elementos estén pendientes.
+Se están portando y comprobando los flujos principales. Ya están portados el detalle de producto, sus movimientos, ajustes de existencias, mínimo de stock, seguimiento y beneficio por negocio. Todavía faltan superficies auxiliares de actividad, presupuestos, rutas, objetivos, corrección de gastos y adquisición avanzada de inventario, además de las pruebas completas del contenedor iOS. No se declara paridad funcional del 100 % mientras estos elementos estén pendientes.
 
 El workflow `Native Day migration` comprueba Rust, el límite entre interfaz y servicios, la compilación del paquete de servicios nativos y el destino UIKit de Rust. El host convencional de Day 0.7.4 requiere Xcode 27. Estas comprobaciones parciales no sustituyen ejecutar ese host y probarlo físicamente.
 
 La variante `verification` usa exclusivamente datos sintéticos para comparar la distribución de pantallas en navegador. No autentica cuentas ni simula ventas guardadas. Sus capturas no son capturas de un iPhone.
+
+
+## Verificación de esta rama
+
+El commit `ce533c9` superó los dos trabajos de CI: servicios nativos sin vistas antiguas y comprobación Rust para UIKit, además de las pruebas existentes de reglas del negocio. Los cambios posteriores deben superar de nuevo esos trabajos antes de considerarse validados.
+
+Las comprobaciones visuales se ejecutan a 390 × 844, en modo claro y oscuro, con datos de `fixtures/day-ui.json`. Se verifica Inicio como selección inicial, el orden de las pestañas, volver entre formularios y la venta con total y stands gratuitos. El navegador utiliza los controles web de Day; no prueba el tamaño final de los controles UIKit ni la escritura física NFC.

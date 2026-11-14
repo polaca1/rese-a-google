@@ -106,3 +106,34 @@ review_caption = Obtén el enlace de reseña en segundos
 
 copy_review_link = Copiar enlace de reseña
 return_later = Volver más tarde
+
+select_business = Seleccionar negocio
+profits = Beneficio por negocio
+tracking = Seguimiento
+available_stock = Disponibles
+purchased_units = Adquiridos
+spent = Dinero gastado
+new_purchase = Registrar nueva compra
+adjust_stock = Ajustar existencias
+minimum_stock = Existencias mínimas
+save_minimum = Guardar mínimo
+product_movements = Movimientos de este producto
+current_stock = Existencias actuales
+actual_stock = Existencias reales
+adjustment_reason = Motivo (recuento, regalo, rotura…)
+adjustment_hint = Este ajuste se guarda en el historial y cambia las existencias. Para registrar dinero gastado utiliza una compra.
+transaction = Movimiento
+open_business = Abrir ficha del negocio
+reverse_expense = Anular gasto / devolver compra
+confirm_reverse = ¿Anular este gasto?
+reverse_hint = Se registra la devolución y se retiran las unidades adquiridas del inventario. El movimiento original se conserva.
+status = Estado
+add_timeline_note = Añadir nota al historial
+save_tracking = Guardar seguimiento
+mark_visited = Registrar visita realizada
+profit_hint = El beneficio resta el coste de compra de los productos vendidos. Los gastos se descuentan del saldo general.
+unknown_cost = Coste pendiente de registrar
+
+notice_date = Avisarme el
+notice_time = Hora del aviso
+notice_hint = El aviso puede ser anterior a la visita. Si su hora pasa mientras editas, se programará para el próximo minuto disponible.

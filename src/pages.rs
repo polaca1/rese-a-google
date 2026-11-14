@@ -83,6 +83,11 @@ fn content(s: Session, tab: Section) -> impl Piece {
             "expense" => expense(s, false).any(),
             "product" => expense(s, true).any(),
             "inventory" => inventory(s).any(),
+            "product-detail" => product_detail(s).any(),
+            "stock" => stock(s).any(),
+            "transaction" => transaction(s).any(),
+            "tracking" => tracking(s).any(),
+            "profits" => profits(s).any(),
             "reminder" => reminder(s).any(),
             "password" => password(s).any(),
             _ => match tab {
@@ -336,6 +341,7 @@ fn wallet(s: Session) -> impl Piece {
                 button(res::str::register_expense())
                     .icon(Symbol::Add)
                     .action(move || s.open("expense")),
+                button(res::str::profits()).action(move || s.open("profits")),
                 button(res::str::inventory()).action(move || s.open("inventory")),
                 when(
                     move || !s.text("undoTitle").is_empty(),
@@ -352,7 +358,10 @@ fn wallet(s: Session) -> impl Piece {
                 move |slot| {
                     section((
                         row((
-                            label(move || text(&slot.get(), "title")),
+                            button(move || text(&slot.get(), "title")).action(move || {
+                                s.selected_transaction.set(text(&slot.get(), "id"));
+                                s.open("transaction");
+                            }),
                             spacer(),
                             label(move || money(slot.get()["cents"].as_i64().unwrap_or(0))),
                         )),
@@ -595,6 +604,7 @@ fn record(s: Session) -> impl Piece {
                     )
                 }),
                 button(res::str::register_sale()).action(move || s.open("sale")),
+                button(res::str::tracking()).action(move || s.open("tracking")),
                 button(res::str::directions()).action(move || {
                     s.send(
                         "directions",
@@ -636,9 +646,12 @@ fn sale(s: Session) -> impl Piece {
         section((labeled(
             res::str::business(),
             picker(business, move || {
-                s.rows("records")
-                    .iter()
-                    .map(|r| (text(r, "id"), text(&r["place"], "name")))
+                std::iter::once((String::new(), res::str::select_business().format()))
+                    .chain(
+                        s.rows("records")
+                            .iter()
+                            .map(|r| (text(r, "id"), text(&r["place"], "name"))),
+                    )
                     .collect::<Vec<_>>()
             }),
         ),))
@@ -744,7 +757,9 @@ fn sale(s: Session) -> impl Piece {
             button(res::str::save_sale())
                 .prominent()
                 .grow(Dimension::Width)
-                .enabled(move || !s.busy() && !business.get().is_empty())
+                .enabled(move || {
+                    !s.busy() && !business.get().is_empty() && s.cart_total().is_some_and(|v| v > 0)
+                })
                 .action(move || {
                     s.send(
                         "sale",
@@ -763,7 +778,13 @@ fn expense(s: Session, new_product: bool) -> impl Piece {
     let name = Signal::new(String::new());
     let amount = Signal::new(String::new());
     let quantity = Signal::new("1".to_owned());
-    let product = Signal::new(String::new());
+    let product = Signal::new(
+        if s.history.peek().last().map(String::as_str) == Some("product-detail") {
+            s.selected_product.peek()
+        } else {
+            String::new()
+        },
+    );
     let kind = Signal::new("nfcCard".to_owned());
     let notes = Signal::new(String::new());
     let fields = section((
@@ -823,7 +844,10 @@ fn inventory(s: Session) -> impl Piece {
                 items(move || s.rows("products"), |p: &Value| text(p, "id")),
                 move |slot| {
                     section((
-                        label(move || text(&slot.get(), "name")).font(Font::Headline),
+                        button(move || text(&slot.get(), "name")).action(move || {
+                            s.selected_product.set(text(&slot.get(), "id"));
+                            s.open("product-detail");
+                        }),
                         label(move || {
                             res::str::stock_count(slot.get()["stock"].as_i64().unwrap_or(0))
                         }),
@@ -836,14 +860,43 @@ fn inventory(s: Session) -> impl Piece {
         .padding(Space::L),
     )
 }
+fn local_picker(value: &str) -> (DayDate, DayTime) {
+    let (d, t) = value.split_once(' ').unwrap_or(("", ""));
+    let mut parts = t.split(':');
+    let time = parts
+        .next()
+        .and_then(|h| h.parse().ok())
+        .zip(parts.next().and_then(|m| m.parse().ok()))
+        .and_then(|(h, m)| DayTime::new(h, m, 0))
+        .unwrap_or_else(|| DayTime::new(10, 0, 0).unwrap());
+    (DayDate::parse_iso(d).unwrap_or_else(DayDate::today), time)
+}
+fn picker_text(date: DayDate, time: DayTime) -> String {
+    format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}",
+        date.year, date.month, date.day, time.hour, time.minute
+    )
+}
 fn reminder(s: Session) -> impl Piece {
-    let date = Signal::new(DayDate::today());
-    let time = Signal::new(DayTime::new(10, 0, 0).unwrap());
-    let note = Signal::new(text(&s.record(), "notes"));
-    scroll(column((back(s,res::str::reminder()),form((section((labeled(res::str::visit_date(),date_picker(date)),labeled(res::str::visit_time(),time_picker(time)),labeled(res::str::notes(),text_area(note)))),)),
-        button(res::str::save()).prominent().enabled(move||!s.busy()).action(move||{let d=date.peek();let t=time.peek();let value=format!("{:04}-{:02}-{:02} {:02}:{:02}",d.year,d.month,d.day,t.hour,t.minute);s.send("reminder",json!({"record":s.selected.peek(),"visit":value,"notification":value,"notes":note.peek()}),json!([]),true);}),error(s),
+    let r = s.record();
+    let (d, t) = local_picker(&text(&r, "visitLocal"));
+    let (nd, nt) = local_picker(&text(&r, "noticeLocal"));
+    let date = Signal::new(d);
+    let time = Signal::new(t);
+    let notice_date = Signal::new(nd);
+    let notice_time = Signal::new(nt);
+    let note = Signal::new(text(&r, "notes"));
+    scroll(column((back(s,res::str::reminder()),form((section((
+        labeled(res::str::visit_date(),date_picker(date)),
+        labeled(res::str::visit_time(),time_picker(time)),
+        labeled(res::str::notice_date(),date_picker(notice_date)),
+        labeled(res::str::notice_time(),time_picker(notice_time)),
+        labeled(res::str::notes(),text_area(note)),
+    )).footer(res::str::notice_hint()),)),
+        button(res::str::save()).prominent().enabled(move||!s.busy()).action(move||s.send("reminder",json!({"record":s.selected.peek(),"visit":picker_text(date.peek(),time.peek()),"notification":picker_text(notice_date.peek(),notice_time.peek()),"notes":note.peek()}),json!([]),true)),error(s),
     )).spacing(Space::L).padding(Space::L))
 }
+
 fn password(s: Session) -> impl Piece {
     let value = Signal::new(String::new());
     scroll(
@@ -909,5 +962,222 @@ fn avatar(s: Session, size: f64) -> impl Piece {
                     .any()
             }
         },
+    )
+}
+
+fn product_value(s: Session) -> Value {
+    s.rows("products")
+        .into_iter()
+        .find(|p| text(p, "id") == s.selected_product.get())
+        .unwrap_or(Value::Null)
+}
+fn product_detail(s: Session) -> impl Piece {
+    let minimum = Signal::new(
+        product_value(s)["minimumStock"]
+            .as_i64()
+            .unwrap_or(5)
+            .to_string(),
+    );
+    scroll(
+        column((
+            back(s, res::str::product()),
+            section((
+                label(move || text(&product_value(s), "name")).font(Font::Headline),
+                labeled(
+                    res::str::available_stock(),
+                    label(move || product_value(s)["stock"].as_i64().unwrap_or(0).to_string()),
+                ),
+                labeled(
+                    res::str::purchased_units(),
+                    label(move || {
+                        product_value(s)["purchased"]
+                            .as_i64()
+                            .unwrap_or(0)
+                            .to_string()
+                    }),
+                ),
+                labeled(
+                    res::str::sold_cards(),
+                    label(move || product_value(s)["sold"].as_i64().unwrap_or(0).to_string()),
+                ),
+                labeled(
+                    res::str::spent(),
+                    label(move || money(product_value(s)["spentCents"].as_i64().unwrap_or(0))),
+                ),
+            )),
+            section((
+                button(res::str::new_purchase()).action(move || s.open("expense")),
+                button(res::str::adjust_stock()).action(move || s.open("stock")),
+                labeled(
+                    res::str::minimum_stock(),
+                    text_field(minimum).input_purpose(day_spec::InputPurpose::Number),
+                ),
+                button(res::str::save_minimum())
+                    .enabled(move || {
+                        !s.busy() && minimum.get().parse::<u32>().is_ok_and(|v| v <= 100_000)
+                    })
+                    .action(move || {
+                        s.send(
+                            "minimumStock",
+                            json!({"product":s.selected_product.peek(),"quantity":minimum.peek()}),
+                            json!([]),
+                            false,
+                        )
+                    }),
+            )),
+            label(res::str::product_movements()).font(Font::Headline),
+            each(
+                items(
+                    move || {
+                        s.rows("transactions")
+                            .into_iter()
+                            .filter(|t| text(t, "productID") == s.selected_product.get())
+                            .collect::<Vec<_>>()
+                    },
+                    |t: &Value| text(t, "id"),
+                ),
+                move |slot| {
+                    button(move || text(&slot.get(), "title")).action(move || {
+                        s.selected_transaction.set(text(&slot.get(), "id"));
+                        s.open("transaction");
+                    })
+                },
+            ),
+            error(s),
+        ))
+        .spacing(Space::L)
+        .padding(Space::L),
+    )
+}
+fn stock(s: Session) -> impl Piece {
+    let quantity = Signal::new(product_value(s)["stock"].as_i64().unwrap_or(0).to_string());
+    let reason = Signal::new(String::new());
+    column((
+        back(s, res::str::adjust_stock()),
+        form((section((
+            labeled(res::str::current_stock(), label(move || product_value(s)["stock"].as_i64().unwrap_or(0).to_string())),
+            labeled(res::str::actual_stock(), text_field(quantity).input_purpose(day_spec::InputPurpose::Number)),
+            labeled(res::str::adjustment_reason(), text_area(reason)),
+        )).footer(res::str::adjustment_hint()),)),
+        button(res::str::save()).prominent().enabled(move || !s.busy() && !reason.get().trim().is_empty() && quantity.get().parse::<i64>().is_ok_and(|q| (0..=100_000).contains(&q) && q != product_value(s)["stock"].as_i64().unwrap_or(0)))
+            .action(move || s.send("stock",json!({"product":s.selected_product.peek(),"quantity":quantity.peek(),"notes":reason.peek()}),json!([]),true)),
+        error(s),
+    )).spacing(Space::L).padding(Space::L)
+}
+fn transaction_value(s: Session) -> Value {
+    s.rows("transactions")
+        .into_iter()
+        .find(|t| text(t, "id") == s.selected_transaction.get())
+        .unwrap_or(Value::Null)
+}
+fn transaction(s: Session) -> impl Piece {
+    scroll(
+        column((
+            back(s, res::str::transaction()),
+            section((
+                label(move || text(&transaction_value(s), "title")).font(Font::Headline),
+                label(move || money(transaction_value(s)["cents"].as_i64().unwrap_or(0)))
+                    .font(Font::LargeTitle),
+                label(move || text(&transaction_value(s), "paymentMethod")),
+                label(move || text(&transaction_value(s), "merchant")),
+                label(move || text(&transaction_value(s), "notes")),
+            )),
+            when(
+                move || !text(&transaction_value(s), "businessID").is_empty(),
+                move || {
+                    button(res::str::open_business())
+                        .action(move || s.open_record(text(&transaction_value(s), "businessID")))
+                },
+            ),
+            when(
+                move || text(&transaction_value(s), "kind") == "expense",
+                move || {
+                    button(res::str::reverse_expense())
+                        .enabled(move || !s.busy())
+                        .action(move || {
+                            day::task(async move {
+                                if confirm(res::str::confirm_reverse())
+                                    .message(res::str::reverse_hint())
+                                    .confirm_label(res::str::reverse_expense())
+                                    .cancel_label(res::str::back())
+                                    .destructive()
+                                    .present()
+                                    .await
+                                {
+                                    s.send(
+                                        "reverseExpense",
+                                        json!({"transaction":s.selected_transaction.peek()}),
+                                        json!([]),
+                                        false,
+                                    );
+                                }
+                            });
+                        })
+                },
+            ),
+            error(s),
+        ))
+        .spacing(Space::L)
+        .padding(Space::L),
+    )
+}
+fn tracking(s: Session) -> impl Piece {
+    let stage = Signal::new(text(&s.record(), "stage"));
+    let note = Signal::new(String::new());
+    scroll(column((
+        back(s,res::str::tracking()),
+        label(move || text(&s.record()["place"],"name")).font(Font::Headline),
+        section((
+            labeled(res::str::status(), picker(stage,vec!["Pendiente".to_owned(),"Interesado".to_owned(),"Volver".to_owned(),"Vendido".to_owned()].into_iter().map(|v|(v.clone(),v)).collect::<Vec<_>>())),
+            labeled(res::str::add_timeline_note(), text_area(note)),
+            button(res::str::save_tracking()).enabled(move || !s.busy()).action(move || s.send("tracking",json!({"record":s.selected.peek(),"stage":stage.peek(),"notes":note.peek(),"visited":"false"}),json!([]),true)),
+            button(res::str::mark_visited()).enabled(move || !s.busy()).action(move || s.send("tracking",json!({"record":s.selected.peek(),"stage":stage.peek(),"notes":note.peek(),"visited":"true"}),json!([]),true)),
+            button(res::str::reminder()).action(move || s.open("reminder")),
+        )),
+        labeled(res::str::income(),label(move || money(s.record()["incomeCents"].as_i64().unwrap_or(0)))),
+        label(res::str::history()).font(Font::Headline),
+        each(items(move || s.record()["followUp"].as_array().cloned().unwrap_or_default(), |e:&Value|text(e,"id")), move |slot| section((label(move || text(&slot.get(),"text")),))),
+        error(s),
+    )).spacing(Space::L).padding(Space::L))
+}
+fn profits(s: Session) -> impl Piece {
+    scroll(
+        column((
+            back(s, res::str::profits()),
+            label(res::str::profit_hint()).secondary(),
+            each(
+                items(
+                    move || {
+                        s.rows("records")
+                            .into_iter()
+                            .filter(|r| r["incomeCents"].as_i64().unwrap_or(0) > 0)
+                            .collect::<Vec<_>>()
+                    },
+                    |r: &Value| text(r, "id"),
+                ),
+                move |slot| {
+                    section((
+                        button(move || text(&slot.get()["place"], "name"))
+                            .action(move || s.open_record(text(&slot.get(), "id"))),
+                        labeled(
+                            res::str::income(),
+                            label(move || money(slot.get()["incomeCents"].as_i64().unwrap_or(0))),
+                        ),
+                        labeled(
+                            res::str::profit(),
+                            label(move || {
+                                slot.get()["profitCents"]
+                                    .as_i64()
+                                    .map(money)
+                                    .unwrap_or_else(|| res::str::unknown_cost().format())
+                            }),
+                        ),
+                    ))
+                },
+            ),
+            error(s),
+        ))
+        .spacing(Space::L)
+        .padding(Space::L),
     )
 }

@@ -26,6 +26,8 @@ pub(crate) struct Session {
     pub submitted_page: Signal<String>,
     pub page_owner: Signal<Section>,
     pub selected: Signal<String>,
+    pub selected_product: Signal<String>,
+    pub selected_transaction: Signal<String>,
     pub query: Signal<String>,
     pub pending: Signal<String>,
     pub close_on_success: Signal<bool>,
@@ -43,6 +45,8 @@ impl Ambient for Session {
             submitted_page: Signal::new(String::new()),
             page_owner: Signal::new(Section::Home),
             selected: Signal::new(String::new()),
+            selected_product: Signal::new(String::new()),
+            selected_transaction: Signal::new(String::new()),
             query: Signal::new(String::new()),
             pending: Signal::new(String::new()),
             close_on_success: Signal::new(false),
@@ -158,6 +162,8 @@ impl Session {
             self.clear_cart();
             self.history.set(Vec::new());
             self.selected.set(String::new());
+            self.selected_product.set(String::new());
+            self.selected_transaction.set(String::new());
             self.page.set(String::new());
             self.pending.set(String::new());
             self.nfc_seen.set(String::new());

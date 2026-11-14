@@ -29,7 +29,13 @@
       "contactEmail": "contact@example.invalid",
       "contactPhone": "",
       "reminderDate": 0,
-      "reminderLabel": ""
+      "reminderLabel": "",
+      "incomeCents": 5500,
+      "soldCards": 3,
+      "profitCents": 4000,
+      "followUp": [],
+      "visitLocal": "2026-11-15 10:00",
+      "noticeLocal": "2026-11-15 09:00"
     }
   ],
   "products": [
@@ -40,7 +46,11 @@
       "stock": 10,
       "defaultPrice": "15",
       "defaultSelected": true,
-      "unitCostCents": 300
+      "unitCostCents": 300,
+      "minimumStock": 5,
+      "purchased": 12,
+      "sold": 2,
+      "spentCents": 2500
     },
     {
       "id": "33333333-3333-4333-8333-333333333333",
@@ -49,7 +59,11 @@
       "stock": 8,
       "defaultPrice": "0",
       "defaultSelected": false,
-      "unitCostCents": 100
+      "unitCostCents": 100,
+      "minimumStock": 5,
+      "purchased": 12,
+      "sold": 2,
+      "spentCents": 2500
     }
   ],
   "transactions": [],

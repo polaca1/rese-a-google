@@ -87,13 +87,21 @@ import PhotosUI
         return object
     }
 
+    func localDate(_ date: Date) -> String {
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"; formatter.timeZone = .current
+        return formatter.string(from: date)
+    }
+
     func state() -> String {
         let user = auth.currentUser
         let ready = user != nil && store.hasLoadedRecords && store.loadedUserEmail == user?.email
         let defaults = Dictionary(uniqueKeysWithValues: EasySaleLine.make(money: store.money).map { ($0.productID, $0) })
         let products: [[String: Any]] = ready ? store.money.products.map {
             ["id": $0.id.uuidString, "name": $0.displayName, "kind": $0.kind.rawValue,
-             "stock": store.money.stock($0.id), "minimumStock": $0.minimumStock ?? 0,
+             "stock": store.money.stock($0.id), "minimumStock": $0.minimumStock ?? 5,
+             "purchased": store.money.purchased($0.id), "sold": store.money.sold($0.id),
+             "spentCents": MoneyLedger.cents(store.money.spent($0.id)) ?? 0, "purchaseURL": $0.purchaseURL,
              "defaultSelected": defaults[$0.id]?.selected ?? false, "defaultPrice": defaults[$0.id]?.price ?? "0",
              "unitCostCents": store.money.averageCostCents($0.id).map { $0 as Any } ?? NSNull()]
         } : []
@@ -101,7 +109,13 @@ import PhotosUI
             ["id": $0.id.uuidString, "place": encoded($0.place), "notes": $0.notes,
              "status": $0.status.rawValue, "stage": $0.trackingStage.rawValue,
              "earnings": $0.earnings, "cardsSold": $0.cardsSold,
+             "incomeCents": store.money.businessIncome($0.id), "soldCards": store.money.businessCards($0.id),
+             "profitCents": store.money.businessProfit($0.id).map { $0 as Any } ?? NSNull(),
+             "followUp": encoded(($0.followUp ?? []).sorted { $0.date > $1.date }),
+             "reviewURL": $0.place.reviewURL,
              "contactName": $0.contactName ?? "", "contactEmail": $0.contactEmail ?? "", "contactPhone": $0.contactPhone ?? "",
+             "visitLocal": localDate($0.reminderDate ?? Date().addingTimeInterval(86400)),
+             "noticeLocal": localDate($0.notificationDate ?? Date().addingTimeInterval(82800)),
              "reminderDate": $0.reminderDate?.timeIntervalSince1970 ?? 0,
              "reminderLabel": $0.reminderDate?.formatted(date: .abbreviated, time: .shortened) ?? ""]
         } : []
@@ -220,9 +234,21 @@ import PhotosUI
                         var product: InventoryProduct?
                         if action == "product" { product = InventoryProduct(name: value("name"), kind: ProductKind(rawValue: value("kind")) ?? .nfcCard); productID = product?.id }
                         try store.addExpense(title: value("name"), amount: try amount("amount"), quantity: quantity, productID: productID, newProduct: product, date: Date(), merchant: value("merchant"), method: value("payment"), url: value("url"), notes: value("notes"))
-                    case "stock": try store.adjustStock(try uuid("product"), quantity: Int(value("quantity")) ?? 0, reason: value("notes"))
+                    case "stock":
+                        let id = try uuid("product")
+                        guard let target = Int(value("quantity")), (0...100_000).contains(target), !value("notes").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw MoneyError.invalidAmount }
+                        try store.adjustStock(id, quantity: target - store.money.stock(id), reason: value("notes"))
+                    case "minimumStock":
+                        guard let target = Int(value("quantity")) else { throw MoneyError.invalidAmount }
+                        try store.setMinimumStock(try uuid("product"), quantity: target)
+                    case "copyReviewLink": UIPasteboard.general.string = try record().place.reviewURL
                     case "reverseExpense": try store.reverseExpense(try uuid("transaction"))
-                    case "reminder": let r = try record(); _ = store.saveReminder(for: r.place, visitDate: try date("visit"), notificationDate: try date("notification"), notes: value("notes"))
+                    case "reminder":
+                        let r = try record(), now = Date(), visit = try date("visit"), selectedNotice = try date("notification")
+                        guard visit > now else { throw DayServiceError.pastVisit }
+                        let nextMinute = Date(timeIntervalSince1970: (floor(now.timeIntervalSince1970 / 60) + 1) * 60)
+                        let notice = min(visit, selectedNotice > now ? selectedNotice : nextMinute)
+                        _ = store.saveReminder(for: r.place, visitDate: visit, notificationDate: notice, notes: value("notes"))
                     case "clearReminder": var r = try record(); r.reminderDate = nil; r.notificationDate = nil; guard store.update(r) else { throw BackupError.invalid }
                     case "tracking": try store.updateTracking(recordID: try uuid("record"), stage: ContactStage(rawValue: value("stage")) ?? .pending, note: value("notes"), visited: value("visited") == "true")
                     case "undo": store.undoLastChange()
@@ -286,4 +312,9 @@ import PhotosUI
         let data = try JSONSerialization.data(withJSONObject: value)
         return String(data: data, encoding: .utf8).flatMap { strdup($0) }
     } catch { return strdup("{}") }
+}
+
+private enum DayServiceError: LocalizedError {
+    case pastVisit
+    var errorDescription: String? { "La hora de la visita ya ha pasado. Elige una fecha y hora futuras para guardar." }
 }

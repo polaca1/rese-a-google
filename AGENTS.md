@@ -23,11 +23,10 @@ Use examples with the API supported by this project's Day dependency version. Ch
 
 ## Project map
 
-- `src/lib.rs`: the window, typed routes, navigation, menus, and Settings and About through
-  `day-piece-settings`.
-- `src/native.rs`: validated delivery of cold/warm URLs to SwiftUI.
-- `swiftui/`: preserved screens, services and lifecycle/resource adapters.
-- `scripts/check-ui-parity.py`: migration guard against unintended changes.
+- `src/lib.rs`: the window and typed routes; `src/pages.rs` contains Day navigation and screens.
+- `src/native.rs`: the native account and device service bridge.
+- `swiftui/`: visual reference and existing business-rule tests; not linked into the Day application.
+- `scripts/check-day-boundary.py`: prevents linking the old SwiftUI application screens.
 - `resource/locales/<locale>/app.ftl`: app-owned UI strings.
 - `resource/`: bundled vectors, images, fonts, and data assets.
 - `dayscript/demo.yaml`: the portable walkthrough and its screenshots.
