@@ -30,6 +30,9 @@ La variante `verification` usa exclusivamente datos sintéticos para comparar la
 
 ## Verificación de esta rama
 
-El commit `ce533c9` superó los dos trabajos de CI: servicios nativos sin vistas antiguas y comprobación Rust para UIKit, además de las pruebas existentes de reglas del negocio. Los cambios posteriores deben superar de nuevo esos trabajos antes de considerarse validados.
+El commit `1afc68f` superó los dos trabajos de CI (ejecución `43628024780`): servicios nativos sin vistas antiguas y comprobación Rust para UIKit, además de las pruebas existentes de reglas del negocio. Los ajustes posteriores de navegación y tamaño del saldo se comprueban con clippy y el recorrido visual. Ninguno de estos resultados equivale a compilar y ejecutar el host iOS completo.
 
 Las comprobaciones visuales se ejecutan a 390 × 844, en modo claro y oscuro, con datos de `fixtures/day-ui.json`. Se verifica Inicio como selección inicial, el orden de las pestañas, volver entre formularios y la venta con total y stands gratuitos. El navegador utiliza los controles web de Day; no prueba el tamaño final de los controles UIKit ni la escritura física NFC.
+
+
+El recorrido de navegador está en `scripts/verify-day-ui.cjs` (Node.js, Playwright y Chromium). Tras compilar la variante, sirve `build/day/flavors/verification/cargo/web-dom/debug/dist` en el puerto 8073 y ejecuta el script desde la raíz. `REVIEW_UI_URL` y `REVIEW_BROWSER` permiten cambiar la URL y el ejecutable. Guarda el informe y seis capturas en `evidence/day-ui/`, fuera del código distribuido. La última ejecución pasó en ambos modos sin errores JavaScript; también comprobó que volver a otra pantalla limpia los errores y que una venta nueva desde Dinero no hereda otro cliente.

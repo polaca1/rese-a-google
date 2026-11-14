@@ -104,11 +104,7 @@ fn error(s: Session) -> impl Piece {
     column((
         when(
             move || !s.text("error").is_empty(),
-            move || {
-                label(move || s.text("error"))
-                    .color(Color::hex(0xFF453A))
-                    .id(day::id!(error_message))
-            },
+            move || label(move || s.text("error")).color(Color::hex(0xFF453A)),
         ),
         when(
             move || !s.text("saveProblem").is_empty(),
@@ -317,7 +313,8 @@ fn wallet(s: Session) -> impl Piece {
             section((
                 label(res::str::available_balance()).secondary(),
                 label(move || money(s.data.get()["balanceCents"].as_i64().unwrap_or(0)))
-                    .font(Font::LargeTitle)
+                    .font(Font::System(42.0))
+                    .bold()
                     .id(day::id!(balance)),
                 row((
                     column((

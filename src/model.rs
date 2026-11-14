@@ -210,6 +210,11 @@ impl Session {
         }
     }
     pub fn send(self, action: &str, values: Value, rows: Value, close: bool) {
+        if action == "clearError" {
+            let mut data = self.data.peek();
+            data["error"] = json!("");
+            self.data.set(data);
+        }
         if ["dismissKeyboard", "openURL", "consumeRoute", "clearError"].contains(&action) {
             native::command(
                 &json!({"action": action, "request": "control", "values": values, "rows": rows}),
@@ -255,11 +260,24 @@ impl Session {
     }
     pub fn open(self, page: &str) {
         self.command("clearError");
+        let same_tab = self.page_owner.peek() == self.tab.peek();
+        let current = if same_tab {
+            self.page.peek()
+        } else {
+            String::new()
+        };
         if page == "sale" {
             self.clear_cart();
+            if !["record", "tracking", "nfc-question"].contains(&current.as_str()) {
+                self.selected.set(String::new());
+            }
         }
-        let mut history = self.history.peek();
-        history.push(self.page.peek());
+        let mut history = if same_tab {
+            self.history.peek()
+        } else {
+            Vec::new()
+        };
+        history.push(current);
         self.history.set(history);
         self.page_owner.set(self.tab.peek());
         self.page.set(page.to_owned());

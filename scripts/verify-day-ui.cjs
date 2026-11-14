@@ -1,0 +1,57 @@
+// Design verification with synthetic data; this is not an iOS device test.
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+(async()=>{
+  const browser=await chromium.launch({executablePath:process.env.REVIEW_BROWSER || '/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
+  fs.mkdirSync('evidence/day-ui',{recursive:true});
+  const report=[];
+  for(const colorScheme of ['dark','light']){
+    const page=await browser.newPage({viewport:{width:390,height:844},colorScheme});
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.goto(process.env.REVIEW_UI_URL || 'http://127.0.0.1:8073',{waitUntil:'domcontentloaded'});
+    await page.waitForTimeout(700);
+    const nav=page.locator('#nav_menu');
+    const navText=(await nav.innerText()).split('\n').map(x=>x.trim()).filter(Boolean);
+    assert.deepEqual(navText,['Sitios','Dinero','Avisos','Inicio','Perfil']);
+    assert(await page.getByText('Obtén el enlace de reseña en segundos',{exact:true}).isVisible());
+    await page.screenshot({path:`evidence/day-ui/home-web-${colorScheme}.png`});
+    await nav.getByText('Sitios',{exact:true}).click();
+    await page.getByRole('button',{name:'Bar de la Plaza',exact:true}).click();
+    await page.getByRole('button',{name:'Editar negocio',exact:true}).click();
+    assert(await page.getByText('Nombre de contacto',{exact:true}).isVisible());
+    await page.getByRole('button',{name:'Atrás',exact:true}).click();
+    assert(await page.getByRole('button',{name:'Registrar venta',exact:true}).isVisible());
+    await nav.getByText('Dinero',{exact:true}).click();
+    assert(await page.locator('#balance').isVisible());
+    await page.getByRole('button',{name:'Registrar venta',exact:true}).click();
+    const save=page.getByRole('button',{name:'Guardar venta',exact:true});
+    assert(await save.isDisabled());
+    await page.locator('select:visible').first().selectOption({label:'Bar de la Plaza'});
+    assert(await save.isEnabled());
+    await page.locator('input[type=checkbox]:visible').nth(1).check();
+    assert(await page.getByText('Gratis',{exact:true}).isVisible());
+    assert.equal(await page.getByLabel('Total',{exact:true}).innerText(),'15,00 €');
+    const box=await save.boundingBox();assert(box && box.y+box.height <= 844);
+    await page.screenshot({path:`evidence/day-ui/sale-web-${colorScheme}.png`});
+    await save.click();
+    assert(await page.getByText('Esta prueba visual no utiliza cuentas reales. Prueba esta operación en el iPhone.',{exact:true}).filter({visible:true}).isVisible());
+    assert(await page.getByText('Nueva venta',{exact:true}).isVisible());
+    await page.getByRole('button',{name:'Atrás',exact:true}).click();
+    await page.getByRole('button',{name:'Tarjetas NFC y productos',exact:true}).click();
+    await page.getByRole('button',{name:'Tarjeta NFC · Negro',exact:true}).click();
+    assert(await page.getByText('Movimientos de este producto',{exact:true}).isVisible());
+    await page.getByRole('button',{name:'Ajustar existencias',exact:true}).click();
+    assert(await page.getByText('Existencias reales',{exact:true}).isVisible());
+    assert(await page.getByRole('button',{name:'Guardar',exact:true}).isDisabled());
+    await page.getByRole('button',{name:'Atrás',exact:true}).click();
+    assert(await page.getByText('Movimientos de este producto',{exact:true}).isVisible());
+    assert.equal(await page.getByText('Esta prueba visual no utiliza cuentas reales. Prueba esta operación en el iPhone.',{exact:true}).filter({visible:true}).count(),0);
+    await page.screenshot({path:`evidence/day-ui/product-web-${colorScheme}.png`});
+    assert.deepEqual(errors,[]);
+    report.push({colorScheme,viewport:'390x844',initialHome:true,tabOrder:navText,nestedBack:true,customerRequired:true,freeSelectedStand:true,saveVisible:true,realSaveNotSimulated:true,stockReasonRequired:true,runtimeErrors:errors});
+    await page.close();
+  }
+  fs.writeFileSync('evidence/day-ui/report.json',JSON.stringify(report,null,2));
+  console.log(JSON.stringify(report));await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});

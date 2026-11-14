@@ -1,4 +1,4 @@
-# Shared smoke test: the website and the native SwiftUI host use distinct IDs.
+# Launch smoke check; use the verification flavor for synthetic Day UI inspection.
 flow:
   - wait: 1500
   - screenshot: launch

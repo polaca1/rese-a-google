@@ -82,3 +82,6 @@ website/*/gallery-manifest.json
 # these two directories to the generated set under build/day/host/harmony/media.
 /platform/harmony/entry/src/main/resources/base/media
 /platform/harmony/AppScope/resources/base/media
+
+# Local synthetic visual verification captures.
+/evidence/
