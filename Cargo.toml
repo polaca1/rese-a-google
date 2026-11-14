@@ -44,6 +44,9 @@ version = "7.3.1"
 swift-packages = [{ path = "native-services", products = ["ReviewNfcGoServices"] }]
 platform = "16.1"
 
+[dependencies.day-piece-charts]
+version = "0.*"
+
 [dependencies.day-core]
 version = "0.*"
 [dependencies.day-pieces]

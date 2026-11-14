@@ -15,6 +15,10 @@ import PhotosUI
     let finder = PlaceFinder()
     let notifications = AppDelegate()
     var revision: UInt64 = 1
+    var workspaceDay = Date()
+    var routeDay = Date()
+    var routeUseLocation = false
+    var routeWalking = true
     var busy = false
     var error: String?
     var completed = ""
@@ -49,6 +53,7 @@ import PhotosUI
 
     func configureAccount() {
         cloud.connect(owner: nil, transport: auth.accountService, read: { try self.store.backup(photo: self.photos.backupData) }, apply: { _ in })
+        workspaceDay = Date(); routeDay = Date(); routeUseLocation = false; routeWalking = true
         store.switchUser(auth.currentUser?.email)
         photos.switchUser(auth.currentUser?.email)
         store.restorePhoto = { [weak self] data in try? self?.photos.restoreBackupData(data) }
@@ -119,7 +124,7 @@ import PhotosUI
              "reminderDate": $0.reminderDate?.timeIntervalSince1970 ?? 0,
              "reminderLabel": $0.reminderDate?.formatted(date: .abbreviated, time: .shortened) ?? ""]
         } : []
-        let value: [String: Any] = [
+        var value: [String: Any] = [
             "user": user.map { ["name": $0.name, "email": $0.email] } ?? [:],
             "ready": ready, "busy": busy || auth.isAuthenticating,
             "error": error ?? auth.errorMessage ?? "",
@@ -148,6 +153,7 @@ import PhotosUI
             "routeRecord": PortalRouter.shared.pendingRecordID?.uuidString ?? "",
             "routeSection": PortalRouter.shared.pendingWidgetSection?.rawValue ?? ""
         ]
+        value["workspace"] = ready ? workspaceSnapshot() : [:]
         guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]),
               let text = String(data: data, encoding: .utf8) else { return "{}" }
         return text
@@ -162,6 +168,11 @@ import PhotosUI
         if action == "dismissKeyboard" { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil); return }
         if action == "openURL" { if let url = values["url"].flatMap(URL.init(string:)) { PortalRouter.shared.open(url: url); revision &+= 1 }; return }
         if action == "consumeRoute" { PortalRouter.shared.consume(); PortalRouter.shared.consumeWidgetSection(); revision &+= 1; return }
+        if ["workspaceDate", "routeDate", "routeLocate"].contains(action) {
+            guard auth.currentUser != nil, store.loadedUserEmail == auth.currentUser?.email else { return }
+            do { _ = try workspaceCommand(action, values: values, rows: rows) } catch { self.error = error.localizedDescription }
+            revision &+= 1; return
+        }
         guard !busy else { return }
         busy = true; error = nil; auth.errorMessage = nil; preparedRecord = nil; revision &+= 1
         Task { @MainActor in
@@ -263,7 +274,7 @@ import PhotosUI
                         let picker = PHPickerViewController(configuration: config); picker.delegate = self
                         UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow)?.rootViewController?.present(picker, animated: true)
                     case "removePhoto": photos.remove()
-                    default: throw BackupError.invalid
+                    default: guard try workspaceCommand(action, values: values, rows: rows) else { throw BackupError.invalid }
                     }
                 }
                 succeeded = true

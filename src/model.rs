@@ -26,6 +26,7 @@ pub(crate) struct Session {
     pub submitted_page: Signal<String>,
     pub page_owner: Signal<Section>,
     pub selected: Signal<String>,
+    pub selected_quote: Signal<String>,
     pub selected_product: Signal<String>,
     pub selected_transaction: Signal<String>,
     pub query: Signal<String>,
@@ -45,6 +46,7 @@ impl Ambient for Session {
             submitted_page: Signal::new(String::new()),
             page_owner: Signal::new(Section::Home),
             selected: Signal::new(String::new()),
+            selected_quote: Signal::new(String::new()),
             selected_product: Signal::new(String::new()),
             selected_transaction: Signal::new(String::new()),
             query: Signal::new(String::new()),
@@ -162,6 +164,7 @@ impl Session {
             self.clear_cart();
             self.history.set(Vec::new());
             self.selected.set(String::new());
+            self.selected_quote.set(String::new());
             self.selected_product.set(String::new());
             self.selected_transaction.set(String::new());
             self.page.set(String::new());
@@ -215,7 +218,17 @@ impl Session {
             data["error"] = json!("");
             self.data.set(data);
         }
-        if ["dismissKeyboard", "openURL", "consumeRoute", "clearError"].contains(&action) {
+        if [
+            "dismissKeyboard",
+            "openURL",
+            "consumeRoute",
+            "clearError",
+            "workspaceDate",
+            "routeDate",
+            "routeLocate",
+        ]
+        .contains(&action)
+        {
             native::command(
                 &json!({"action": action, "request": "control", "values": values, "rows": rows}),
             );

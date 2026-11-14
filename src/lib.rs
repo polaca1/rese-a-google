@@ -5,6 +5,7 @@ mod mapkit;
 mod model;
 mod native;
 mod pages;
+mod workspace;
 day::resources!();
 day::day_start!(options: res::window_options(), root);
 day::routes! { pub(crate) enum Section { Places=>"places", Money=>"money", Alerts=>"alerts", Home=>"home", Profile=>"profile" } }

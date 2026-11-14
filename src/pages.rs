@@ -88,6 +88,8 @@ fn content(s: Session, tab: Section) -> impl Piece {
             "transaction" => transaction(s).any(),
             "tracking" => tracking(s).any(),
             "profits" => profits(s).any(),
+            "activity" | "today" | "clients" | "goals" | "analytics" | "route" | "quotes"
+            | "quote-editor" | "quote-detail" | "levels" => crate::workspace::page(s, page),
             "reminder" => reminder(s).any(),
             "password" => password(s).any(),
             _ => match tab {
@@ -100,7 +102,7 @@ fn content(s: Session, tab: Section) -> impl Piece {
         },
     )
 }
-fn error(s: Session) -> impl Piece {
+pub(crate) fn error(s: Session) -> impl Piece {
     column((
         when(
             move || !s.text("error").is_empty(),
@@ -145,7 +147,7 @@ fn heading(title: LocalizedText) -> impl Piece {
         .font(Font::LargeTitle)
         .a11y(|a| a.role(Role::Heading(1)))
 }
-fn back(s: Session, title: LocalizedText) -> impl Piece {
+pub(crate) fn back(s: Session, title: LocalizedText) -> impl Piece {
     row((
         button(res::str::back())
             .icon(Symbol::Back)
@@ -335,6 +337,7 @@ fn wallet(s: Session) -> impl Piece {
                 button(res::str::register_sale())
                     .icon(Symbol::Add)
                     .action(move || s.open("sale")),
+                button(res::str::activity_goals()).action(move || s.open("activity")),
                 button(res::str::register_expense())
                     .icon(Symbol::Add)
                     .action(move || s.open("expense")),
@@ -602,6 +605,7 @@ fn record(s: Session) -> impl Piece {
                 }),
                 button(res::str::register_sale()).action(move || s.open("sale")),
                 button(res::str::tracking()).action(move || s.open("tracking")),
+                button(res::str::client_quotes()).action(move || s.open("quotes")),
                 button(res::str::directions()).action(move || {
                     s.send(
                         "directions",
@@ -1137,7 +1141,7 @@ fn tracking(s: Session) -> impl Piece {
         error(s),
     )).spacing(Space::L).padding(Space::L))
 }
-fn profits(s: Session) -> impl Piece {
+pub(crate) fn profits(s: Session) -> impl Piece {
     scroll(
         column((
             back(s, res::str::profits()),

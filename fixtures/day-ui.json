@@ -77,5 +77,77 @@
     "latitude": 40.4168,
     "longitude": -3.7038
   },
-  "photo": ""
+  "photo": "",
+  "workspace": {
+    "day": "2026-11-14",
+    "routeDay": "2026-11-14",
+    "routeWalking": true,
+    "goals": {
+      "cards": 25,
+      "visits": 10,
+      "profitCents": 10000
+    },
+    "weekly": {
+      "cards": 3,
+      "visits": 2,
+      "profit": 4000,
+      "unknownCosts": false,
+      "days": [
+        {
+          "id": "1",
+          "day": "lun",
+          "income": 1500,
+          "profit": 1200
+        },
+        {
+          "id": "2",
+          "day": "mar",
+          "income": 4000,
+          "profit": 2800
+        }
+      ]
+    },
+    "today": {
+      "salesCents": 1500,
+      "visits": [],
+      "followUps": [
+        "11111111-1111-4111-8111-111111111111"
+      ]
+    },
+    "monthly": [
+      {
+        "id": "previous",
+        "month": "oct 2026",
+        "income": 3000,
+        "expense": 1000
+      },
+      {
+        "id": "current",
+        "month": "nov 2026",
+        "income": 5500,
+        "expense": 2500
+      }
+    ],
+    "performance": [
+      {
+        "id": "22222222-2222-4222-8222-222222222222",
+        "name": "Tarjeta NFC · Negro",
+        "quantity": 3,
+        "revenue": 5500,
+        "profit": 4000
+      }
+    ],
+    "routes": [
+      {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "name": "Bar de la Plaza",
+        "address": "Calle Mayor, Madrid",
+        "time": "Sin hora fijada",
+        "distance": "120 m"
+      }
+    ],
+    "routeLegs": [],
+    "quotes": [],
+    "sales": []
+  }
 }
