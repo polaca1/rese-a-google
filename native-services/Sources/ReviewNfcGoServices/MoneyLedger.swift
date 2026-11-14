@@ -1,0 +1,313 @@
+import Foundation
+
+enum ProductKind: String, Codable, CaseIterable, Identifiable {
+    case nfcCard, stand, accessory, custom
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .nfcCard: return "Tarjetas NFC"; case .stand: return "Stands"; case .accessory: return "Accesorios"; case .custom: return "Producto personalizado" }
+    }
+    var icon: String { self == .nfcCard ? "creditcard" : self == .stand ? "rectangle.on.rectangle" : "shippingbox" }
+}
+struct InventoryProduct: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var name: String
+    var kind: ProductKind
+    var color = ""
+    var purchaseURL = ""
+    var imageURL = ""
+    var minimumStock: Int? = nil
+    var displayName: String { color.isEmpty ? name : "\(name) · \(color)" }
+}
+enum MoneyKind: String, Codable {
+    case income, incomeAdjustment, expense, refund, stockAdjustment
+    var title: String {
+        switch self { case .income: return "Ingreso"; case .incomeAdjustment: return "Ajuste de ingreso"; case .expense: return "Gasto"; case .refund: return "Devolución / anulación"; case .stockAdjustment: return "Ajuste de inventario" }
+    }
+    var isIncome: Bool { self == .income || self == .incomeAdjustment }
+}
+enum InventoryAcquisition: String, Codable, CaseIterable, Identifiable {
+    case purchase, manufactured, free
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .purchase: return "Compra"; case .manufactured: return "Fabricado"; case .free: return "Sin coste" }
+    }
+}
+struct MoneyTransaction: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var date: Date
+    var kind: MoneyKind
+    var title: String
+    /// Signed cents: receipts positive, expenses negative. Never computed with floating point.
+    var cents: Int64
+    var businessID: UUID? = nil
+    var productID: UUID? = nil
+    var quantity = 0
+    var merchant = ""
+    var paymentMethod = ""
+    var purchaseURL = ""
+    var notes = ""
+    var originalID: UUID? = nil
+    /// Optional keeps old backups readable. Free receipts remain zero-value stock movements.
+    var stockOrigin: InventoryAcquisition? = nil
+    var saleID: UUID? = nil
+    var costCents: Int64? = nil
+    var amount: Double { Double(cents) / 100 }
+    var typeTitle: String { stockOrigin?.title ?? kind.title }
+}
+struct SaleCheckpoint: Codable, Equatable {
+    var cents: Int64
+    var cards: Int
+    var productID: UUID?
+    /// Cost captured when the sale is saved. Nil means the purchase cost is unknown.
+    var costCents: Int64? = nil
+    var preciseCostCents: Double? = nil
+}
+enum MoneyError: LocalizedError {
+    case invalidAmount, invalidQuantity, insufficientStock, invalidProduct, alreadyReversed, invalidQuote, expiredQuote, quoteAlreadySold
+    var errorDescription: String? {
+        switch self {
+        case .invalidAmount: return "Introduce un importe válido entre 0,01 € y 10.000.000 €."
+        case .invalidQuantity: return "Introduce una cantidad entre 1 y 100.000 unidades."
+        case .insufficientStock: return "No hay suficientes unidades de ese producto. Registra la compra o revisa las tarjetas asignadas."
+        case .invalidProduct: return "Añade el nombre del producto y el color de las tarjetas NFC."
+        case .alreadyReversed: return "Este gasto ya tiene una devolución registrada."
+        case .invalidQuote: return "Revisa los productos, cantidades y condiciones del presupuesto."
+        case .expiredQuote: return "Este presupuesto ha caducado. Crea uno nuevo antes de registrar la venta."
+        case .quoteAlreadySold: return "Este presupuesto ya se ha convertido en venta o ya no admite cambios."
+        }
+    }
+}
+struct WeeklyGoals: Codable, Equatable {
+    var cards = 25
+    var visits = 10
+    var profitCents: Int64 = 10000
+}
+struct QuickSaleInput: Identifiable, Equatable {
+    var id: UUID { productID }
+    var productID: UUID
+    var quantity: Int
+    var unitPrice: Double
+
+    static func includingPending(_ items: [QuickSaleInput], productID: UUID?, quantity: Int,
+                                 price: String, availableStock: Int) throws -> [QuickSaleInput] {
+        guard let productID else { return items }
+        guard items.count < 20, !items.contains(where: { $0.productID == productID }) else { throw MoneyError.invalidProduct }
+        guard (1...100_000).contains(quantity) else { throw MoneyError.invalidQuantity }
+        guard let amount = SaleAmountFormatting.parse(price), let cents = MoneyLedger.cents(amount),
+              cents >= 0, cents * Int64(quantity) <= 1_000_000_000 else { throw MoneyError.invalidAmount }
+        guard quantity <= availableStock else { throw MoneyError.insufficientStock }
+        return items + [QuickSaleInput(productID: productID, quantity: quantity, unitPrice: amount)]
+    }
+}
+enum EasySaleError: LocalizedError {
+    case empty, zeroTotal, price(String), stock(String)
+    var errorDescription: String? {
+        switch self {
+        case .empty: return "Marca al menos un producto para guardar la venta."
+        case .zeroTotal: return "Introduce el precio cobrado. El total debe ser mayor que cero."
+        case .price(let name): return "Revisa el precio de \(name)."
+        case .stock(let name): return "No hay existencias suficientes de \(name)."
+        }
+    }
+}
+struct EasySaleLine: Identifiable, Equatable {
+    var productID: UUID
+    var selected = false
+    var quantity = 1
+    var price = "15"
+    var id: UUID { productID }
+    static func make(money: MoneyLedger) -> [EasySaleLine] {
+        let available = money.products.filter { money.stock($0.id) > 0 }
+        let preferred = available.first(where: { $0.kind == .nfcCard })?.id
+        return available.map { product in
+            let previous = (money.quickSales ?? []).filter { $0.voidedAt == nil }.reversed().flatMap(\.items).first { $0.productID == product.id && $0.unitPriceCents > 0 }?.unitPriceCents
+            return EasySaleLine(productID: product.id, selected: product.id == preferred, price: SaleAmountFormatting.text(for: Double(previous ?? (product.kind == .nfcCard ? 1500 : 0)) / 100))
+        }
+    }
+    static func inputs(_ draft: [EasySaleLine], money: MoneyLedger) throws -> [QuickSaleInput] {
+        let selected = draft.filter(\.selected)
+        guard !selected.isEmpty else { throw EasySaleError.empty }
+        guard selected.count <= 20, Set(selected.map(\.id)).count == selected.count else { throw MoneyError.invalidProduct }
+        let hasCard = selected.contains { line in money.products.contains { $0.id == line.id && $0.kind == .nfcCard } }
+        return try selected.map { line in
+            guard let product = money.products.first(where: { $0.id == line.id }) else { throw MoneyError.invalidProduct }
+            guard (1...100_000).contains(line.quantity), line.quantity <= money.stock(line.id) else { throw EasySaleError.stock(product.displayName) }
+            let included = hasCard && product.kind == .stand
+            guard let price = included ? 0 : SaleAmountFormatting.parse(line.price), let cents = MoneyLedger.cents(price), cents >= 0, cents * Int64(line.quantity) <= 1_000_000_000 else { throw EasySaleError.price(product.displayName) }
+            return QuickSaleInput(productID: line.id, quantity: line.quantity, unitPrice: price)
+        }
+    }
+}
+struct QuickSaleLine: Codable, Equatable {
+    var productID: UUID
+    var title: String
+    var isCard: Bool
+    var quantity: Int
+    var unitPriceCents: Int64
+    var costCents: Int64?
+    var incomeCents: Int64 { unitPriceCents * Int64(quantity) }
+}
+struct QuickSale: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var businessID: UUID
+    var date: Date
+    var items: [QuickSaleLine]
+    var paymentMethod: String
+    var voidedAt: Date? = nil
+    var discountCents: Int64? = nil
+    var incomeCents: Int64 { items.reduce(0) { $0 + $1.incomeCents } - (discountCents ?? 0) }
+    var costCents: Int64? { items.allSatisfy { $0.costCents != nil } ? items.reduce(0) { $0 + ($1.costCents ?? 0) } : nil }
+    var profitCents: Int64? { costCents.map { incomeCents - $0 } }
+}
+enum QuoteStatus: String, Codable, CaseIterable, Identifiable {
+    case draft = "Borrador", sent = "Enviado", declined = "Rechazado", converted = "Vendido"
+    var id: String { rawValue }
+}
+struct QuoteLine: Codable, Equatable, Identifiable {
+    var productID: UUID
+    var title: String
+    var quantity: Int
+    var unitPriceCents: Int64
+    var id: UUID { productID }
+    var totalCents: Int64 { Int64(quantity) * unitPriceCents }
+}
+struct BusinessQuote: Codable, Equatable, Identifiable {
+    var id = UUID()
+    var businessID: UUID
+    var businessName: String
+    var createdAt = Date()
+    var expiresAt: Date
+    var items: [QuoteLine]
+    var discountPercent = 0
+    var notes = ""
+    var status = QuoteStatus.draft
+    var saleID: UUID? = nil
+    var number: String { "P-" + String(id.uuidString.prefix(8)) }
+    var subtotalCents: Int64 { items.reduce(0) { $0 + $1.totalCents } }
+    var discountCents: Int64 { (subtotalCents * Int64(discountPercent) + 50) / 100 }
+    var totalCents: Int64 { subtotalCents - discountCents }
+    func validate() throws {
+        guard (0...100).contains(discountPercent), !items.isEmpty, items.count <= 20,
+              Set(items.map(\.productID)).count == items.count, businessName.count <= 500, notes.count <= 10000,
+              expiresAt >= createdAt, items.allSatisfy({ (1...100_000).contains($0.quantity) && (0...1_000_000_000).contains($0.unitPriceCents) && $0.title.count <= 1000 }) else { throw MoneyError.invalidProduct }
+        guard (1...1_000_000_000).contains(subtotalCents), totalCents >= 0 else { throw MoneyError.invalidAmount }
+        guard (status == .converted) == (saleID != nil) else { throw MoneyError.invalidProduct }
+    }
+}
+struct MoneyLedger: Codable, Equatable {
+    var quotations: [BusinessQuote]? = nil
+    var quickSales: [QuickSale]? = nil
+    var weeklyGoals: WeeklyGoals? = nil
+    var products: [InventoryProduct] = []
+    var transactions: [MoneyTransaction] = []
+    var sales: [String: SaleCheckpoint] = [:]
+    static func cents(_ amount: Double) -> Int64? {
+        guard amount.isFinite, abs(amount) <= 10_000_000 else { return nil }
+        return Int64((amount * 100).rounded())
+    }
+    var incomeCents: Int64 { transactions.filter { $0.kind.isIncome }.reduce(0) { $0 + $1.cents } }
+    var expenseCents: Int64 { -transactions.filter { $0.kind == .expense || $0.kind == .refund }.reduce(0) { $0 + $1.cents } }
+    var balanceCents: Int64 { transactions.reduce(0) { $0 + $1.cents } }
+    var history: [MoneyTransaction] { transactions.sorted { $0.date > $1.date } }
+    func purchased(_ id: UUID) -> Int { transactions.filter { $0.productID == id && ($0.kind == .expense || $0.kind == .refund || $0.stockOrigin != nil) }.reduce(0) { $0 + $1.quantity } }
+    func sold(_ id: UUID) -> Int { sales.values.filter { $0.productID == id }.reduce(0) { $0 + $1.cards } + (quickSales ?? []).filter { $0.voidedAt == nil }.flatMap(\.items).filter { $0.productID == id }.reduce(0) { $0 + $1.quantity } }
+    func stock(_ id: UUID) -> Int {
+        transactions.filter { $0.productID == id && [.expense, .refund, .stockAdjustment].contains($0.kind) }.reduce(0) { $0 + $1.quantity } - sold(id)
+    }
+    func spent(_ id: UUID) -> Double { -Double(transactions.filter { $0.productID == id && [.expense, .refund].contains($0.kind) }.reduce(Int64(0)) { $0 + $1.cents }) / 100 }
+    func averageCostCents(_ productID: UUID) -> Double? {
+        let quantity = purchased(productID)
+        guard quantity > 0 else { return nil }
+        let cost = -transactions.filter { $0.productID == productID && [.expense, .refund].contains($0.kind) }.reduce(Int64(0)) { $0 + $1.cents }
+        guard cost >= 0 else { return nil }
+        return Double(cost) / Double(quantity)
+    }
+    func isReversed(_ id: UUID) -> Bool {
+        // An undo can cancel a refund. Evaluate compensating descendants from newest to oldest.
+        var active: [UUID: Bool] = [:]
+        var cancelled = Set<UUID>()
+        for item in transactions.reversed() {
+            let value = !cancelled.contains(item.id)
+            active[item.id] = value
+            if value, let original = item.originalID { cancelled.insert(original) }
+        }
+        return transactions.contains { $0.kind == .refund && $0.originalID == id && active[$0.id] == true }
+    }
+    func canAssign(_ record: VisitRecord) -> Bool {
+        guard let id = record.inventoryProductID else { return true }
+        guard products.contains(where: { $0.id == id && $0.kind == .nfcCard }) else { return false }
+        let old = sales[record.id.uuidString]
+        return record.cardsSold <= stock(id) + (old?.productID == id ? old!.cards : 0)
+    }
+    /// A checkpoint makes migration/reopening idempotent and records only the change when a sale is edited.
+    /// Deleted business checkpoints remain: removing a business does not undo a completed sale.
+    mutating func synchronize(_ records: [VisitRecord], now: Date = Date()) {
+        for record in records {
+            let key = record.id.uuidString
+            let previous = sales[key]
+            let amount = Self.cents(record.earnings) ?? previous?.cents ?? 0
+            let difference = amount - (previous?.cents ?? 0)
+            let stockChanged = previous != nil && (previous!.cards != record.cardsSold || previous!.productID != record.inventoryProductID)
+            let firstNewTransaction = transactions.count
+            if difference != 0 || stockChanged {
+                transactions.append(MoneyTransaction(date: previous == nil ? record.createdAt : now,
+                    kind: previous == nil || (previous!.cents == 0 && difference > 0) ? .income : .incomeAdjustment, title: record.place.name,
+                    cents: difference, businessID: record.id, productID: record.inventoryProductID,
+                    quantity: record.cardsSold - (previous?.cards ?? 0),
+                    notes: difference == 0 ? "Cambio de inventario: \(record.cardsSold) tarjetas vendidas. El importe del negocio no cambia." : previous == nil ? record.place.address : "Corrección de venta: \(SaleAmountFormatting.text(for: Double(previous!.cents) / 100)) € → \(SaleAmountFormatting.text(for: Double(amount) / 100)) €"))
+            }
+            let preciseCost: Double?
+            if record.cardsSold == 0 { preciseCost = 0 }
+            else if let id = record.inventoryProductID, let currentUnit = averageCostCents(id) {
+                if let previous, previous.productID == id, let oldCost = previous.costCents {
+                    let basis = previous.preciseCostCents ?? Double(oldCost)
+                    if record.cardsSold >= previous.cards { preciseCost = basis + Double(record.cardsSold - previous.cards) * currentUnit }
+                    else { preciseCost = previous.cards > 0 ? basis * Double(record.cardsSold) / Double(previous.cards) : 0 }
+                } else { preciseCost = Double(record.cardsSold) * currentUnit }
+            } else { preciseCost = nil }
+            let cost = preciseCost.map { Int64($0.rounded()) }
+            if transactions.count > firstNewTransaction, let cost, let priorCost = previous?.costCents ?? (previous == nil ? 0 : nil) { transactions[transactions.count - 1].costCents = cost - priorCost }
+            sales[key] = SaleCheckpoint(cents: amount, cards: record.cardsSold, productID: record.inventoryProductID, costCents: cost, preciseCostCents: preciseCost)
+        }
+    }
+    mutating func addExpense(title: String, amount: Double, quantity: Int, productID: UUID?, newProduct: InventoryProduct? = nil,
+                             date: Date, merchant: String, method: String, url: String, notes: String) throws {
+        guard let value = Self.cents(amount), value > 0 else { throw MoneyError.invalidAmount }
+        guard productID == nil || (1...100_000).contains(quantity) else { throw MoneyError.invalidQuantity }
+        if let product = newProduct {
+            guard product.id == productID, !product.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  product.kind != .nfcCard || !product.color.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw MoneyError.invalidProduct }
+        } else if let id = productID, !products.contains(where: { $0.id == id }) { throw MoneyError.invalidProduct }
+        if let newProduct { products.append(newProduct) }
+        transactions.append(MoneyTransaction(date: date, kind: .expense, title: title, cents: -value,
+            productID: productID, quantity: productID == nil ? 0 : quantity, merchant: merchant, paymentMethod: method,
+            purchaseURL: url, notes: notes))
+    }
+    mutating func reverseExpense(_ id: UUID, now: Date = Date()) throws {
+        guard let expense = transactions.first(where: { $0.id == id && $0.kind == .expense }), !isReversed(id) else { throw MoneyError.alreadyReversed }
+        if let productID = expense.productID, stock(productID) < expense.quantity { throw MoneyError.insufficientStock }
+        transactions.append(MoneyTransaction(date: now, kind: .refund, title: expense.title, cents: -expense.cents,
+            productID: expense.productID, quantity: -expense.quantity, merchant: expense.merchant, paymentMethod: expense.paymentMethod,
+            purchaseURL: expense.purchaseURL, notes: "Anulación del gasto del \(expense.date.formatted(date: .abbreviated, time: .shortened)). El movimiento original se conserva.", originalID: expense.id))
+    }
+    mutating func receiveStock(title: String, quantity: Int, productID: UUID, newProduct: InventoryProduct? = nil,
+                               origin: InventoryAcquisition, date: Date, notes: String) throws {
+        guard origin != .purchase else { throw MoneyError.invalidAmount }
+        guard (1...100_000).contains(quantity) else { throw MoneyError.invalidQuantity }
+        if let product = newProduct {
+            guard product.id == productID, !product.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  product.kind != .nfcCard || !product.color.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !products.contains(where: { $0.id == product.id }) else { throw MoneyError.invalidProduct }
+            products.append(product)
+        } else if !products.contains(where: { $0.id == productID }) { throw MoneyError.invalidProduct }
+        transactions.append(MoneyTransaction(date: date, kind: .stockAdjustment, title: title, cents: 0,
+            productID: productID, quantity: quantity, merchant: origin.title, notes: notes, stockOrigin: origin))
+    }
+    mutating func adjustStock(_ id: UUID, quantity: Int, reason: String, now: Date = Date()) throws {
+        guard let product = products.first(where: { $0.id == id }) else { throw MoneyError.invalidProduct }
+        guard quantity != 0, abs(quantity) <= 100_000, stock(id) + quantity >= 0 else { throw MoneyError.insufficientStock }
+        transactions.append(MoneyTransaction(date: now, kind: .stockAdjustment, title: product.displayName,
+            cents: 0, productID: id, quantity: quantity, notes: reason))
+    }
+    static func storageKey(_ email: String?) -> String { "resenago.money.\(email ?? "guest")" }
+}

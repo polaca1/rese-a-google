@@ -1,0 +1,5 @@
+[app]
+targets = ["web-dom"]
+id = "dev.polaca1.ReviewNfcGo.DesignVerification"
+[cargo]
+features = ["verification"]
