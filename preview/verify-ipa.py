@@ -9,8 +9,8 @@ from pathlib import Path
 app = Path(sys.argv[1])
 info = plistlib.loads((app / 'Info.plist').read_bytes())
 assert info['CFBundleIdentifier'] == 'com.pablo.resenagoogle.20261004'
-assert info['CFBundleShortVersionString'] == '7.3.1'
-assert info['CFBundleVersion'] == '41'
+assert info['CFBundleShortVersionString'] == '7.3.1', info['CFBundleShortVersionString']
+assert info['CFBundleVersion'] == '41', info['CFBundleVersion']
 assert info['ReviewNfcGoDistributionMode'] == 'native-swiftui-preview'
 assert info['DayHostIncluded'] is False
 binary = app / info['CFBundleExecutable']

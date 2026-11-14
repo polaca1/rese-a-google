@@ -28,6 +28,8 @@ targets:
     info:
       path: Runner/Info.plist
       properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: reviewNfcGo
         CFBundleURLTypes:
           - CFBundleURLName: com.pablo.resenagoogle.business
@@ -64,6 +66,8 @@ targets:
     info:
       path: WidgetInfo.plist
       properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: reviewNfcGo
         NSSupportsLiveActivities: true
         NSExtension:
