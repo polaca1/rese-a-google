@@ -1,44 +1,33 @@
 // SPDX-License-Identifier: MIT
-//! Preserve the iPhone interface through Day's supported SwiftUI hosting piece.
-
+//! Application screens and navigation are native Day pieces, with no hosted SwiftUI view.
 use day::prelude::*;
-
+mod mapkit;
+mod model;
 mod native;
-
+mod pages;
 day::resources!();
 day::day_start!(options: res::window_options(), root);
-
-pub mod swiftui {
-    include!(concat!(env!("OUT_DIR"), "/day_swiftui.rs"));
-}
+day::routes! { pub(crate) enum Section { Places=>"places", Money=>"money", Alerts=>"alerts", Home=>"home", Profile=>"profile" } }
 
 pub fn root() -> impl Piece {
-    day::on_open_url(native::forward_url);
-    if day_piece_swiftui::support() == Support::Native {
-        return swiftui::ReviewNfcGoView()
-            .state_key("reviewnfcgo-root")
-            .id(day::id!(iphone_app))
-            .grow(Dimension::Both)
-            .any();
-    }
-
-    // The required website presents the iPhone app; it never asks for a password
-    // or pretends a browser can write NFC.
-    scroll(
-        column((
-            label(res::str::app_title())
-                .font(Font::LargeTitle)
-                .a11y(|a| a.role(Role::Heading(1)))
-                .id(day::id!(site_title)),
-            label(res::str::site_intro()).font(Font::Headline),
-            label(res::str::site_features()).markdown(),
-            label(res::str::site_availability()).secondary(),
-            label(res::str::site_privacy()).markdown(),
-        ))
-        .spacing(Space::L)
-        .padding(Space::XL)
-        .max_width(700.0),
-    )
-    .id(day::id!(website))
-    .any()
+    model::Session::scoped(|session| {
+        session.start();
+        day::on_open_url(move |url| {
+            if url
+                .split_once(':')
+                .is_some_and(|(s, _)| s.eq_ignore_ascii_case("reviewnfcgo"))
+            {
+                session.send(
+                    "openURL",
+                    serde_json::json!({"url":url}),
+                    serde_json::json!([]),
+                    false,
+                );
+                true
+            } else {
+                false
+            }
+        });
+        pages::root(session)
+    })
 }

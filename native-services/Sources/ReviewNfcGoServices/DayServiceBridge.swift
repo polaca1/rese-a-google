@@ -158,10 +158,10 @@ import PhotosUI
                 func uuid(_ key: String) throws -> UUID {
                     guard let id = UUID(uuidString: value(key)) else { throw BackupError.invalid }; return id
                 }
-                func record() throws -> VisitRecord {
+                @MainActor func record() throws -> VisitRecord {
                     let id = try uuid("record"); guard let r = store.records.first(where: { $0.id == id }) else { throw BackupError.invalid }; return r
                 }
-                func selectedRecord() throws -> VisitRecord {
+                @MainActor func selectedRecord() throws -> VisitRecord {
                     guard let place = finder.selectedPlace else { throw BackupError.invalid }
                     store.addOrUpdatePlace(place)
                     guard let result = store.records.first(where: { $0.place.id == place.id }) else { throw BackupError.invalid }
@@ -250,9 +250,9 @@ import PhotosUI
         guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else { return }
         provider.loadObject(ofClass: UIImage.self) { [weak self] image, _ in
             Task { @MainActor in
-                guard let self, let image = image as? UIImage, let owner = auth.currentUser?.email else { return }
-                do { try photos.save(image, for: owner) } catch { self.error = error.localizedDescription }
-                revision &+= 1
+                guard let self, let image = image as? UIImage, let owner = self.auth.currentUser?.email else { return }
+                do { try self.photos.save(image, for: owner) } catch { self.error = error.localizedDescription }
+                self.revision &+= 1
             }
         }
     }

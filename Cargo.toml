@@ -6,6 +6,7 @@ license = "MIT"
 description = "Negocios, tarjetas NFC y ventas con interfaz nativa de iPhone"
 
 [features]
+verification = []
 # `mock` keeps bare cargo and rust-analyzer compiling; `day build` overrides it with
 # `--no-default-features --features <backend>` (https://daybrite.dev/docs/reference/project-structure).
 default = ["mock"]
@@ -25,8 +26,10 @@ mock = ["day/mock"]
 name = "dayapp"
 
 [dependencies]
+base64 = "0.23.1"
 day = { package = "day-app", version = "0.*", features = ["model"] }
-day-piece-swiftui = { version = "0.*" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
 
 [build-dependencies]
 day-build = { version = "0.*" }
@@ -38,5 +41,19 @@ day-build = { version = "0.*" }
 version = "7.3.1"
 
 [package.metadata.day.ios]
-swift-packages = [{ path = "swiftui", products = ["ReviewNfcGoViews"] }]
+swift-packages = [{ path = "native-services", products = ["ReviewNfcGoServices"] }]
 platform = "16.1"
+
+[dependencies.day-core]
+version = "0.*"
+[dependencies.day-pieces]
+version = "0.*"
+[dependencies.day-reactive]
+version = "0.*"
+[dependencies.day-spec]
+version = "0.*"
+[target.'cfg(target_os = "ios")'.dependencies]
+day-toolkit-uikit = "0.*"
+objc2 = "0.6"
+objc2-ui-kit = { version = "0.3", features = ["UIView", "UIResponder"] }
+linkme = "0.3"

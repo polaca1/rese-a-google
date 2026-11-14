@@ -1,6 +1,10 @@
-# Working on this Day app
+# Migrating reviewNfcGo to Day
 
-This adaptation hosts the existing iPhone SwiftUI app through day-piece-swiftui. Preserve its UI. The web target is a presentation of the iPhone app, not an Android or browser port. Publication is still pending.
+The user requires every main application screen to use Day while changing the existing UI as little as possible. Preserve the five-tab order and Home as the initial selection.
+
+Do not add a SwiftUI screen host or link the legacy `swiftui/` package into the migrated target. Native account/data services and the native MapKit Day renderer live under `native-services/`; they contain no SwiftUI application views. WidgetKit extensions remain native Apple extensions. Preserve authenticated ownership, backup formats, exact-cent accounting and inventory validation.
+
+The legacy package is a design/behavior reference only. Do not describe this work as 100% complete until the missing workflows in docs/DAY-MIGRATION.md and native integration checks are complete. Browser verification uses synthetic data and must not pretend to save a real sale or authenticate a user. Never present its captures as device screenshots.
 
 ## Day documentation
 

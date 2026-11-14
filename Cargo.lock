@@ -2444,9 +2444,19 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 name = "review-nfc-go"
 version = "7.3.1"
 dependencies = [
+ "base64",
  "day-app",
  "day-build",
- "day-piece-swiftui",
+ "day-core",
+ "day-pieces",
+ "day-reactive",
+ "day-spec",
+ "day-toolkit-uikit",
+ "linkme",
+ "objc2",
+ "objc2-ui-kit",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

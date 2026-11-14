@@ -63,8 +63,8 @@ struct DayMapInput {
         deinit { displayLink?.invalidate() }
 
         private final class FrameTarget: NSObject {
-            weak var owner: Coordinator?
-            init(_ owner: Coordinator) { self.owner = owner }
+            weak var owner: DayMapCoordinator?
+            init(_ owner: DayMapCoordinator) { self.owner = owner }
             @objc func tick(_ link: CADisplayLink) { owner?.advanceFlight(link) }
         }
 

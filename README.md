@@ -1,49 +1,26 @@
-# reviewNfcGo · adaptación App Fair
+# reviewNfcGo · interfaz Day
 
-Adaptación de la versión 7.3.0 (39), conservando las pantallas SwiftUI, navegación, modelos y servicio de cuentas existentes. **No es todavía una entrega aprobada para App Store.**
+Migración en curso de las pantallas de iPhone a controles Day en Rust, conservando al máximo el diseño y los servicios existentes.
 
-La aplicación original continúa en `features/reviewnfcgo-6.0`; su fuente de SideStore no se modifica.
+- Interfaz y navegación: `src/pages.rs`.
+- Estado de pantalla y venta: `src/model.rs`.
+- Mapa MapKit como componente Day: `src/mapkit.rs`.
+- Servicios de cuenta, datos y dispositivos sin pantallas SwiftUI: `native-services/`.
+- Referencia anterior de diseño y pruebas: `swiftui/`, que no se enlaza en el destino migrado.
 
-## Qué incluye
-
-- Proyecto Day 0.7.4 con destino iPhone/iPad y web de presentación.
-- Paquete `swiftui/` con las pantallas actuales: Sitios, Dinero, Avisos, Inicio y Perfil; Inicio sigue siendo la selección inicial.
-- Puente de enlaces de Day al router original y adaptación del ciclo de vida para sincronización, recordatorios y pregunta de venta tras NFC.
-- Recursos gráficos originales desde el paquete, widgets y Live Activities con un grupo compartido propio.
-- Misma autenticación de correo/Google y mismo servidor de sincronización. No se cambia el formato de datos, el propietario ni se consultan datos privados.
-- Metadatos, borrador de privacidad, configuración de App Fair y CI de compilación y capturas.
-
-La web presenta la app de iPhone; no es un port de sus herramientas NFC ni una aplicación de Android. NFC conserva el flujo actual hacia Simply NFC. La app no incorpora esa aplicación ni afirma verificar una escritura física al volver de ella.
+**La migración todavía no está terminada.** El alcance, las comprobaciones y los flujos pendientes están en [docs/DAY-MIGRATION.md](docs/DAY-MIGRATION.md).
 
 ## Comprobar
 
-Instala Rust y Day 0.7.4. Desde la raíz:
-
 ```sh
-python3 scripts/check-ui-parity.py
+python3 scripts/check-day-boundary.py
 cargo fmt --all -- --check
 cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 day lint --strict
-day lint --strict --flavor appfair
-day build -t web-dom
+day build -t web-dom --flavor verification
 ```
 
-En un Mac con Xcode:
+La variante de verificación solo contiene datos sintéticos para inspeccionar la interfaz. Para la aplicación real se requiere el destino `ios-uikit`; el host convencional de Day exige Xcode 27. La compilación de los servicios por separado y las capturas de navegador no demuestran el funcionamiento del host completo en un teléfono.
 
-```sh
-swiftui/Tests/run.sh
-cd swiftui
-xcodebuild -scheme ReviewNfcGoViews -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
-cd ..
-day build -t ios-uikit --flavor appfair
-day launch -t ios-uikit --flavor appfair --script dayscript/demo.yaml
-```
-
-Day requiere Xcode 27 para su host actual. Compilar únicamente el paquete SwiftUI no comprueba su integración completa con Day. Las pruebas de NFC, ubicación real, restauración de cuentas, notificaciones y widgets requieren un dispositivo o una sesión de pruebas apropiada. Los tests no usan cuentas privadas.
-
-## Publicación pendiente
-
-Consulta [ADAPTACION.md](ADAPTACION.md) y [docs/PUBLICACION.md](docs/PUBLICACION.md). La rama se prepara primero en el repositorio del propietario; la organización/repositorio homónimos y App Fair Publisher siguen siendo pasos externos pendientes.
-
-No se promociona una versión, se publica en una tienda ni se reemplaza un IPA estable por generar este proyecto.
+La publicación en App Fair/App Store sigue pendiente; consulta [docs/PUBLICACION.md](docs/PUBLICACION.md).
