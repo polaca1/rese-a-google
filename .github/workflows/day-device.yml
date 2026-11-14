@@ -23,7 +23,6 @@ jobs:
     timeout-minutes: 45
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-      DAY_BIN: ${{ runner.temp }}/day-bin/day
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +34,8 @@ jobs:
           workspaces: '. -> build/day/cargo/ios-uikit/release'
       - name: Install Day and XcodeGen
         run: |
+          export DAY_BIN="$RUNNER_TEMP/day-bin/day"
+          echo "DAY_BIN=$DAY_BIN" >> "$GITHUB_ENV"
           mkdir -p "$(dirname "$DAY_BIN")"
           case "$(uname -m)" in
             arm64) day_arch=aarch64 ;;
