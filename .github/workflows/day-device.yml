@@ -31,7 +31,8 @@ jobs:
           targets: aarch64-apple-ios
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: '. -> build/day/cargo/ios-uikit/release'
+          workspaces: '. -> build/day/flavors/device/cargo/ios-uikit/release'
+          cache-on-failure: true
       - name: Install Day and XcodeGen
         run: |
           export DAY_BIN="$RUNNER_TEMP/day-bin/day"

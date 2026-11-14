@@ -55,6 +55,8 @@ spec = {
                 'INFOPLIST_FILE': str(out / 'RunnerInfo.plist'),
                 'CODE_SIGN_ENTITLEMENTS': str(root / 'platform/ios/Runner/ReviewNfcGo.entitlements'),
                 'OTHER_LDFLAGS': '@"$(BUILT_PRODUCTS_DIR)/day/dayapp-link.rsp"',
+                'LD_GENERATE_MAP_FILE': 'YES',
+                'LD_MAP_FILE_PATH': str(out / 'day-link-map.txt'),
             }},
             'dependencies': [{'package': 'DayPieces', 'product': 'DayPieces'},
                              {'target': 'ReviewNfcGoWidgets', 'embed': True}],
@@ -91,5 +93,5 @@ subprocess.run(['xcodebuild', '-project', str(out / 'ReviewNfcGoDayDevice.xcodep
                 '-configuration', 'Release', '-destination', 'generic/platform=iOS',
                 '-archivePath', str(archive), 'CODE_SIGNING_ALLOWED=NO', 'archive'], check=True)
 app = archive / 'Products/Applications/reviewNfcGo.app'
-subprocess.run([sys.executable, str(root / 'scripts/verify-day-device.py'), str(app), str(number)], check=True)
+subprocess.run([sys.executable, str(root / 'scripts/verify-day-device.py'), str(app), str(number), str(out / 'day-link-map.txt')], check=True)
 print(app)

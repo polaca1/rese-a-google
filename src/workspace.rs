@@ -525,14 +525,21 @@ fn quotes(s: Session) -> impl Piece {
         .padding(Space::L),
     )
 }
-fn quote_sum(lines: Signal<Vec<Value>>) -> Option<i64> {
-    lines.get().iter().try_fold(0i64, |sum, p| {
-        sum.checked_add(
-            parse_price(&text(p, "price"))?
-                .checked_mul(text(p, "quantity").parse::<i64>().ok()?)?,
-        )
+fn quote_subtotal(lines: &[Value]) -> Option<i64> {
+    lines.iter().try_fold(0i64, |sum, item| {
+        let unit = parse_price(&text(item, "price"))?;
+        let quantity = text(item, "quantity").parse::<i64>().ok()?;
+        if unit > 1_000_000_000 || !(1..=100_000).contains(&quantity) {
+            return None;
+        }
+        let total = sum.checked_add(unit.checked_mul(quantity)?)?;
+        (total <= 1_000_000_000).then_some(total)
     })
 }
+fn quote_sum(lines: Signal<Vec<Value>>) -> Option<i64> {
+    quote_subtotal(&lines.get())
+}
+
 fn quote_editor(s: Session) -> impl Piece {
     let business = Signal::new(
         if s.history
@@ -555,10 +562,10 @@ fn quote_editor(s: Session) -> impl Piece {
     scroll(column((back(s,res::str::new_quote()),form((
         section((labeled(res::str::business(),picker(business,move||std::iter::once((String::new(),res::str::select_business().format())).chain(s.rows("records").iter().map(|r|(text(r,"id"),text(&r["place"],"name")))).collect::<Vec<_>>())),)),
         section((picker(product,move||std::iter::once((String::new(),res::str::select_product().format())).chain(s.rows("products").iter().map(|p|(text(p,"id"),text(p,"name")))).collect::<Vec<_>>()),labeled(res::str::quantity(),stepper(quantity).range(1.0..=100_000.0)),labeled(res::str::unit_price(),text_field(price).input_purpose(day_spec::InputPurpose::Decimal)),
-            button(res::str::new_product()).enabled(move||!product.get().is_empty()&&lines.get().len()<20&&parse_price(&price.get()).is_some()&&!lines.get().iter().any(|p|text(p,"product")==product.get())).action(move||{let mut draft=lines.peek();let id=product.peek();let name=s.rows("products").iter().find(|p|text(p,"id")==id).map(|p|text(p,"name")).unwrap_or_default();draft.push(json!({"product":id,"name":name,"quantity":format!("{:.0}",quantity.peek()),"price":price.peek()}));lines.set(draft);product.set(String::new());quantity.set(1.0);}),
+            button(res::str::new_product()).enabled(move||!product.get().is_empty()&&lines.get().len()<20&&parse_price(&price.get()).is_some_and(|v|v<=1_000_000_000)&&!lines.get().iter().any(|p|text(p,"product")==product.get())).action(move||{let mut draft=lines.peek();let id=product.peek();let name=s.rows("products").iter().find(|p|text(p,"id")==id).map(|p|text(p,"name")).unwrap_or_default();draft.push(json!({"product":id,"name":name,"quantity":format!("{:.0}",quantity.peek()),"price":price.peek()}));lines.set(draft);product.set(String::new());quantity.set(1.0);}),
             each(items(move||lines.get(),|p:&Value|text(p,"product")),move|slot|row((label(move||format!("{} × {}",text(&slot.get(),"quantity"),text(&slot.get(),"name"))),spacer(),button(res::str::remove_product()).action(move||{let id=text(&slot.get(),"product");lines.set(lines.peek().into_iter().filter(|p|text(p,"product")!=id).collect());})))),
         )).title(res::str::products()).footer(res::str::quote_stock_hint()),
-        section((labeled(res::str::discount(),stepper(discount).range(0.0..=100.0)),labeled(res::str::validity(),stepper(validity).range(1.0..=365.0)),labeled(res::str::quote_notes(),text_area(notes)),labeled(res::str::total(),label(move||{let subtotal=quote_sum(lines).unwrap_or(0);money(subtotal-(subtotal*discount.get().round() as i64+50)/100)})),
+        section((labeled(res::str::discount(),stepper(discount).range(0.0..=100.0)),labeled(res::str::validity(),stepper(validity).range(1.0..=365.0)),labeled(res::str::quote_notes(),text_area(notes)),labeled(res::str::total(),label(move||{let subtotal=quote_sum(lines).unwrap_or(0);money(subtotal-(subtotal*discount.get().clamp(0.0,100.0).round() as i64+50)/100)})),
             button(res::str::save_quote()).prominent().enabled(move||!s.busy()&&!business.get().is_empty()&&quote_sum(lines).is_some_and(|v|v>0)&&!lines.get().is_empty()).action(move||{let draft=lines.peek().iter().map(|p|json!({"product":text(p,"product"),"quantity":text(p,"quantity"),"price":text(p,"price")})).collect::<Vec<_>>();s.send("quote",json!({"record":business.peek(),"discount":format!("{:.0}",discount.peek()),"validity":format!("{:.0}",validity.peek()),"notes":notes.peek()}),json!(draft),true);}),
         )).title(res::str::conditions()),
     )),error(s))).spacing(Space::L).padding(Space::L))
@@ -667,4 +674,36 @@ fn quote_detail(s: Session) -> impl Piece {
         .spacing(Space::L)
         .padding(Space::L),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::quote_subtotal;
+    use serde_json::json;
+    #[test]
+    fn quotation_preview_preserves_cents_and_rejects_excessive_values() {
+        assert_eq!(
+            quote_subtotal(&[
+                json!({"price":"0,33","quantity":"3"}),
+                json!({"price":"0.01","quantity":"2"})
+            ]),
+            Some(101)
+        );
+        assert_eq!(
+            quote_subtotal(&[json!({"price":"10000000","quantity":"1"})]),
+            Some(1_000_000_000)
+        );
+        assert_eq!(
+            quote_subtotal(&[json!({"price":"10000000","quantity":"2"})]),
+            None
+        );
+        assert_eq!(
+            quote_subtotal(&[json!({"price":"999999999999999999999","quantity":"100000"})]),
+            None
+        );
+        assert_eq!(
+            quote_subtotal(&[json!({"price":"15","quantity":"-1"})]),
+            None
+        );
+    }
 }
