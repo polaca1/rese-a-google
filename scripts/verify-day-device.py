@@ -22,7 +22,7 @@ symbols = subprocess.check_output(['nm', str(binary)], text=True)
 if '_day_main' not in symbols:
     # Release archives can remove static symbols after linking. Inspect the live-symbol map,
     # emitted by Apple's linker before stripping, rather than weakening the entry-point check.
-    link_map = Path(sys.argv[3]).read_text()
+    link_map = Path(sys.argv[3]).read_bytes().decode('utf-8', errors='replace')
     live = link_map.split('# Symbols:', 1)[1].split('# Dead Stripped Symbols:', 1)[0]
     assert 'libdayapp.a' in link_map, 'Rust archive not present in the linker map'
     assert re.search(r'0x[0-9A-Fa-f]+\s+0x[0-9A-Fa-f]+\s+\[\s*\d+\]\s+_day_main(?:\s|$)', live), 'Live Day entry point missing' 

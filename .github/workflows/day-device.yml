@@ -53,6 +53,15 @@ jobs:
           echo "DAY_DEVICE_BUILD=$DAY_DEVICE_BUILD" >> "$GITHUB_ENV"
           python3 scripts/check-day-boundary.py
           python3 scripts/build-day-device.py
+      - name: Preserve archive diagnostics when verification fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: day-archive-diagnostics
+          path: |
+            build/day-device/day-link-map.txt
+            build/day-device/reviewNfcGo.xcarchive/Products/Applications/reviewNfcGo.app
+          if-no-files-found: ignore
       - name: Package unsigned device candidate
         run: |
           mkdir -p dist/Payload
