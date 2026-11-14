@@ -30,6 +30,7 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var status = "Buscando tu ubicación…"
     @Published var errorMessage: String?
 
+    private var active = false
     private let manager = CLLocationManager()
     private var didInitialSearch = false
     private var searchRevision: UUID?
@@ -61,6 +62,7 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 
     func start() {
+        active = true
         switch manager.authorizationStatus {
         case .notDetermined:
             manager.requestWhenInUseAuthorization()
@@ -73,13 +75,24 @@ final class PlaceFinder: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
     }
 
+    func stop() {
+        active = false; manager.stopUpdatingLocation(); searchRevision = UUID()
+        didInitialSearch = false; latestLocation = nil; pendingUserSelection = false
+        waitingForBetterFix = false; automaticRefinement = false; nearbyCycle = nil
+        selectedPlace = nil; userLocation = nil; mapFocus = nil; searchResults = []
+        nearbyChoices = []; nearbyCandidates = []; nearbyCount = 0; nearbyPosition = 0
+        isLoading = false; isFindingNearby = false; errorMessage = nil
+    }
+
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard active else { return }
         if manager.authorizationStatus == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways {
             manager.startUpdatingLocation()
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard active else { return }
         let valid = locations.filter { $0.horizontalAccuracy.isFinite && $0.horizontalAccuracy >= 0 && abs($0.timestamp.timeIntervalSinceNow) <= NearbyBusinessSelection.maximumLocationAge && CLLocationCoordinate2DIsValid($0.coordinate) }
         let fresh = valid.filter { abs($0.timestamp.timeIntervalSinceNow) <= 5 }
         guard var location = (fresh.isEmpty ? valid : fresh).min(by: { $0.horizontalAccuracy < $1.horizontalAccuracy }) else { return }

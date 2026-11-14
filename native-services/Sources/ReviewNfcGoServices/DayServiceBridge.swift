@@ -5,6 +5,7 @@ import Combine
 import UIKit
 import CoreLocation
 import PhotosUI
+import UserNotifications
 
 @MainActor final class DayServices: NSObject, PHPickerViewControllerDelegate {
     static let shared = DayServices()
@@ -21,6 +22,7 @@ import PhotosUI
     var routeWalking = true
     var lastSaleCents: Int64 = 0
     var productImport: [String: Any] = [:]
+    var notificationStatus = "Comprobando notificaciones…"
     var busy = false
     var error: String?
     var completed = ""
@@ -54,6 +56,7 @@ import PhotosUI
     }
 
     func configureAccount() {
+        if store.loadedUserEmail != auth.currentUser?.email { finder.stop() }
         cloud.connect(owner: nil, transport: auth.accountService, read: { try self.store.backup(photo: self.photos.backupData) }, apply: { _ in })
         workspaceDay = Date(); routeDay = Date(); routeUseLocation = false; routeWalking = true; productImport = [:]; lastSaleCents = 0
         store.switchUser(auth.currentUser?.email)
@@ -103,6 +106,7 @@ import PhotosUI
     func state() -> String {
         let user = auth.currentUser
         let ready = user != nil && store.hasLoadedRecords && store.loadedUserEmail == user?.email
+        let pendingReminders = Set(store.pendingReminders.map(\.id))
         let defaults = Dictionary(uniqueKeysWithValues: EasySaleLine.make(money: store.money).map { ($0.productID, $0) })
         let products: [[String: Any]] = ready ? store.money.products.map {
             ["id": $0.id.uuidString, "name": $0.displayName, "kind": $0.kind.rawValue,
@@ -122,6 +126,7 @@ import PhotosUI
              "followUp": encoded(($0.followUp ?? []).sorted { $0.date > $1.date }),
              "reviewURL": $0.place.reviewURL,
              "contactName": $0.contactName ?? "", "contactEmail": $0.contactEmail ?? "", "contactPhone": $0.contactPhone ?? "",
+             "pendingReminder": pendingReminders.contains($0.id),
              "visitLocal": localDate($0.reminderDate ?? Date().addingTimeInterval(86400)),
              "noticeLocal": localDate($0.notificationDate ?? Date().addingTimeInterval(82800)),
              "reminderDate": $0.reminderDate?.timeIntervalSince1970 ?? 0,
@@ -147,7 +152,7 @@ import PhotosUI
             "photo": ready ? photos.backupData?.base64EncodedString() ?? "" : "",
             "signOutNeedsConfirmation": cloud.shouldConfirmSignOut,
             "nfcPromptToken": salePrompt == nil ? "" : handoff?.id.uuidString ?? "",
-            "alerts": ready ? encoded(AlertHistoryStore.shared.ledger.entries) : [],
+            "alerts": ready ? alertSnapshot() : [], "notificationStatus": notificationStatus,
             "selectedPlace": finder.selectedPlace.map { encoded($0) } ?? NSNull(),
             "choices": encoded(finder.nearbyChoices), "candidates": encoded(finder.nearbyCandidates),
             "searchResults": encoded(finder.searchResults), "searchBusy": finder.isLoading || finder.isFindingNearby,
@@ -241,6 +246,14 @@ import PhotosUI
                             guard r.status != .completed || r.hasQuickSales == true || count >= 1 else { throw MoneyError.invalidAmount }
                             if r.status == .completed { r.reminderDate = nil; r.notificationDate = nil }
                         }
+                        if values["reminderEnabled"] != nil {
+                            if value("reminderEnabled") == "true" && r.status != .completed {
+                                let visit = try date("visit"), requested = try date("notification"), now = Date()
+                                guard visit > now else { throw DayServiceError.pastVisit }
+                                let next = Date(timeIntervalSince1970: (floor(now.timeIntervalSince1970 / 60) + 1) * 60)
+                                r.reminderDate = visit; r.notificationDate = min(visit, requested > now ? requested : next)
+                            } else { r.reminderDate = nil; r.notificationDate = nil }
+                        }
                         guard store.update(r) else { throw BackupError.invalid }
                     case "deleteRecord": let r = try record(); if let i = store.records.firstIndex(where: { $0.id == r.id }) { store.delete(at: IndexSet(integer: i)) }
                     case "sale":
@@ -283,6 +296,16 @@ import PhotosUI
                         let r = action == "writeSelectedNFC" ? try selectedRecord() : try record(); handoff = NFCSaleHandoff(owner: owner, recordID: r.id); salePrompt = nil
                         ExternalNFCWriter.write(reviewURL: r.place.reviewURL) { [weak self] launched in self?.handoff?.launched = launched; self?.persistHandoff(); self?.revision &+= 1 }
                     case "finishNFC": handoff = nil; salePrompt = nil; persistHandoff()
+                    case "notificationSettings": if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    case "notifications":
+                        _ = await NotificationManager.authorizationAllowed()
+                        let settings = await UNUserNotificationCenter.current().notificationSettings()
+                        switch settings.authorizationStatus {
+                        case .authorized, .provisional, .ephemeral: notificationStatus = "Notificaciones activadas"
+                        case .denied: notificationStatus = "Notificaciones desactivadas"
+                        default: notificationStatus = "Falta dar permiso a las notificaciones"
+                        }
+                        AlertHistoryStore.shared.refresh()
                     case "photo": var config = PHPickerConfiguration(); config.filter = .images; config.selectionLimit = 1
                         let picker = PHPickerViewController(configuration: config); picker.delegate = self
                         UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow)?.rootViewController?.present(picker, animated: true)

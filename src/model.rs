@@ -26,6 +26,7 @@ pub(crate) struct Session {
     pub submitted_page: Signal<String>,
     pub page_owner: Signal<Section>,
     pub selected: Signal<String>,
+    pub selected_alert: Signal<String>,
     pub selected_quote: Signal<String>,
     pub selected_product: Signal<String>,
     pub selected_transaction: Signal<String>,
@@ -46,6 +47,7 @@ impl Ambient for Session {
             submitted_page: Signal::new(String::new()),
             page_owner: Signal::new(Section::Home),
             selected: Signal::new(String::new()),
+            selected_alert: Signal::new(String::new()),
             selected_quote: Signal::new(String::new()),
             selected_product: Signal::new(String::new()),
             selected_transaction: Signal::new(String::new()),
@@ -143,6 +145,14 @@ impl Session {
         }
     }
     pub fn start(self) {
+        day_reactive::watch(
+            move || self.tab.get(),
+            move |tab, _| {
+                if cfg!(target_os = "ios") && *tab == Section::Alerts {
+                    self.command("notifications");
+                }
+            },
+        );
         let handle = day::task(async move {
             let mut seen = u64::MAX;
             loop {
@@ -162,8 +172,11 @@ impl Session {
         let changed_owner = value["user"]["email"] != self.data.peek()["user"]["email"];
         if changed_owner {
             self.clear_cart();
+            self.tab.set(Section::Home);
+            self.page_owner.set(Section::Home);
             self.history.set(Vec::new());
             self.selected.set(String::new());
+            self.selected_alert.set(String::new());
             self.selected_quote.set(String::new());
             self.selected_product.set(String::new());
             self.selected_transaction.set(String::new());
@@ -201,6 +214,7 @@ impl Session {
         }
         if self.ready() && !route.is_empty() {
             if self.rows("records").iter().any(|r| text(r, "id") == route) {
+                self.tab.set(Section::Places);
                 self.open_record(route);
             }
             self.command("consumeRoute");
@@ -305,11 +319,8 @@ impl Session {
         self.page.set(previous);
     }
     pub fn open_record(self, id: String) {
-        self.history.set(vec![String::new()]);
-        self.page_owner.set(Section::Places);
         self.selected.set(id);
-        self.tab.set(Section::Places);
-        self.page.set("record".to_owned());
+        self.open("record");
     }
     pub fn record(self) -> Value {
         self.rows("records")

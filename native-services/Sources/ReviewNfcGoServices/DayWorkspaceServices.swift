@@ -132,3 +132,18 @@ import CoreLocation
         }
     }
 }
+
+@MainActor extension DayServices {
+    func alertSnapshot() -> [[String: Any]] {
+        AlertHistoryStore.shared.ledger.entries.sorted { $0.lastEventDate > $1.lastEventDate }.map { entry in
+            var object = encoded(entry) as? [String: Any] ?? [:]
+            object["statusTitle"] = entry.statusTitle; object["kindTitle"] = entry.kind.title
+            object["scheduledLabel"] = entry.scheduledDate.formatted(date: .abbreviated, time: .shortened)
+            object["eventLabel"] = entry.lastEventDate.formatted(date: .abbreviated, time: .shortened)
+            object["events"] = entry.events.sorted { $0.date > $1.date }.map { event in
+                ["id": event.id.uuidString, "title": entry.kind == .liveActivity && event.status == .delivered ? "Activa" : event.status.title, "dateLabel": event.date.formatted(date: .abbreviated, time: .shortened)]
+            }
+            return object
+        }
+    }
+}

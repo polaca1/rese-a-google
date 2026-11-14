@@ -1,0 +1,6 @@
+# Unsigned device candidate: keeps the existing iPhone/widget bundle identifiers.
+# Main application screens remain Day; this does not link the old SwiftUI app package.
+[app]
+id = "com.pablo.resenagoogle.20261004"
+build = 42
+targets = ["ios-uikit"]

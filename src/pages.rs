@@ -68,11 +68,12 @@ fn content(s: Session, tab: Section) -> impl Piece {
             } else {
                 String::new()
             };
-            let record = if ["record", "edit", "reminder", "sale"].contains(&page.as_str()) {
-                s.selected.get()
-            } else {
-                String::new()
-            };
+            let record =
+                if ["record", "edit", "reminder", "sale", "tracking"].contains(&page.as_str()) {
+                    s.selected.get()
+                } else {
+                    String::new()
+                };
             (page, record)
         },
         move |(page, _)| match page.as_str() {
@@ -88,6 +89,8 @@ fn content(s: Session, tab: Section) -> impl Piece {
             "stock" => stock(s).any(),
             "transaction" => transaction(s).any(),
             "tracking" => tracking(s).any(),
+            "alert-history" => alert_history(s).any(),
+            "alert-detail" => alert_detail(s).any(),
             "profits" => profits(s).any(),
             "activity" | "today" | "clients" | "goals" | "analytics" | "route" | "quotes"
             | "quote-editor" | "quote-detail" | "levels" => crate::workspace::page(s, page),
@@ -271,6 +274,20 @@ fn places(s: Session) -> impl Piece {
     scroll(
         column((
             heading(res::str::tab_places()),
+            row((
+                button(res::str::activity_tracking()).action(move || s.open("activity")),
+                spacer(),
+                button(res::str::daily_route()).action(move || s.open("route")),
+            )),
+            when(
+                move || s.rows("records").is_empty(),
+                || {
+                    column((
+                        label(res::str::no_sites()).font(Font::Headline),
+                        label(res::str::save_site_hint()).secondary(),
+                    ))
+                },
+            ),
             text_field(s.query)
                 .placeholder(res::str::search_saved())
                 .id(day::id!(places_search)),
@@ -380,13 +397,32 @@ fn wallet(s: Session) -> impl Piece {
 fn alerts(s: Session) -> impl Piece {
     scroll(
         column((
-            heading(res::str::tab_alerts()),
+            heading(res::str::reminders_title()),
+            section((
+                label(move || s.text("notificationStatus")),
+                button(res::str::notification_settings())
+                    .action(move || s.command("notificationSettings")),
+            )),
+            button(res::str::alert_history()).action(move || s.open("alert-history")),
+            when(
+                move || {
+                    !s.rows("records")
+                        .iter()
+                        .any(|r| r["pendingReminder"].as_bool() == Some(true))
+                },
+                || {
+                    column((
+                        label(res::str::no_reminders()).font(Font::Headline),
+                        label(res::str::reminder_hint()).secondary(),
+                    ))
+                },
+            ),
             each(
                 items(
                     move || {
                         s.rows("records")
                             .into_iter()
-                            .filter(|r| r["reminderDate"].as_f64().unwrap_or(0.0) > 0.0)
+                            .filter(|r| r["pendingReminder"].as_bool() == Some(true))
                             .collect::<Vec<_>>()
                     },
                     |r: &Value| text(r, "id"),
@@ -396,16 +432,8 @@ fn alerts(s: Session) -> impl Piece {
                         button(move || text(&slot.get()["place"], "name"))
                             .action(move || s.open_record(text(&slot.get(), "id"))),
                         label(move || text(&slot.get(), "reminderLabel")).secondary(),
-                    ))
-                },
-            ),
-            label(res::str::history()).font(Font::Headline),
-            each(
-                items(move || s.rows("alerts"), |r: &Value| text(r, "id")),
-                move |slot| {
-                    section((
-                        label(move || text(&slot.get(), "title")),
-                        label(move || text(&slot.get(), "body")).secondary(),
+                        label(move || text(&slot.get()["place"], "address")).secondary(),
+                        label(move || text(&slot.get(), "notes")).secondary(),
                     ))
                 },
             ),
@@ -416,6 +444,109 @@ fn alerts(s: Session) -> impl Piece {
     )
     .id(day::id!(alerts_screen))
 }
+fn alert_history(s: Session) -> impl Piece {
+    let filter = Signal::new("all".to_owned());
+    scroll(
+        column((
+            back(s, res::str::alert_history()),
+            picker(
+                filter,
+                vec![
+                    ("all".to_owned(), res::str::all()),
+                    ("notifications".to_owned(), res::str::tab_alerts()),
+                    ("activities".to_owned(), res::str::live_activities()),
+                ],
+            ),
+            label(res::str::alert_history_hint()).secondary(),
+            each(
+                items(
+                    move || {
+                        s.rows("alerts")
+                            .into_iter()
+                            .filter(|e| {
+                                filter.get() == "all"
+                                    || (text(e, "kind") == "liveActivity")
+                                        == (filter.get() == "activities")
+                            })
+                            .collect::<Vec<_>>()
+                    },
+                    |e: &Value| text(e, "id"),
+                ),
+                move |slot| {
+                    section((
+                        button(move || text(&slot.get(), "title")).action(move || {
+                            s.selected_alert.set(text(&slot.get(), "id"));
+                            s.open("alert-detail");
+                        }),
+                        label(move || text(&slot.get(), "kindTitle")).secondary(),
+                        label(move || text(&slot.get(), "statusTitle")),
+                        label(move || text(&slot.get(), "eventLabel")).secondary(),
+                    ))
+                },
+            ),
+            error(s),
+        ))
+        .spacing(Space::L)
+        .padding(Space::L),
+    )
+}
+fn alert_value(s: Session) -> Value {
+    s.rows("alerts")
+        .into_iter()
+        .find(|e| text(e, "id") == s.selected_alert.get())
+        .unwrap_or(Value::Null)
+}
+fn alert_detail(s: Session) -> impl Piece {
+    scroll(
+        column((
+            back(s, res::str::alert_history()),
+            section((
+                label(move || text(&alert_value(s), "title")).font(Font::Headline),
+                label(move || text(&alert_value(s), "body")).secondary(),
+                labeled(
+                    res::str::status(),
+                    label(move || text(&alert_value(s), "statusTitle")),
+                ),
+                labeled(
+                    res::str::scheduled_time(),
+                    label(move || text(&alert_value(s), "scheduledLabel")),
+                ),
+            )),
+            when(
+                move || {
+                    let id = text(&alert_value(s), "recordID");
+                    !id.is_empty() && s.rows("records").iter().any(|r| text(r, "id") == id)
+                },
+                move || {
+                    button(res::str::open_business())
+                        .action(move || s.open_record(text(&alert_value(s), "recordID")))
+                },
+            ),
+            label(res::str::status_history()).font(Font::Headline),
+            each(
+                items(
+                    move || {
+                        alert_value(s)["events"]
+                            .as_array()
+                            .cloned()
+                            .unwrap_or_default()
+                    },
+                    |e: &Value| text(e, "id"),
+                ),
+                move |slot| {
+                    section((
+                        label(move || text(&slot.get(), "title")),
+                        label(move || text(&slot.get(), "dateLabel")).secondary(),
+                    ))
+                },
+            ),
+            error(s),
+        ))
+        .spacing(Space::L)
+        .padding(Space::L),
+    )
+}
+
 fn home(s: Session) -> impl Piece {
     let query = Signal::new(String::new());
     scroll(
@@ -624,6 +755,55 @@ fn record(s: Session) -> impl Piece {
                 label(move || text(&s.record(), "contactPhone")),
                 label(move || text(&s.record(), "contactEmail")),
             )),
+            section((
+                labeled(
+                    res::str::sold_cards(),
+                    label(move || s.record()["soldCards"].as_i64().unwrap_or(0).to_string()),
+                ),
+                labeled(
+                    res::str::total_income(),
+                    label(move || money(s.record()["incomeCents"].as_i64().unwrap_or(0))),
+                ),
+                labeled(
+                    res::str::profit(),
+                    label(move || {
+                        s.record()["profitCents"]
+                            .as_i64()
+                            .map(money)
+                            .unwrap_or_else(|| res::str::unknown_cost().format())
+                    }),
+                ),
+                label(move || text(&s.record(), "reviewURL")).secondary(),
+                button(res::str::copy_review_link()).action(move || {
+                    s.send(
+                        "copyReviewLink",
+                        json!({"record":s.selected.peek()}),
+                        json!([]),
+                        false,
+                    )
+                }),
+            )),
+            button(res::str::delete_site())
+                .enabled(move || !s.busy())
+                .action(move || {
+                    day::task(async move {
+                        if confirm(res::str::confirm_delete_site())
+                            .message(res::str::delete_site_hint())
+                            .confirm_label(res::str::delete_site())
+                            .cancel_label(res::str::back())
+                            .destructive()
+                            .present()
+                            .await
+                        {
+                            s.send(
+                                "deleteRecord",
+                                json!({"record":s.selected.peek()}),
+                                json!([]),
+                                true,
+                            );
+                        }
+                    });
+                }),
             error(s),
         ))
         .spacing(Space::L)
@@ -640,17 +820,48 @@ fn edit_record(s: Session) -> impl Piece {
     let cards = Signal::new(r["cardsSold"].as_f64().unwrap_or(0.0));
     let unit = Signal::new(text(&r, "unitEarningsText"));
     let product = Signal::new(text(&r, "inventoryProductID"));
+    let enabled = Signal::new(r["reminderDate"].as_f64().unwrap_or(0.0) > 0.0);
+    let (d, t) = local_picker(&text(&r, "visitLocal"));
+    let (nd, nt) = local_picker(&text(&r, "noticeLocal"));
+    let date = Signal::new(d);
+    let time = Signal::new(t);
+    let notice_date = Signal::new(nd);
+    let notice_time = Signal::new(nt);
     day_reactive::watch(
         move || status.get(),
         move |status, _| {
-            if status == "Completado"
-                && s.record()["hasQuickSales"].as_bool() != Some(true)
-                && cards.peek() < 1.0
-            {
-                cards.set(1.0);
+            if status == "Completado" {
+                if s.record()["hasQuickSales"].as_bool() != Some(true) && cards.peek() < 1.0 {
+                    cards.set(1.0);
+                }
+                enabled.set(false);
             }
         },
     );
+    let snapshot = move || json!({"notes":notes.peek(),"name":name.peek(),"email":email.peek(),"phone":phone.peek(),"status":status.peek(),"cards":cards.peek(),"unit":unit.peek(),"product":product.peek(),"reminder":enabled.peek(),"visit":picker_text(date.peek(),time.peek()),"notice":picker_text(notice_date.peek(),notice_time.peek())});
+    let baseline = snapshot();
+    let header = row((
+        button(res::str::back()).icon(Symbol::Back).action(move || {
+            let dirty = snapshot() != baseline;
+            day::task(async move {
+                if !dirty
+                    || confirm(res::str::unsaved_changes())
+                        .message(res::str::discard_hint())
+                        .confirm_label(res::str::discard_changes())
+                        .cancel_label(res::str::stay())
+                        .destructive()
+                        .present()
+                        .await
+                {
+                    s.back();
+                }
+            });
+        }),
+        label(res::str::edit()).font(Font::Headline),
+        spacer(),
+        button(res::str::done()).action(move || s.command("dismissKeyboard")),
+    ))
+    .padding(Space::L);
     let fields = form((
         section((
             labeled(
@@ -698,9 +909,28 @@ fn edit_record(s: Session) -> impl Piece {
             labeled(res::str::phone(), text_field(phone)),
         ))
         .title(res::str::contact()),
+        section((
+            labeled(
+                res::str::return_later(),
+                toggle(enabled).enabled(move || status.get() != "Completado"),
+            ),
+            when(
+                move || enabled.get(),
+                move || {
+                    column((
+                        labeled(res::str::visit_date(), date_picker(date)),
+                        labeled(res::str::visit_time(), time_picker(time)),
+                        labeled(res::str::notice_date(), date_picker(notice_date)),
+                        labeled(res::str::notice_time(), time_picker(notice_time)),
+                    ))
+                },
+            ),
+        ))
+        .title(res::str::reminder())
+        .footer(res::str::notice_hint()),
     ));
-    column((back(s,res::str::edit()),scroll(column((fields,button(res::str::reminder()).action(move||s.open("reminder")),error(s)))).grow(Dimension::Both),
-        button(res::str::save()).prominent().enabled(move||!s.busy()&&crate::model::parse_price(&unit.get()).is_some_and(|v|v<=5000)).action(move||s.send("editRecord",json!({"record":s.selected.peek(),"notes":notes.peek(),"contactName":name.peek(),"contactEmail":email.peek(),"contactPhone":phone.peek(),"status":status.peek(),"cards":format!("{:.0}",cards.peek()),"unitEarnings":unit.peek(),"product":product.peek()}),json!([]),true)).padding(Space::M),
+    column((header,scroll(column((fields,error(s)))).grow(Dimension::Both),
+        button(res::str::save()).prominent().enabled(move||!s.busy()&&crate::model::parse_price(&unit.get()).is_some_and(|v|v<=5000)).action(move||s.send("editRecord",json!({"record":s.selected.peek(),"notes":notes.peek(),"contactName":name.peek(),"contactEmail":email.peek(),"contactPhone":phone.peek(),"status":status.peek(),"cards":format!("{:.0}",cards.peek()),"unitEarnings":unit.peek(),"product":product.peek(),"reminderEnabled":enabled.peek().to_string(),"visit":picker_text(date.peek(),time.peek()),"notification":picker_text(notice_date.peek(),notice_time.peek())}),json!([]),true)).padding(Space::M),
     )).grow(Dimension::Both)
 }
 
@@ -1035,7 +1265,20 @@ fn expense(s: Session, new_product: bool) -> impl Piece {
                 )
             },
         ),
-        labeled(res::str::expense_date(), date_picker(date)),
+        labeled(
+            res::str::expense_date(),
+            date_picker(date).max(
+                DayDate::parse_iso(
+                    snapshot["nowLocal"]
+                        .as_str()
+                        .unwrap_or("")
+                        .split(' ')
+                        .next()
+                        .unwrap_or(""),
+                )
+                .unwrap_or_else(DayDate::today),
+            ),
+        ),
     ))
     .title(res::str::purchase_expense());
     let metadata = section((

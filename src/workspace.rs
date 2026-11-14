@@ -524,7 +524,17 @@ fn quote_sum(lines: Signal<Vec<Value>>) -> Option<i64> {
     })
 }
 fn quote_editor(s: Session) -> impl Piece {
-    let business = Signal::new(s.selected.peek());
+    let business = Signal::new(
+        if s.history
+            .peek()
+            .iter()
+            .any(|p| ["record", "tracking"].contains(&p.as_str()))
+        {
+            s.selected.peek()
+        } else {
+            String::new()
+        },
+    );
     let product = Signal::new(String::new());
     let quantity = Signal::new(1.0);
     let price = Signal::new(String::new());

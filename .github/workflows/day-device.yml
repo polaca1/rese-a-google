@@ -1,0 +1,85 @@
+name: Day device candidate
+on:
+  push:
+    branches: [day/native-ui]
+    paths:
+      - 'src/**'
+      - 'native-services/**'
+      - 'resource/**'
+      - 'platform/ios/**'
+      - 'Cargo.*'
+      - 'Day*.toml'
+      - 'scripts/*day-device.py'
+      - '.github/workflows/day-device.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: day-device-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      DAY_BIN: ${{ runner.temp }}/day-bin/day
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> build/day/cargo/ios-uikit/release'
+      - name: Install Day and XcodeGen
+        run: |
+          mkdir -p "$(dirname "$DAY_BIN")"
+          case "$(uname -m)" in
+            arm64) day_arch=aarch64 ;;
+            x86_64) day_arch=x86_64 ;;
+            *) exit 1 ;;
+          esac
+          curl --fail --location --silent --show-error "https://github.com/daybrite/day/releases/download/v0.7.4/day-${day_arch}-apple-darwin.tar.gz" -o "$RUNNER_TEMP/day-cli.tar.gz"
+          tar -xzf "$RUNNER_TEMP/day-cli.tar.gz" -C "$(dirname "$DAY_BIN")"
+          "$DAY_BIN" --version
+          command -v xcodegen || brew install xcodegen
+      - name: Build real Day application with device SDK
+        run: |
+          export DAY_DEVICE_BUILD="$((42 + GITHUB_RUN_NUMBER))"
+          echo "DAY_DEVICE_BUILD=$DAY_DEVICE_BUILD" >> "$GITHUB_ENV"
+          python3 scripts/check-day-boundary.py
+          python3 scripts/build-day-device.py
+      - name: Package unsigned device candidate
+        run: |
+          mkdir -p dist/Payload
+          ditto build/day-device/reviewNfcGo.xcarchive/Products/Applications/reviewNfcGo.app dist/Payload/reviewNfcGo.app
+          (cd dist && zip -qry "reviewNfcGo-7.3.1-build${DAY_DEVICE_BUILD}-day.ipa" Payload)
+          python3 - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          value = {'source': os.environ['GITHUB_SHA'], 'ui': 'Day/UIKit', 'legacySwiftUIAppLinked': False,
+                   'compatibilityHost': 'XcodeGen PBX; unchanged Day Runner and xcode-backend',
+                   'xcode': subprocess.check_output(['xcodebuild','-version'],text=True).strip(),
+                   'day': subprocess.check_output([os.environ['DAY_BIN'],'--version'],text=True).strip(),
+                   'physicalInstallationVerified': False, 'signed': False}
+          Path('dist/day-build.json').write_text(json.dumps(value,indent=2))
+          PY
+          (cd dist && shasum -a 256 *.ipa > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reviewNfcGo-day-device
+          path: |
+            dist/*.ipa
+            dist/day-build.json
+            dist/SHA256SUMS
+      - name: Publish candidate download
+        run: |
+          tag="reviewnfcgo-day-7.3.1-build${DAY_DEVICE_BUILD}"
+          cat > "$RUNNER_TEMP/day-release.md" <<'EOF'
+          Candidato de pruebas: la aplicación principal usa controles Day/UIKit y conserva MapKit y los servicios existentes. El paquete SwiftUI antiguo no está enlazado.
+
+          Compilado con un host temporal XcodeGen, el punto de entrada Day y el SDK real indicado en day-build.json. No firmado; requiere una herramienta de firma para instalarlo. La instalación y los flujos físicos en iPhone todavía no están verificados. Los widgets usan las APIs de Apple.
+          EOF
+          gh release create "$tag" dist/*.ipa dist/day-build.json dist/SHA256SUMS --target "$GITHUB_SHA" --prerelease --latest=false --title "reviewNfcGo 7.3.1 (${DAY_DEVICE_BUILD}) · Day, pruebas" --notes-file "$RUNNER_TEMP/day-release.md"

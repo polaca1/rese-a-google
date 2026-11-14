@@ -21,9 +21,11 @@ La carpeta `swiftui/` permanece como referencia de diseño y de pruebas del comp
 
 ## Comprobación y trabajo pendiente
 
-Se están portando y comprobando los flujos principales. Ya están portados el detalle de producto, sus movimientos, ajustes de existencias, mínimo de stock, seguimiento y beneficio por negocio. Todavía faltan superficies auxiliares de actividad, presupuestos, rutas, objetivos, corrección de gastos y adquisición avanzada de inventario, además de las pruebas completas del contenedor iOS. No se declara paridad funcional del 100 % mientras estos elementos estén pendientes.
+Las pantallas principales, actividad, presupuestos y PDF, rutas, objetivos y gráficos, seguimiento, movimientos, corrección de gastos, entradas gratuitas y edición de ventas anteriores están portadas a controles Day. Las pantallas de diagnóstico y copias de seguridad que estaban excluidas de producción no se han añadido al producto normal. Se mantienen los servicios y las reglas financieras anteriores.
 
-El workflow `Native Day migration` comprueba Rust, el límite entre interfaz y servicios, la compilación del paquete de servicios nativos y el destino UIKit de Rust. El host convencional de Day 0.7.4 requiere Xcode 27. Estas comprobaciones parciales no sustituyen ejecutar ese host y probarlo físicamente.
+El workflow `Native Day migration` comprueba Rust, el límite entre interfaz y servicios, la compilación del paquete de servicios nativos y el destino UIKit. El host convencional de Day 0.7.4 requiere Xcode 27. El workflow `Day device candidate` prueba por separado un host PBX temporal generado con XcodeGen y Xcode 26.3: utiliza el mismo `platform/ios/Runner/main.swift`, el archivo Rust real de Day y sus fases `xcode-backend`. No enlaza `preview/` ni las pantallas SwiftUI antiguas. Este host temporal no sustituye el host convencional exigido para publicar en App Fair.
+
+No se declara paridad funcional o visual del 100 % ni preparación para producción sin ejecutar y revisar el host completo en iPhone, incluidas las cuentas, restauración y NFC. Una compilación o captura de navegador no acredita esas pruebas físicas.
 
 La variante `verification` usa exclusivamente datos sintéticos para comparar la distribución de pantallas en navegador. No autentica cuentas ni simula ventas guardadas. Sus capturas no son capturas de un iPhone.
 
@@ -35,4 +37,9 @@ El commit `1afc68f` superó los dos trabajos de CI (ejecución `43628024780`): s
 Las comprobaciones visuales se ejecutan a 390 × 844, en modo claro y oscuro, con datos de `fixtures/day-ui.json`. Se verifica Inicio como selección inicial, el orden de las pestañas, volver entre formularios y la venta con total y stands gratuitos. El navegador utiliza los controles web de Day; no prueba el tamaño final de los controles UIKit ni la escritura física NFC.
 
 
-El recorrido de navegador está en `scripts/verify-day-ui.cjs` (Node.js, Playwright y Chromium). Tras compilar la variante, sirve `build/day/flavors/verification/cargo/web-dom/debug/dist` en el puerto 8073 y ejecuta el script desde la raíz. `REVIEW_UI_URL` y `REVIEW_BROWSER` permiten cambiar la URL y el ejecutable. Guarda el informe y seis capturas en `evidence/day-ui/`, fuera del código distribuido. La última ejecución pasó en ambos modos sin errores JavaScript; también comprobó que volver a otra pantalla limpia los errores y que una venta nueva desde Dinero no hereda otro cliente.
+El recorrido de navegador está en `scripts/verify-day-ui.cjs` (Node.js, Playwright y Chromium). Tras compilar la variante, sirve `build/day/flavors/verification/cargo/web-dom/debug/dist` en el puerto 8073 y ejecuta el script desde la raíz. `REVIEW_UI_URL` y `REVIEW_BROWSER` permiten cambiar la URL y el ejecutable. Guarda el informe y catorce capturas en `evidence/day-ui/`, fuera del código distribuido. La última ejecución pasó en ambos modos sin errores JavaScript; también comprobó que volver a otra pantalla limpia los errores y que una venta nueva desde Dinero no hereda otro cliente.
+
+
+## IPA de dispositivo
+
+`Day-device.toml` conserva `com.pablo.resenagoogle.20261004` y el host temporal conserva el widget `.liveactivity`. El workflow asigna números de compilación nuevos, archiva para `iphoneos`, verifica arm64, el punto de entrada Rust `day_main`, los widgets y el manifiesto de privacidad, y empaqueta un IPA sin firmar. Solo después de esas verificaciones publica un candidato de pruebas con su procedencia y SHA-256. No actualiza la fuente estable de SideStore ni publica en App Store.

@@ -85,3 +85,5 @@ website/*/gallery-manifest.json
 
 # Local synthetic visual verification captures.
 /evidence/
+
+__pycache__/

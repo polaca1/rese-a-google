@@ -233,3 +233,25 @@ contact = Contacto
 sale_saved = Venta guardada
 sale_updated = El ingreso y el inventario ya están actualizados.
 ready = Listo
+
+activity_tracking = Actividad y seguimiento
+no_sites = Todavía no has guardado ningún sitio
+save_site_hint = Cuando copies un enlace desde Inicio, aparecerá aquí.
+total_income = Ingresos totales
+delete_site = Eliminar negocio
+confirm_delete_site = ¿Eliminar este negocio?
+delete_site_hint = Sus movimientos de dinero se conservan en el historial.
+
+reminders_title = Recordatorios
+notification_settings = Abrir Ajustes de notificaciones
+alert_history = Historial de avisos
+no_reminders = Sin recordatorios pendientes
+reminder_hint = En un sitio guardado puedes indicar que debes volver otro día y elegir fecha y hora.
+live_activities = Live Activities
+alert_history_hint = El historial se guarda en este iPhone desde esta versión. «Enviada» indica una entrega confirmada por iOS; «Entrega sin confirmar» indica que pasó la hora prevista y iOS ya no conserva el aviso.
+scheduled_time = Hora prevista
+status_history = Registro de estados
+
+unsaved_changes = Tienes cambios sin guardar
+discard_hint = Puedes seguir editando y guardarlos o salir sin conservar estos cambios.
+discard_changes = Descartar cambios
