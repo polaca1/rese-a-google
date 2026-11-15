@@ -1,32 +1,29 @@
 # Preparación para App Fair
 
-## Configuración preparada
+## Estado actual
 
-- Token propuesto: `ReviewNfcGo` (pendiente de disponibilidad y creación).
-- Identificador de desarrollo: `dev.polaca1.ReviewNfcGo`.
-- Identificador de publicación en `Day-appfair.toml`: `org.appfair.app.ReviewNfcGo`.
-- Widget: sufijo `ReviewNfcGoWidgets`, grupo `group.org.appfair.app.ReviewNfcGo.widgets`.
-- Web prevista: `https://ReviewNfcGo.github.io/ReviewNfcGo`.
-- CI reutiliza el flujo oficial de Day, prepara prerelanzamientos y conserva capturas claras/oscuras. En la rama de preparación se comprueba el paquete SwiftUI; el flujo completo de publicación se habilita al trasladar el proyecto al repositorio homónimo. `deploy-web` debe pasar a `true` allí.
+La rama `day/native-ui` contiene la interfaz principal en Day/UIKit: `src/pages.rs` y `src/workspace.rs`. Los servicios existentes están en `native-services/`; MapKit usa un renderizador nativo de Day. El paquete antiguo de pantallas SwiftUI no está enlazado. Los widgets y Live Activities conservan las APIs de Apple.
 
-Estos identificadores son configuración de código. No significan que Apple, GitHub o App Fair hayan creado o aprobado los recursos.
+El candidato [7.3.1 (47)](https://github.com/polaca1/rese-a-google/releases/tag/reviewnfcgo-day-7.3.1-build47) es un IPA arm64 sin firmar, compilado con el punto de entrada real de Day y un host XcodeGen temporal con Xcode 26.3. Pasó las comprobaciones de archivo, widgets, privacidad, SHA-256 y pruebas de Rust/servicios. Las capturas de navegador usan datos sintéticos; la instalación física y los flujos completos en iPhone siguen pendientes. Véase [DAY-MIGRATION.md](DAY-MIGRATION.md).
 
-## Requisitos pendientes antes de una presentación
+El mantenimiento público actual está en `polaca1/rese-a-google`. El token propuesto `ReviewNfcGo`, la futura organización/repositorio homónimos y el identificador `org.appfair.app.ReviewNfcGo` son configuración propuesta: no acreditan reservas ni aprobación. `Day-appfair.toml` conserva ese identificador de publicación.
 
-1. Compilar y ejecutar el host completo con Xcode 27. Comparar las capturas originales y adaptadas; probar teclado, venta, permisos, widgets, enlaces y recuperación de cuenta tras reinstalar. El CI del paquete aislado no sustituye estas pruebas.
-2. Consultar a App Fair si acepta esta adaptación Day con interfaz SwiftUI alojada y web de presentación, y el flujo externo de escritura con Simply NFC. No se ha obtenido aceptación.
-3. Revisar el acceso con Google frente a la regla 4.8 de Apple y, si corresponde, incorporar Sign in with Apple con su configuración de servidor.
-4. Implementar y probar la eliminación de cuenta y sus datos en el servidor, completar el contacto privado del responsable y concretar retención de datos. La privacidad actual lo identifica como pendiente; no inventa plazos.
-5. Revisar el informe de las 295 dependencias del lock en `provenance/dependency-licenses.json` y la titularidad del material gráfico. No hay dependencias sin licencia declarada; los avisos se incluyen como recurso del paquete. La selección de permisos y bibliotecas de cada paquete final también debe revisarse. No hay SDK de anuncios o telemetría añadido por esta adaptación.
-6. Crear la organización y el repositorio públicos con el mismo token, instalar App Fair Publisher con acceso al repositorio y habilitar Pages. La instalación de una GitHub App concede permisos y debe revisarla el propietario.
-7. Abrir primero una discusión de presentación; completar las verificaciones, generar un prerelanzamiento reproducible y después presentar el PR de catálogo que enlace la discusión. App Fair y las tiendas deciden la aceptación.
+## Presentación inicial
+
+La presentación de [APPFAIR-PROPUESTA.md](APPFAIR-PROPUESTA.md) se ha enviado como consulta preliminar al contacto oficial `contact@appfair.org`, con enlaces al código y al candidato iOS. El canal oficial previo al catálogo es una [discusión de App Fair](https://github.com/orgs/appfair/discussions), que sigue pendiente: la integración de GitHub no tiene permiso para crearla. El correo no equivale a un PR de catálogo ni a una aprobación. Se espera respuesta sobre el encaje del proyecto.
+
+## Requisitos pendientes antes del PR de catálogo
+
+1. Completar Android con funciones equivalentes. El destino web actual es de presentación y no constituye una versión Android de la app.
+2. Validar el host convencional de Day y los recorridos nativos de ambos destinos. El host temporal de Xcode 26.3 permite probar un candidato iOS, pero no sustituye los requisitos del flujo oficial de App Fair.
+3. Probar en iPhone la cuenta, sincronización y recuperación de datos, teclado, ventas, permisos, widgets y NFC. Consultar el encaje del envío de escritura a Simply NFC, una app externa.
+4. Implementar y probar la eliminación de cuenta y sus datos en servidor; completar el contacto y la política de retención. Revisar el acceso con Google respecto a la regla 4.8 de Apple e incorporar Sign in with Apple si corresponde.
+5. Completar la revisión de licencias de dependencias y titularidad del material gráfico. Los avisos están incluidos en los recursos, pero no equivalen a la aprobación de App Fair.
+6. Crear la organización y el repositorio públicos homónimos, instalar App Fair Publisher con el acceso necesario y publicar GitHub Pages. La instalación requiere la intervención del propietario para conceder permisos.
+7. Preparar el prerelanzamiento reproducible con paquetes iOS/Android, capturas nativas y metadatos; después presentar el PR de catálogo enlazando la discusión inicial. App Fair y cada tienda deciden la aceptación.
 
 ## Datos existentes
 
-La nueva firma/identidad de App Store puede usar un sandbox distinto de la versión de SideStore. No tiene acceso automático a sus archivos locales o a su llavero. Mantener la cuenta y el servidor permite recuperar los datos que ya estén sincronizados tras iniciar sesión. Antes de migrar hay que verificar que los últimos cambios estén guardados y que la descarga funciona; no borrar la instalación anterior como prueba.
+La firma e identidad de App Store pueden usar un sandbox distinto de la versión de SideStore. No tendrán acceso automático a sus archivos locales o a su llavero. La cuenta y el servidor permiten recuperar los datos que ya estén sincronizados al iniciar sesión. Antes de migrar hay que comprobar que los últimos cambios están guardados y que la descarga funciona; no borrar la instalación anterior como prueba.
 
-## Borrador de presentación (no enviado)
-
-> I would like to submit reviewNfcGo, a Spanish iPhone app for business visits, review links, inventory and sales. Its existing native SwiftUI interface is hosted by the documented day-piece-swiftui integration in a conventional Day project; the web target is a presentation of the iPhone app. The client uses Supabase Auth/data and OS frameworks, with no advertising or telemetry SDKs. NFC writing currently hands the review URL to Simply NFC, an external app that is not bundled. Is this architecture and iPhone-only submission acceptable? We will complete native integration tests, account-deletion/privacy work and the license audit before submitting a release.
-
-Fuentes: https://appfair.org/docs/inclusion-criteria/ · https://appfair.org/docs/getting-started/ · https://daybrite.dev/docs/reference/swiftui
+Fuentes: [inclusión](https://appfair.org/docs/inclusion-criteria/) · [primeros pasos](https://appfair.org/docs/getting-started/) · [contribución al catálogo](https://github.com/appfair/appfair-apps/blob/main/CONTRIBUTING.md).
